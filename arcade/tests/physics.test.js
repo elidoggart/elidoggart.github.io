@@ -79,3 +79,14 @@ test('alien collisions destroy shielded and patrolling aliens and can cost the l
  const m=fresh();m.spawnEnemy(m.planets.find(p=>p.id==='rust'),0);const e=m.enemies[0];m.planets.find(p=>p.id==='rust').flag='delivered';Object.assign(m.ship,{docked:null,x:e.x,y:e.y,invulnerable:0});m.updateEnemies(.001);assert(!e.alert);assert(e.dead);assert.equal(m.ship.hull,2);
 });
 test('brief hull protection survives a collision while the alien is still destroyed',()=>{const m=fresh();m.spawnEnemy(m.planets.find(p=>p.id==='rust'),0);const e=m.enemies[0];Object.assign(m.ship,{docked:null,x:e.x,y:e.y,invulnerable:1});m.updateEnemies(.001);assert.equal(m.ship.hull,3);assert(e.dead);assert.equal(m.kills,1);});
+
+test('difficulty controls initial and replacement alien counts per defended planet',()=>{
+ for(const [mode,count] of [['easy',1],['medium',2],['hard',3]]){
+  const m=new Mission(12,mode);m.start();assert.equal(m.enemies.length,3*count);
+  for(const p of m.planets){assert.equal(m.enemies.filter(e=>e.home===p.id).length,p.fleet?count:0);assert.equal(p.crew,p.fleet?count:0);}
+  const p=m.planets.find(p=>p.id==='rust');m.enemies=m.enemies.filter(e=>e.home!==p.id);p.respawn=23;m.updateEnemies(.001);
+  for(let i=0;i<count;i++){p.respawn=23;m.updateEnemies(.001);}
+  assert.equal(m.enemies.filter(e=>e.home===p.id).length,count);assert.equal(new Set(m.enemies.filter(e=>e.home===p.id).map(e=>e.slot)).size,count);
+  m.start('easy');assert.equal(m.enemies.length,3);
+ }
+});
