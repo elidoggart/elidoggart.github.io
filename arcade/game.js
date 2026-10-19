@@ -1,3 +1,4 @@
+import {endingFrame} from './space-ending.js';
 import {bindAudioControl} from './audio-controls.js';
 import {SoundEffects,bindSounds} from './sound-effects.js';
 import {SpaceMusic} from './space-music.js';
@@ -12,6 +13,7 @@ bindAudioControl($('music-button'),music);
 addEventListener('pagehide',()=>music.stop());
 const mission=new Mission(),input={left:false,right:false,thrust:false,brake:false,fire:false};
 let width=0,height=0,dpr=1,map=false,camera={x:0,y:0,zoom:.9},last=0,accumulator=0,noticeTimer=0,uiTimer=0,lastState='ready',manualPause=false,readyTime=0;
+let endingTime=null,endingComplete=false;
 let trajectory={points:[],impact:null},trajectoryTime=-Infinity,trajectoryDock=null,scoreSaved=false;
 let trajectoryWorker=null,forecastPending=false,forecastId=0,forecastRevision=0,renderAlpha=1,radarRange=3000;
 try{
@@ -43,10 +45,10 @@ const stars=Array.from({length:850},(_,i)=>({x:Math.sin(i*127.1)*5900,y:Math.cos
 function resize(){const box=canvas.getBoundingClientRect();width=box.width;height=box.height;dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);}
 new ResizeObserver(resize).observe(canvas);resize();
 function clearInput(){for(const key in input)input[key]=false;document.querySelectorAll('[data-control]').forEach(b=>b.classList.remove('pressed'));}
-function toggleMap(){if(mission.state==='ready')return;map=!map;$('map-button').textContent=map?'Close chart  M':'System chart  M';$('map-button').setAttribute('aria-pressed',String(map));canvas.focus({preventScroll:true});}
+function toggleMap(){if(!['playing','paused'].includes(mission.state))return;map=!map;$('map-button').textContent=map?'Close chart  M':'System chart  M';$('map-button').setAttribute('aria-pressed',String(map));canvas.focus({preventScroll:true});}
 function setPause(value){if(!['playing','paused'].includes(mission.state))return;mission.state=value?'paused':'playing';clearInput();$('pause-screen').hidden=!value;$('pause-button').textContent=value?'Resume  P':'Pause  P';if(value)$('resume-button').focus();else canvas.focus({preventScroll:true});accumulator=0;}
 let selectedDifficulty='medium';
-function start(){mission.start(selectedDifficulty);scoreSaved=false;resetForecast();radarRange=3000;$('score-form').hidden=false;$('score-save-status').textContent='';$('initials').value='';map=false;clearInput();camera.x=mission.ship.x;camera.y=mission.ship.y;camera.zoom=width<600?.72:1;$('intro').hidden=true;$('win-screen').hidden=true;$('pause-screen').hidden=true;$('flight-hud').hidden=false;$('target-panel').hidden=false;$('pause-button').disabled=false;$('map-button').disabled=false;$('touch-controls').hidden=!coarse;$('map-button').textContent='System chart  M';$('map-button').setAttribute('aria-pressed','false');$('pause-button').textContent='Pause  P';canvas.focus({preventScroll:true});lastState='playing';updateUI();}
+function start(){endingTime=null;endingComplete=false;canvas.setAttribute('aria-label','Space flight');mission.start(selectedDifficulty);scoreSaved=false;resetForecast();radarRange=3000;$('score-form').hidden=false;$('score-save-status').textContent='';$('initials').value='';map=false;clearInput();camera.x=mission.ship.x;camera.y=mission.ship.y;camera.zoom=width<600?.72:1;$('intro').hidden=true;$('win-screen').hidden=true;$('pause-screen').hidden=true;$('flight-hud').hidden=false;$('target-panel').hidden=false;$('pause-button').disabled=false;$('map-button').disabled=false;$('touch-controls').hidden=!coarse;$('map-button').textContent='System chart  M';$('map-button').setAttribute('aria-pressed','false');$('pause-button').textContent='Pause  P';canvas.focus({preventScroll:true});lastState='playing';updateUI();}
 $('again-button').onclick=start;$('restart-button').onclick=start;$('resume-button').onclick=()=>setPause(false);$('pause-button').onclick=()=>setPause(mission.state!=='paused');$('map-button').onclick=toggleMap;
 function help(){manualPause=mission.state==='playing';if(manualPause){mission.state='paused';clearInput();}$('manual').showModal();}
 $('help-button').onclick=help;$('close-help').onclick=()=>$('manual').close();$('manual-done').onclick=()=>$('manual').close();$('manual').addEventListener('close',()=>{if(manualPause){mission.state='playing';accumulator=0;}manualPause=false;canvas.focus({preventScroll:true});});
@@ -103,9 +105,48 @@ function drawBeacon(){if(map||mission.state==='ready')return;const p=mission.tar
 function drawRadar(){if(map||mission.state==='ready')return;const size=width<600?124:170,x=width-size-18,y=18,cx=x+size/2,cy=y+size/2,sc=(size/2-15)/radarRange;ctx.fillStyle='#ffffffed';ctx.fillRect(x,y,size,size);for(const p of mission.planets)circle(cx,cy,p.orbit*sc,'#deded7',.45);ctx.save();ctx.beginPath();ctx.rect(x,y,size,size);ctx.clip();ctx.setLineDash([3,3]);ctx.strokeStyle=red;ctx.lineWidth=1;ctx.globalAlpha=.7;ctx.beginPath();let drawing=false;const current=renderPosition(mission.ship);const future=trajectory.points.filter(p=>p.t>=mission.time);for(const point of [{...current},...future]){if(!point){drawing=false;continue;}const px=cx+point.x*sc,py=cy+point.y*sc;if(drawing)ctx.lineTo(px,py);else ctx.moveTo(px,py);drawing=true;}ctx.stroke();const end=future.at(-1);if(trajectory.impact&&trajectory.impact!=='boundary'&&end){const ex=cx+end.x*sc,ey=cy+end.y*sc;line([[ex-3,ey-3],[ex+3,ey+3]],red,1);line([[ex-3,ey+3],[ex+3,ey-3]],red,1);}ctx.restore();circle(cx,cy,3,red,1);for(const p of mission.planets){const px=cx+p.x*sc,py=cy+p.y*sc;circle(px,py,8,paper,1,paper);if(p.service)drawWrench(px,py,6);else label(p.glyph,px,py+4,13,p.id===mission.targetBody.id?red:ink);if(p.flag==='delivered')circle(px,py,9,muted,.6);}const s=mission.ship;const px=cx+current.x*sc,py=cy+current.y*sc;circle(px,py,2,red,1,red);}
 
 function drawIntro(t){camera={x:0,y:0,zoom:Math.min(width*.25,height*.45)/3000};const ox=width/2,oy=height/2;ctx.save();ctx.translate(width*.73-ox,height*.51-oy);if(width<600)ctx.globalAlpha=.22;for(const p of PLANETS){const q=worldPoint(0,0);circle(q.x,q.y,p.orbit*camera.zoom,'#c7c8c0',.65);}drawSun(t);for(const spec of PLANETS){const p={...spec,...orbitPosition(spec,reduced?0:t*.6),flag:spec.tech?'available':null};drawPlanet(p,t,true);}ctx.restore();}
-function render(dt,t){updateForecast();radarRange+=(Math.max(3000,Math.hypot(mission.ship.x,mission.ship.y)+350)-radarRange)*(1-Math.exp(-dt*6));ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=paper;ctx.fillRect(0,0,width,height);if(mission.state==='ready'){drawIntro(readyTime);return;}const s=mission.ship,rendered=renderPosition(s),targetZoom=map?Math.min((width-60)/6100,(height-110)/6100):(width<600?.72:1);const tx=map?0:rendered.x+s.vx*.24,ty=map?0:rendered.y+s.vy*.24;const smoothing=reduced?1:1-Math.exp(-dt*5);camera.x+=(tx-camera.x)*smoothing;camera.y+=(ty-camera.y)*smoothing;camera.zoom+=(targetZoom-camera.zoom)*smoothing;
+function render(dt,t){if(endingTime!==null){drawEnding(endingTime);return;}updateForecast();radarRange+=(Math.max(3000,Math.hypot(mission.ship.x,mission.ship.y)+350)-radarRange)*(1-Math.exp(-dt*6));ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle=paper;ctx.fillRect(0,0,width,height);if(mission.state==='ready'){drawIntro(readyTime);return;}const s=mission.ship,rendered=renderPosition(s),targetZoom=map?Math.min((width-60)/6100,(height-110)/6100):(width<600?.72:1);const tx=map?0:rendered.x+s.vx*.24,ty=map?0:rendered.y+s.vy*.24;const smoothing=reduced?1:1-Math.exp(-dt*5);camera.x+=(tx-camera.x)*smoothing;camera.y+=(ty-camera.y)*smoothing;camera.zoom+=(targetZoom-camera.zoom)*smoothing;
  ctx.globalAlpha=.35;for(const star of stars){const q=worldPoint(star.x,star.y);if(q.x<0||q.x>width||q.y<0||q.y>height)continue;ctx.fillStyle='#85867e';ctx.fillRect(q.x,q.y,star.size,star.size);}ctx.globalAlpha=1;
  const zero=worldPoint(0,0);ctx.setLineDash(map?[]:[3,7]);for(const p of mission.planets)circle(zero.x,zero.y,p.orbit*camera.zoom,map?'#d8d9d0':'#e1e2da',.7);ctx.setLineDash([]);drawSun(t);for(const r of mission.rocks)drawRock(r);for(const p of mission.planets)drawPlanet(p,t,map);for(const e of mission.enemies)drawEnemy(e);for(const b of mission.shots){const q=bodyPoint(b);const a=Math.atan2(b.vy,b.vx);line([[q.x,q.y],[q.x-Math.cos(a)*5,q.y-Math.sin(a)*5]],b.alien?red:ink,b.alien?1.5:1.2);}for(const p of mission.particles){const q=worldPoint(p.x,p.y);ctx.globalAlpha=clamp(p.life,0,1);line([[q.x,q.y],[q.x-p.vx*.025,q.y-p.vy*.025]],p.red?red:ink,.8);}ctx.globalAlpha=1;drawShip();drawBeacon();drawRadar();if(s.damageFlash>0){ctx.strokeStyle=red;ctx.lineWidth=2;ctx.globalAlpha=s.damageFlash*2;ctx.strokeRect(1,1,width-2,height-2);ctx.globalAlpha=1;}
+}
+function drawEnding(time){
+ const phase=endingFrame(time),small=width<600,scale=small?1.7:2.3;
+ const cx=width/2,cy=height*.43,travel=phase.launch;
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.globalAlpha=1;ctx.fillStyle=paper;ctx.fillRect(0,0,width,height);
+ // The same ink, paper, red accents and orbital wireframes as normal flight.
+ ctx.save();
+ for(let i=0;i<90;i++){
+  const x=((Math.sin(i*127.1)+1)*width*.5),y=((Math.cos(i*311.7)+1)*height*.5+travel*height*(1+i%3))%height;
+  ctx.globalAlpha=.22;
+  line([[x,y],[x,y+(reduced?0:travel*(12+i%15))]],muted,.7);
+ }
+ ctx.globalAlpha=1;
+ const radius=Math.min(width*.38,height*.31),planetY=cy+radius+26*scale+travel*height*1.6;
+ circle(cx,planetY,radius,ink,1.2,paper);circle(cx,planetY,radius+4,red,.8);
+ ctx.save();ctx.beginPath();ctx.arc(cx,planetY,radius,0,TAU);ctx.clip();
+ for(const offset of [-.55,0,.55]){ctx.beginPath();ctx.ellipse(cx,planetY+offset*radius,radius*Math.sqrt(1-offset*offset),radius*.19,0,0,TAU);ctx.strokeStyle='#b6b7af';ctx.lineWidth=.65;ctx.stroke();}
+ ctx.beginPath();ctx.ellipse(cx,planetY,radius*.4,radius,0,0,TAU);ctx.stroke();ctx.restore();
+ // Individual hardware arrives from three directions and stays attached.
+ ctx.save();ctx.translate(cx+travel*width*.22,cy-travel*height*.20);ctx.scale(scale*(1-travel*.96),scale*(1-travel*.96));ctx.rotate(-Math.PI/2+travel*.9);
+ const [drive,shield,nav]=phase.fitted;
+ if(drive>0){ctx.save();ctx.translate(-(1-drive)*65,0);ctx.globalAlpha=drive;
+  line([[-8,-7],[-17,-12],[-20,-9],[-15,-3]],red,1);line([[-8,7],[-17,12],[-20,9],[-15,3]],red,1);ctx.restore();}
+ if(shield>0){ctx.save();ctx.translate(0,-(1-shield)*60);ctx.globalAlpha=shield;
+  line([[-5,-9],[2,-13],[10,-7]],red,1);line([[-5,9],[2,13],[10,7]],red,1);ctx.restore();}
+ if(nav>0){ctx.save();ctx.translate((1-nav)*65,(1-nav)*30);ctx.globalAlpha=nav;
+  line([[2,5],[7,14],[13,14]],red,.9);circle(14,14,2.5,red,.8,paper);ctx.restore();}
+ ctx.beginPath();ctx.moveTo(15,0);ctx.lineTo(-11,-9);ctx.lineTo(-6,0);ctx.lineTo(-11,9);ctx.closePath();ctx.fillStyle=paper;ctx.fill();ctx.strokeStyle=ink;ctx.lineWidth=1;ctx.stroke();
+ if(phase.ignition>0){const flame=(12+phase.ignition*24+travel*35)*(reduced?1:1+Math.sin(time*32)*.06);
+  line([[-12,-6],[-flame,0],[-12,6]],red,1);line([[-12,-3],[-flame*.68,0],[-12,3]],red,.6);
+  ctx.globalAlpha=phase.ignition*.5;ctx.setLineDash([3,4]);circle(0,0,25,red,.7);ctx.setLineDash([]);ctx.globalAlpha=1;}
+ ctx.restore();
+ if(time>=1&&time<6){const i=Math.min(2,Math.floor((time-1)/1.6));label(['FUSION DRIVE','RADIATION SHIELD','STELLAR NAVIGATION'][i],cx,height*.13,small?10:12,red);}
+ else if(time>=6&&time<8)label('INTERSTELLAR SYSTEMS ONLINE',cx,height*.13,small?10:12,red);
+ // A wide, spare spiral galaxy is revealed as the ship departs.
+ if(travel>0){ctx.globalAlpha=travel*.65;const gx=width*.72,gy=height*.23,gr=Math.min(width,height)*.19;
+  for(let arm=0;arm<2;arm++){const points=[];for(let i=0;i<90;i++){const a=i*.065+arm*Math.PI,r=gr*i/90;points.push([gx+Math.cos(a)*r,gy+Math.sin(a)*r*.48]);}line(points,ink,.6);}
+  circle(gx,gy,2,red,.8,red);ctx.globalAlpha=1;}
+ ctx.restore();ctx.globalAlpha=phase.fade;ctx.fillStyle=paper;ctx.fillRect(0,0,width,height);ctx.globalAlpha=1;
 }
 function renderScores(){
  const list=$('highscores');list.replaceChildren();const scores=readScores(scoreStorage);
@@ -135,13 +176,21 @@ for(const b of document.querySelectorAll('[data-scores]'))b.onclick=()=>{renderS
 $('close-scores').onclick=()=>$('scores-dialog').close();
 for(const button of document.querySelectorAll('[data-difficulty]'))button.onclick=()=>{selectedDifficulty=button.dataset.difficulty;start();};
 function showSetup(){
- clearInput();mission.state='ready';lastState='ready';accumulator=0;noticeTimer=0;$('notice').classList.remove('show');
+ endingTime=null;endingComplete=false;clearInput();mission.state='ready';lastState='ready';accumulator=0;noticeTimer=0;$('notice').classList.remove('show');
  for(const id of ['win-screen','pause-screen','flight-hud','target-panel','landing-readout','touch-controls'])$(id).hidden=true;
  $('intro').hidden=false;$('pause-button').disabled=true;$('map-button').disabled=true;
  document.querySelector(`[data-difficulty="${selectedDifficulty}"]`).focus();
 }
 for(const b of document.querySelectorAll('[data-setup]'))b.onclick=showSetup;
-function frame(timestamp){music.update(document.hidden||mission.state==='paused'||$('manual').open||$('scores-dialog').open);const dt=last?Math.min((timestamp-last)/1000,.12):0;last=timestamp;if(mission.state==='ready')readyTime+=dt;if(mission.state==='playing'){accumulator+=dt;while(accumulator>=1/120){rememberPositions();const rescues=mission.rescues;mission.step(1/120,input);if(mission.rescues!==rescues)resetForecast();accumulator-=1/120;}for(const event of mission.takeEvents())announce(event);}else accumulator=0;if(noticeTimer>0&&mission.state==='playing'){noticeTimer-=dt;if(noticeTimer<=0)$('notice').classList.remove('show');}if(mission.state==='won'&&lastState!=='won'){$('win-screen').hidden=false;$('touch-controls').hidden=true;$('landing-readout').hidden=true;$('pause-button').disabled=true;showResults();clearInput();}lastState=mission.state;uiTimer+=dt;if(uiTimer>.1){updateUI();uiTimer=0;}renderAlpha=mission.state==='playing'?accumulator*120:1;effects.space(mission,$('manual').open||$('scores-dialog').open);render(dt,timestamp/1000);requestAnimationFrame(frame);}
+function frame(timestamp){music.update(document.hidden||mission.state==='paused'||$('manual').open||$('scores-dialog').open);const dt=last?Math.min((timestamp-last)/1000,.12):0;last=timestamp;if(mission.state==='ready')readyTime+=dt;if(mission.state==='playing'){accumulator+=dt;while(accumulator>=1/120){rememberPositions();const rescues=mission.rescues;mission.step(1/120,input);if(mission.rescues!==rescues)resetForecast();accumulator-=1/120;}for(const event of mission.takeEvents())announce(event);}else accumulator=0;if(noticeTimer>0&&mission.state==='playing'){noticeTimer-=dt;if(noticeTimer<=0)$('notice').classList.remove('show');}if(mission.state==='won'&&lastState!=='won'){
+ endingTime=0;endingComplete=false;map=false;clearInput();resetForecast();
+ for(const id of ['touch-controls','landing-readout','flight-hud','target-panel'])$(id).hidden=true;
+ $('notice').classList.remove('show');$('pause-button').disabled=true;$('map-button').disabled=true;
+ canvas.setAttribute('aria-label','Technologies fitting to your ship, then launching into the galaxy.');
+} else if(endingTime!==null&&!endingComplete&&!document.hidden&&!$('manual').open&&!$('scores-dialog').open){
+ endingTime+=dt;
+ if(endingFrame(endingTime).done){endingComplete=true;$('win-screen').hidden=false;canvas.setAttribute('aria-label','Interstellar launch complete.');showResults();}
+}lastState=mission.state;uiTimer+=dt;if(uiTimer>.1){updateUI();uiTimer=0;}renderAlpha=mission.state==='playing'?accumulator*120:1;effects.space(mission,$('manual').open||$('scores-dialog').open);render(dt,timestamp/1000);requestAnimationFrame(frame);}
 requestAnimationFrame(frame);
 
 const launchParams=new URLSearchParams(location.search);
