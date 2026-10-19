@@ -2387,6 +2387,142 @@
             ]
           },
           {
+            "id": "otis-interlock-alignment",
+            "title": "Vane-referenced elevator interlock alignment",
+            "intro": "Designed and built a mechanical alignment guide that uses the elevator door vane itself to position the interlock, eliminating the need for a separate measurement or laser-sighting system.",
+            "divider": "",
+            "role": "WPI · Otis industry project · Team of four",
+            "date": "Fall 2022",
+            "image": [
+              {
+                "media": "upload-553229f4aa979c19495f",
+                "alt": "Yellow alignment guide fitted between the vane and interlock hardware on the demonstration fixture.",
+                "caption": "Vane-referenced alignment on the demonstration fixture.",
+                "credit": "",
+                "linked": true,
+                "linkLabel": "Open full-size prototype photograph",
+                "lazy": true
+              }
+            ],
+            "placeholder": "",
+            "roles": [
+              {
+                "id": "otis-alignment-details",
+                "label": "",
+                "role": "",
+                "date": "",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "title": "The challenge",
+                    "level": 4,
+                    "chapter": false,
+                    "layout": "stacked",
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "style": "body",
+                        "text": "In a WPI course, Otis presented our team with an elevator door interlock alignment problem. The goal was to position the interlock relative to the door vane without requiring a technician to ride on top of the elevator car during alignment. Otis had suggested measurement-based or laser-sighting approaches."
+                      }
+                    ]
+                  },
+                  {
+                    "type": "section",
+                    "title": "Use the vane as the reference",
+                    "level": 4,
+                    "chapter": false,
+                    "layout": "split",
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "style": "body",
+                        "text": "Our four-person team designed and built a guide that references the vane directly. The component the interlock must align with also establishes its position. This removes the need to measure that relationship separately or transfer it from a laser reference."
+                      },
+                      {
+                        "type": "text",
+                        "style": "body",
+                        "text": "I am particularly proud of this solution because the simplicity comes from the mechanical geometry: using the vane itself makes alignment part of the mechanism."
+                      },
+                      {
+                        "type": "figure",
+                        "layout": "plain",
+                        "image": {
+                          "media": "upload-597fde504a0753ce224e",
+                          "alt": "Black alignment guide fitted alongside the elevator door hardware.",
+                          "caption": "Alignment-guide prototype.",
+                          "credit": "",
+                          "linked": true,
+                          "linkLabel": "Open full-size prototype photograph",
+                          "lazy": true
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "section",
+                    "title": "Prototype demonstration",
+                    "level": 4,
+                    "chapter": false,
+                    "layout": "stacked",
+                    "blocks": [
+                      {
+                        "type": "resource",
+                        "resource": "otis-alignment-video"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "section",
+                    "title": "Assembly details",
+                    "level": 4,
+                    "chapter": false,
+                    "layout": "stacked",
+                    "blocks": [
+                      {
+                        "type": "gallery",
+                        "layout": "grid",
+                        "images": [
+                          {
+                            "media": "upload-553229f4aa979c19495f",
+                            "alt": "Yellow alignment guide fitted between the vane and interlock hardware on the demonstration fixture.",
+                            "caption": "Vane-referenced alignment on the demonstration fixture.",
+                            "credit": "",
+                            "linked": true,
+                            "linkLabel": "Open full-size prototype photograph",
+                            "lazy": true
+                          },
+                          {
+                            "media": "upload-385f12cea249d5d109eb",
+                            "alt": "Close-up of the interlock roller, slotted mounting plate and yellow alignment guide.",
+                            "caption": "Detail of the guide and adjustable interlock mounting.",
+                            "credit": "",
+                            "linked": true,
+                            "linkLabel": "Open full-size prototype photograph",
+                            "lazy": true
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "section",
+                    "title": "Why it matters",
+                    "level": 4,
+                    "chapter": false,
+                    "layout": "stacked",
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "style": "body",
+                        "text": "Avoiding car-top access was the central practical benefit: it removes a time-consuming step from the alignment procedure and reduces the technician’s exposure to work on top of the car. The project focused on developing and demonstrating the mechanism; quantitative alignment accuracy and service-time savings were outside the course scope."
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "id": "mqp",
             "title": "Capstone Project",
             "intro": "Worked as designer and fabricator on team to produce, and optimize an active suspension system for a longboard.",
@@ -4366,6 +4502,24 @@
         "src": "assets/images/upload-0994a249d579a97d9ad6.webp",
         "width": 1086,
         "height": 1448
+      },
+      {
+        "id": "upload-597fde504a0753ce224e",
+        "src": "assets/images/upload-597fde504a0753ce224e.webp",
+        "width": 1126,
+        "height": 1502
+      },
+      {
+        "id": "upload-553229f4aa979c19495f",
+        "src": "assets/images/upload-553229f4aa979c19495f.webp",
+        "width": 2002,
+        "height": 1502
+      },
+      {
+        "id": "upload-385f12cea249d5d109eb",
+        "src": "assets/images/upload-385f12cea249d5d109eb.webp",
+        "width": 2002,
+        "height": 1502
       }
     ],
     "resources": [
@@ -4462,6 +4616,14 @@
         "url": "assets/documents/Eli-Doggart-Forklift-Operator-Training-Certificate.pdf",
         "label": "View certificate (PDF)",
         "note": "",
+        "download": "",
+        "newTab": true
+      },
+      {
+        "id": "otis-alignment-video",
+        "url": "assets/media/otis-alignment-demo.mp4",
+        "label": "Watch the alignment-guide demonstration",
+        "note": "A short bench demonstration of the prototype guide engaging the interlock hardware.",
         "download": "",
         "newTab": true
       }
