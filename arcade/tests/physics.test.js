@@ -90,3 +90,21 @@ test('difficulty controls initial and replacement alien counts per defended plan
   m.start('easy');assert.equal(m.enemies.length,3);
  }
 });
+
+test('aliens steer away from a planet or asteroid blocking their intended course',()=>{
+ const m=fresh(),e={x:4000,y:0,r:19,slot:0};
+ for(const r of [35,90]){const obstacle={x:4100,y:0,r,vx:0,vy:0},v=m.avoidObstacles(e,200,0,[obstacle]);assert.ok(Math.abs(v.vy)>100);assert.ok(v.vx<=0);}
+ const clear=m.avoidObstacles(e,200,0,[{x:4100,y:500,r:35,vx:0,vy:0}]);assert.deepEqual(clear,{vx:200,vy:0});
+});
+test('swept alien collisions block high-speed crossings of all obstacle sizes',()=>{
+ const m=fresh();for(const r of [20,73,106])for(const angle of [0,.7,2.4]){
+  const o={x:4000,y:0,r,vx:0,vy:0},nx=Math.cos(angle),ny=Math.sin(angle),start={x:o.x-nx*250,y:-ny*250},e={x:o.x+nx*250,y:ny*250,r:19,vx:nx*10000,vy:ny*10000};m.resolveEnemyObstacles(e,start,[o]);assert.ok(distanceForTest(e,o)>=r+19);assert.ok((e.x-o.x)*nx+(e.y-o.y)*ny<0);assert.ok(e.vx*nx+e.vy*ny<1e-7);
+ }
+ function distanceForTest(a,b){return Math.hypot(a.x-b.x,a.y-b.y);}
+});
+test('a moving asteroid cannot sweep through a stationary alien',()=>{
+ const m=fresh(),e={x:4000,y:0,r:19,vx:0,vy:0},o={collisionX:3800,collisionY:0,x:4200,y:0,r:30,vx:800,vy:0};m.resolveEnemyObstacles(e,{x:e.x,y:e.y},[o]);assert.ok(e.x>o.x+o.r+e.r);assert.ok(e.vx>=800);
+});
+test('active aliens remain outside every planet and asteroid across a moving simulation',()=>{
+ for(const mode of ['easy','medium','hard']){const m=new Mission(12,mode);m.start();for(let i=0;i<2400;i++){m.step(1/120);for(const e of m.enemies)for(const o of [...m.planets,...m.rocks])assert.ok(Math.hypot(e.x-o.x,e.y-o.y)>=e.r+o.r-.01,mode+' obstacle overlap');}}
+});
