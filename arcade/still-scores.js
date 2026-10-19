@@ -1,4 +1,4 @@
-const KEY='still-highscores-v1';
+const KEY='still-time-highscores-v2';
 export function validStillScores(value){return (Array.isArray(value)?value:[]).filter(s=>s&&/^[A-Z]{3}$/.test(s.initials)&&Number.isSafeInteger(s.score)&&s.score>=0&&s.score<1e9&&Number.isInteger(s.room)&&s.room>=1&&s.room<=12&&['easy','medium','hard'].includes(s.difficulty)&&typeof s.complete==='boolean').map(({initials,score,room,difficulty,complete})=>({initials,score,room,difficulty,complete})).sort((a,b)=>b.score-a.score||Number(b.complete)-Number(a.complete)||b.room-a.room).slice(0,10);}
 export function readStillScores(storage){try{return validStillScores(JSON.parse(storage.getItem(KEY)||'[]'))}catch{return []}}
 export function saveStillScore(storage,entry){if(validStillScores([entry]).length!==1)return {ok:false,scores:readStillScores(storage)};const scores=validStillScores([...readStillScores(storage),entry]);try{storage.setItem(KEY,JSON.stringify(scores));return {ok:true,scores}}catch{return {ok:false,scores}}}
