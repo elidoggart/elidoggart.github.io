@@ -70,11 +70,11 @@ These ranges are observation-informed tuning, not exact extracted constants. Lat
 
 The footer **Unmute music** button starts locally synthesized audio; each page starts muted. Music pauses with the game/background tab. No audio downloads or external playback dependencies.
 
-The music is an original sixteen-bar G-major fife march at 140 BPM, with short articulated notes, phrase-start grace notes, breath and upper harmonics, and lively snare pickups. All instruments are synthesized locally; no recordings or audio downloads are used.
+The music is **The Girl I Left Behind Me (Brighton Camp)**, a traditional military tune, arranged here for synthesized fife and adaptive percussion at 120 BPM. [Tune background](https://folklore.bc.ca/brighton-camp-3/) and [melody reference](https://abcnotation.com/tunePage?a=trillian.mit.edu/~jc/music/abc/session/KingStreetSession/other/Girl_I_left_behind_me/0000). The melody starts immediately with no four-hit snare count-in. No recordings or audio downloads are used.
 
 Instrument activation matches every row of the [documented original game's audio table](https://nintendo.fandom.com/wiki/Tanks!#Audio): highest surviving musical rank plus total surviving enemy count; rank order is brown, gray, teal, pink, yellow, purple, green, white, black. A bright synthesized fife carries the melody (the internal `piccolo` bus name is retained for compatibility). Timpani A/B are mutually exclusive. White supersedes bells with synth, and black keeps its full mix without snare regardless of count. The reference table is preserved in `research/music-rules.json`; 72 mixed/same-type rank/count cases and a destruction sequence are tested against it. Changes fade over 12 ms without resetting the musical clock. Instrument-selection rules match the published table, not a reverse-engineered original implementation; note patterns, tempo, synthesis, cue duration, and fade time are our arrangement.
 
-Mission-ready announcement uses two trumpet voices; begin uses snare; kills/extra lives use trumpet; loss uses two piccolos and bell; clear uses two piccolos, with tuba/cymbals/bass drum/snare for missions 20/100. Run-over/final results use piccolos, tuba, snare, and metronome. The existing game's screens determine when those cues play.
+Mission-ready announcement uses two trumpet voices; kills/extra lives use trumpet; loss uses fife voices and bell; clear uses fife voices, with tuba/cymbals/bass drum/snare for missions 20/100. Run-over/final results use fife, tuba, snare, and metronome. The existing game's screens determine when those cues play.
 
 ### Layer preview and basic-enemy review
 
