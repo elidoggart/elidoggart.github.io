@@ -5,15 +5,15 @@
 export const TANK_PARTS={
  sentry:['snare','bassDrum'],
  patrol:['metronome','harmony'],
- rocket:['timpaniA','horns'],
+ rocket:['pluckedBass','horns'],
  hunter:['counterFife','cymbals'],
  miner:['bells','triangle'],
- warrior:['timpaniB','horns','rolls'],
+ warrior:['lowStrings','horns','rolls'],
  sniper:['clarinet','harmony'],
  stealth:['synth','counterFife','triangle'],
  elite:['horns','clarinet','bells','cymbals','rolls','harmony']
 };
-export const PARTS=['piccolo','snare','bassDrum','tuba','metronome','timpaniA','timpaniB','cymbals','bells','synth','harmony','counterFife','horns','clarinet','rolls','triangle'];
+export const PARTS=['piccolo','snare','bassDrum','tuba','metronome','pluckedBass','lowStrings','cymbals','bells','synth','harmony','counterFife','horns','clarinet','rolls','triangle'];
 export function musicLayers(tanks){
  const enemies=tanks.filter(t=>t.id!==0&&t.alive&&TANK_PARTS[t.type]);
  if(!enemies.length)return [];
@@ -118,7 +118,17 @@ export class TankMusic{
    else if(voice==='cymbals'){v=(noise-previous)*.35*Math.exp(-t*12);env=Math.min(1,t/.002);}
    else if(voice==='metronome'){v=Math.sin(tau*1900*t)*Math.exp(-t*110);env=1;}
    else if(voice==='bassDrum'){v=Math.sin(tau*(52*t+1.5*(1-Math.exp(-t*35))))*Math.exp(-t*13);env=Math.min(1,t/.003);}
-   else if(voice==='timpani'){v=(Math.sin(phase)+.3*Math.sin(phase*1.48)+.16*Math.sin(phase*2.1))*Math.exp(-t*7);env=attack;}
+   else if(voice==='pluckedBass'){
+    // A quick string attack with harmonics that remain audible on small speakers.
+    v=(Math.sin(phase)+.42*Math.sin(phase*2)*Math.exp(-t*9)+.22*Math.sin(phase*3)*Math.exp(-t*15))*.7;
+    env=Math.min(1,t/.004)*Math.exp(-t*6)*release;
+   }
+   else if(voice==='lowStrings'){
+    // A soft bowed foundation, deliberately distinct from the short bass pluck.
+    const bowed=phase+.009*Math.sin(tau*4.5*t);
+    v=(Math.sin(bowed)+.24*Math.sin(bowed*2)+.13*Math.sin(bowed*3)+.06*Math.sin(bowed*5))*.65;
+    env=Math.min(1,t/.07)*Math.min(1,(duration-t)/.12);
+   }
    else if(voice==='bells'){v=(Math.sin(phase)*Math.exp(-t*3)+.35*Math.sin(phase*2.76)*Math.exp(-t*7)+.15*Math.sin(phase*5.4)*Math.exp(-t*14));}
    else if(voice==='fife'){
     // Breath, a quick tongued attack and upper harmonics make the flute audible
@@ -162,8 +172,11 @@ export class TankMusic{
   if(beat%2===0)this.note('metronome','metronome',0,time,.04,.055);
   if(beat===0||beat===4)this.note('cymbals','cymbals',0,time,.24,.05);
   if(beat===0||beat===4)this.note('bassDrum','bassDrum',0,time,.3,.16);
-  if(beat===0||beat===3){this.note('timpaniA','timpani',root,time,.3,.075);this.note('timpaniB','timpani',root,time,.3,.075);}
-  if(beat===5||beat===6||beat===7)this.note('timpaniB','timpani',root+(beat===6?7:0),time,.22,.055);
+  if(beat===0||beat===3||beat===4||beat===7)this.note('pluckedBass','pluckedBass',root-12+(beat===3||beat===7?7:0),time,EIGHTH*1.8,beat===0?.11:.08);
+  if(beat===0){
+   this.note('lowStrings','lowStrings',root-12,time,EIGHTH*7.5,.085);
+   this.note('lowStrings','lowStrings',root,time,EIGHTH*7.5,.035);
+  }
   if(beat%2===0)this.note('tuba','tuba',root+(beat===4?7:0)-12,time,.18,.095);
   if(beat===0||beat===4)this.note('bells','bells',root+24+(beat===4?7:0),time,.45,.045);
   if(beat===0||beat===4){
