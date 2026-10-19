@@ -20,19 +20,31 @@ test('destroying strongest enemy changes arrangement; corpses and player do not 
  tanks[2].alive=false;assert.deepEqual(musicLayers(tanks),['piccolo','snare']);
  tanks[3].alive=false;assert.deepEqual(musicLayers(tanks),[]);
 });
-test('original fife march has sixteen complete bars and sustained notes',async()=>{
+test('traditional military march has sixteen complete bars and sustained notes',async()=>{
  const {MELODY}=await import('../tanks-music.js');
  assert.equal(MELODY.length,128);
  assert.equal(MELODY.filter(Boolean).reduce((n,[,duration])=>n+duration,0),128);
- assert.deepEqual(MELODY.slice(0,8),[[79,1],[83,1],[86,2],null,[83,1],[81,1],[79,2],null]);
+ assert.deepEqual(MELODY.slice(0,8),[[88,2],null,[86,2],null,[83,2],null,[79,2],null]);
 });
 
 test('fife carries the melody from the first level at a lively tempo',async()=>{
  const {TankMusic,TEMPO}=await import('../tanks-music.js');
- assert.equal(TEMPO,140);
+ assert.equal(TEMPO,120);
  const music=new TankMusic(),notes=[];
  music.note=(...args)=>notes.push(args);
  music.beat(0,1);
  assert(notes.some(([part,voice])=>part==='piccolo'&&voice==='fife'));
  assert(!notes.some(([,voice])=>voice==='piccolo'));
+});
+
+test('starting a mission starts the melody immediately without a snare count-in',async()=>{
+ const {TankMusic}=await import('../tanks-music.js');
+ const music=new TankMusic(),cues=[];
+ music.enabled=true;music.context={currentTime:10};music.state='ready';
+ music.layers=['piccolo','snare'];music.cue=kind=>cues.push(kind);music.schedule=()=>{};
+ try{
+  music.update({state:'playing',level:0,lives:3,tanks:[{id:1,alive:true,type:'sentry'}]});
+  assert.equal(music.next,10.04);assert.equal(music.step,0);
+  assert.deepEqual(cues,[]);
+ }finally{music.stop();}
 });
