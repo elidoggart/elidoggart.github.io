@@ -10,7 +10,7 @@ test('mines can be escaped and maximum two are active',()=>{const g=new TankGame
 test('clearing a field advances, respawn preserves partial score, last field wins',()=>{const g=new TankGame();g.start();g.kill(g.tanks[1]);g.kill(g.player);assert.equal(g.score,200);g.retry();assert.equal(g.score,200);assert(!g.tanks[1].alive);for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'clear');g.next();assert.equal(g.level,1);assert.equal(g.state,'playing');g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'won');});
 test('paused simulation does not advance',()=>{const g=new TankGame();const x=g.player.x;g.state='paused';advance(g,2,{x:1,fire:true});assert.equal(g.player.x,x);assert.equal(g.time,0);assert.equal(g.shots.length,0);});
 test('tracks pivot before driving and reverse without spinning around',()=>{const g=new TankGame(),p=g.player,y=p.y;g.move(p,0,-1,1/120);assert.equal(p.y,y);assert(p.angle<0);for(let i=0;i<30;i++)g.move(p,0,-1,1/120);assert(p.y<y);p.angle=0;const x=p.x;g.move(p,-1,0,1/120);assert(Math.abs(p.angle)<1e-8);assert(p.x<x);});
-test('a shot briefly stops movement; five live shells exhaust the magazine',()=>{const g=new TankGame(),p=g.player;g.start();const x=p.x;g.step(1/120,{x:1,fire:true,aim:0});assert.equal(p.x,x);assert.equal(g.shots.length,1);g.walls=[];g.shots=[];for(let i=0;i<5;i++){p.cool=0;assert(g.shoot(p));}p.cool=0;assert(!g.shoot(p));g.shots.pop();assert(g.shoot(p));});
+test('firing preserves movement; five live shells exhaust the magazine',()=>{const g=new TankGame(),p=g.player;g.start();const x=p.x;g.step(1/120,{x:1,fire:true,aim:0});assert(p.x>x);assert.equal(g.shots.length,1);g.walls=[];g.shots=[];for(let i=0;i<5;i++){p.cool=0;assert(g.shoot(p));}p.cool=0;assert(!g.shoot(p));g.shots.pop();assert(g.shoot(p));});
 test('bank-shot planner reaches a target behind cover using the live projectile geometry',()=>{const g=new TankGame();g.start();const t=g.tanks[1];t.type='sniper';t.x=800;t.y=320;t.cool=100;g.player.x=140;g.player.y=320;assert(!g.clearLine(t,g.player));const plan=g.shotPlan(t);assert(plan);assert(plan.bounce>0);t.aim=plan.angle;t.cool=0;assert(g.shoot(t));t.cool=100;for(let i=0;i<1200&&g.player.alive;i++){g.step(1/120);t.cool=100;}assert(!g.player.alive);});
 test('pits stop tracks but allow shells across',()=>{const g=new TankGame();g.start();g.walls=[];g.pits=[{x:190,y:250,w:50,h:140}];g.tanks[1].cool=100;advance(g,1,{x:1});assert(g.player.x<190-R);g.player.aim=0;g.player.cool=0;g.shoot(g.player);const shot=g.shots[0];advance(g,.5);assert(shot.x>240);});
 test('rocket shells do not bounce, mine layers deploy mines, snipers use two rebounds',()=>{assert.equal(TYPES.rocket.bounces,0);assert(TYPES.rocket.shot>SHELL_SPEED);assert.equal(TYPES.sniper.bounces,2);const g=new TankGame();g.level=7;g.load();g.start();const miner=g.tanks.find(t=>t.type==='miner');miner.mineCool=0;assert(g.mine(miner));assert.equal(g.mines[0].owner,miner.id);});
@@ -138,3 +138,23 @@ test('paused mission transitions freeze and milestone bonus is awarded once',()=
  const g=new TankGame(4);g.level=4;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);advance(g,1);g.state='paused';const elapsed=g.transitionTime;advance(g,5);assert.equal(g.level,4);assert.equal(g.transitionTime,elapsed);g.state='clear';advance(g,2.1);assert.equal(g.level,5);assert.equal(g.lives,4);
 });
 test('the final field keeps the victory screen instead of advancing past the campaign',()=>{const g=new TankGame(4);g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);advance(g,5);assert.equal(g.state,'won');assert.equal(g.level,99);});
+
+test('clicks during reload fire once while driving in every direction',()=>{
+ for(let i=0;i<8;i++){
+  const g=new TankGame();g.start();g.walls=[];g.pits=[];
+  const p=g.player,a=i*Math.PI/4;p.x=450;p.y=350;p.angle=a;p.aim=a;p.cool=.12;
+  g.tanks=[p,{id:99,type:'sentry',alive:true,x:900,y:700,cool:100,mineCool:100,hold:0,aim:0}];
+  g.step(1/120,{x:Math.cos(a),y:Math.sin(a),aim:a,firePressed:true});
+  assert.equal(g.shots.length,0);
+  advance(g,.2,{x:Math.cos(a),y:Math.sin(a),aim:a});
+  assert.equal(g.shots.length,1,`direction ${i}`);
+  assert(Math.hypot(p.x-450,p.y-350)>25,'firing does not stop driving');
+  advance(g,.2,{aim:a});assert.equal(g.shots.length,1,'one click produces one shot');
+ }
+});
+test('a click waits for the turret to reach its aim instead of firing sideways',()=>{
+ const g=new TankGame();g.start();g.walls=[];g.player.x=450;g.player.y=350;g.player.aim=0;
+ g.tanks.slice(1).forEach(t=>t.cool=100);
+ g.step(1/120,{aim:Math.PI,firePressed:true});assert.equal(g.shots.length,0);
+ advance(g,.19,{aim:Math.PI});assert.equal(g.shots.length,1);assert(g.shots[0].vx<0);assert(Math.abs(g.shots[0].vy)<5);
+});
