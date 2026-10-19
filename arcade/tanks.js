@@ -1,7 +1,7 @@
 import {bindAudioControl} from './audio-controls.js';
 import {readTankScores,saveTankScore} from './tanks-scores.js';
 import {SoundEffects,bindSounds} from './sound-effects.js';
-import {TankMusic} from './tanks-music.js?v=fife-20261019';
+import {TankMusic} from './tanks-music.js?v=military-march-20261019';
 import {TankGame,W,H,LEVELS,traceShot,BLAST_RADIUS,LEVEL_TRANSITION_SECONDS} from './tanks-physics.js';
 const $=id=>document.getElementById(id),canvas=$('field'),ctx=canvas.getContext('2d'),game=new TankGame();
 let scoreSaved=false,scoreStorage;try{scoreStorage=localStorage;}catch{}

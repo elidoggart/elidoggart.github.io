@@ -1,5 +1,6 @@
 // Instrument activation facts: https://nintendo.fandom.com/wiki/Tanks!#Audio
-// Original jaunty fife march, with adaptive percussion and accompaniment.
+// Traditional military tune: The Girl I Left Behind Me (Brighton Camp).
+// Public-domain melody; new synthesized fife-and-drum arrangement.
 // The legacy piccolo bus name is retained for instrument-layer compatibility.
 const RANK={sentry:1,patrol:2,rocket:3,hunter:4,miner:5,warrior:6,sniper:7,stealth:8,elite:9};
 const TABLE={
@@ -22,30 +23,31 @@ export function musicLayers(tanks){
  return ['piccolo',...parts.split(' ')];
 }
 const PARTS=['piccolo','snare','metronome','timpaniA','cymbals','timpaniB','bassDrum','tuba','bells','synth'];
-export const TEMPO=140;
+export const TEMPO=120;
 const EIGHTH=60/TEMPO/2;
-// Sixteen bars in G: a short, bouncy call followed by an answering phrase.
-// Each pair is MIDI pitch and duration in eighth notes; null slots sustain.
+// Traditional melody, transposed to a fife register in G.
+// Reference: https://abcnotation.com/tunePage?a=trillian.mit.edu/~jc/music/abc/session/KingStreetSession/other/Girl_I_left_behind_me/0000
+// Durations are eighth-note clock units; pickups close each phrase for looping.
 const BARS=[
- [[79,1],[83,1],[86,2],[83,1],[81,1],[79,2]],
- [[81,1],[83,1],[84,2],[83,1],[81,1],[78,2]],
- [[79,1],[81,1],[83,1],[86,1],[88,2],[86,2]],
- [[83,1],[81,1],[79,2],[78,1],[76,1],[74,2]],
- [[79,1],[83,1],[86,2],[88,1],[86,1],[83,2]],
- [[84,1],[88,1],[86,1],[84,1],[83,2],[81,2]],
- [[79,1],[83,1],[81,1],[78,1],[79,2],[83,1],[81,1]],
- [[79,3],[74,1],[79,2],[83,1],[86,1]],
- [[88,2],[86,1],[83,1],[86,2],[83,1],[81,1]],
- [[84,1],[83,1],[81,2],[78,1],[81,1],[86,2]],
- [[83,1],[86,1],[88,2],[91,1],[88,1],[86,2]],
- [[84,1],[83,1],[81,1],[79,1],[78,2],[74,2]],
- [[79,1],[83,1],[86,1],[83,1],[88,2],[86,2]],
- [[84,1],[88,1],[86,1],[84,1],[83,1],[81,1],[78,2]],
- [[79,1],[81,1],[83,2],[81,1],[78,1],[74,2]],
- [[79,3],[83,1],[79,2],[74,1],[78,1]]
+ [[88,2],[86,2],[83,2],[79,2]],
+ [[81,1],[83,1],[81,1],[79,1],[76,2],[74,2]],
+ [[79,2],[79,2],[79,1],[81,1],[83,1],[84,1]],
+ [[86,4],[83,2],[91,1],[90,1]],
+ [[88,2],[86,2],[83,2],[79,2]],
+ [[81,1],[83,1],[81,1],[79,1],[76,2],[79,2]],
+ [[78,2],[81,2],[74,2],[76,1],[78,1]],
+ [[79,4],[79,2],[79,1],[81,1]],
+ [[83,2],[86,2],[88,2],[90,2]],
+ [[91,2],[86,2],[83,2],[81,2]],
+ [[83,1],[79,1],[83,1],[86,1],[88,1],[86,1],[88,1],[90,1]],
+ [[91,2],[93,1],[91,1],[90,2],[91,1],[90,1]],
+ [[88,2],[86,2],[83,2],[79,2]],
+ [[81,1],[83,1],[81,1],[79,1],[76,2],[79,2]],
+ [[78,2],[81,2],[74,2],[76,1],[78,1]],
+ [[79,4],[79,2],[91,1],[90,1]]
 ];
 export const MELODY=BARS.flatMap(bar=>bar.flatMap(([pitch,length])=>[[pitch,length],...Array.from({length:length-1},()=>null)]));
-const ROOTS=[55,55,50,50,55,48,50,50,55,55,48,50,55,50,55,55,48,55,50,50,55,48,50,50,55,48,48,50,55,50,55,50];
+const ROOTS=[55,55,48,48,55,55,50,50,55,55,48,48,50,50,55,55,55,50,55,50,55,48,55,50,55,55,48,48,50,50,55,50];
 export class TankMusic{
  constructor(){this.volume=.65;this.enabled=false;this.context=null;this.active=false;this.step=0;this.next=0;this.state='';this.level=-1;this.count=0;this.lives=0;this.voices=new Set();this.cache=new Map();this.layers=[];}
  setVolume(value){this.volume=value;if(this.context)this.master.gain.setTargetAtTime(value,this.context.currentTime,.03);}
@@ -83,8 +85,8 @@ export class TankMusic{
   if(state==='playing'||results){
    if(!this.active){
     this.active=true;
-    if(previous!=='paused'){this.step=0;if(!results)this.cue('intro');}
-    this.next=this.context.currentTime+(results?1.2:previous==='paused'?.04:.55);
+    if(previous!=='paused')this.step=0;
+    this.next=this.context.currentTime+(results?1.2:.04);
     this.timer=setInterval(()=>this.schedule(),25);this.schedule();
    }
    if(state==='playing'&&!changed&&count<oldCount)this.cue('kill');
@@ -137,10 +139,8 @@ export class TankMusic{
   const i=step%MELODY.length,beat=i%8,root=ROOTS[Math.floor(i/4)],melody=MELODY[i];
   // All parts share a clock, even while muted, so changes never restart the melody.
   if(melody){
-   const [pitch,length]=melody,duration=length*EIGHTH*.76;
+   const [pitch,length]=melody,duration=length*EIGHTH*.88;
    this.note('piccolo','fife',pitch,time,duration,beat===0?.16:.135);
-   // Tiny grace notes give each four-bar phrase a playful lift.
-   if(i%32===0)this.note('piccolo','fife',pitch+2,time-.025,.028,.065);
   }
   if(beat===2||beat===6)this.note('snare','snare',0,time,.12,.17);
   if(beat===3||beat===7){
@@ -160,7 +160,6 @@ export class TankMusic{
   if(!this.enabled||!this.context||this.context.state!=='running')return;
   const at=this.context.currentTime+.015;
   const play=(voice,note,offset=0,duration=.18,volume=.13)=>this.note('cue',voice,note?note-5:0,at+offset,duration,volume);
-  if(kind==='intro'){for(let i=0;i<4;i++)play('snare',0,i*.1,.12,.12);return;}
   if(kind==='announce'){[72,76,79].forEach((n,i)=>{play('trumpet',n,i*.15,.23);play('trumpet',n-7,i*.15,.23,.07);});return;}
   if(kind==='kill'||kind==='life'){(kind==='kill'?[79,84]:[72,76,79,84]).forEach((n,i)=>play('trumpet',n,i*.09,.13,.10));return;}
   const notes=kind==='lost'?[79,75,72]:[76,79,84];
