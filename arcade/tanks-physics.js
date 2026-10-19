@@ -89,7 +89,7 @@ export class TankGame{
   if(!player&&!this.safeShot(t,t.aim))return false;
   const c=Math.cos(t.aim),s=Math.sin(t.aim),muzzle=37,hit=wallHit(t.x,t.y,c,s,this.walls,muzzle);
   if(hit.hit){t.cool=.12;this.spark(t.x+c*hit.distance,t.y+s*hit.distance);return false;}
-  t.cool=player?.16:this.interval(AI_TIMING[t.type].shot);t.aimReady=0;t.hold=.10;const speed=player?SHELL_SPEED:kind.shot;
+  t.cool=player?.16:this.interval(AI_TIMING[t.type].shot);t.aimReady=0;t.hold=player?0:.10;const speed=player?SHELL_SPEED:kind.shot;
   this.shots.push({x:t.x+c*muzzle,y:t.y+s*muzzle,vx:c*speed,vy:s*speed,owner:t.id,bounces:player?1:kind.bounces,age:0,alive:true,rocket:!player&&['rocket','elite'].includes(t.type),trail:[],path:[{x:t.x,y:t.y},{x:t.x+c*muzzle,y:t.y+s*muzzle}]});return true;
  }
  mine(t=this.player){
@@ -202,8 +202,13 @@ export class TankGame{
   for(const t of this.tracks)t.life-=dt;this.tracks=this.tracks.filter(t=>t.life>0).slice(-1600);
   for(const t of this.tanks){t.cool=Math.max(0,t.cool-dt);t.mineCool=Math.max(0,t.mineCool-dt);t.hold=Math.max(0,t.hold-dt);}
   const p=this.player;let dx=input.x||0,dy=input.y||0;const norm=Math.hypot(dx,dy);if(norm>1){dx/=norm;dy/=norm;}
-  if(Number.isFinite(input.aim))p.aim=turn(p.aim,input.aim,dt*18);
-  if(input.fire)this.shoot(p);this.move(p,dx*PLAYER_SPEED*dt,dy*PLAYER_SPEED*dt,dt);
+  // A click during the short reload survives until the next available shot.
+  p.pendingFire=Math.max(0,(p.pendingFire||0)-dt);
+  if(input.firePressed){p.pendingFire=.2;p.pendingAim=input.aim;}
+  const aim=p.pendingFire>0?p.pendingAim:input.aim;
+  if(Number.isFinite(aim))p.aim=turn(p.aim,aim,dt*18);
+  if(p.pendingFire>0&&p.cool<=0&&(!Number.isFinite(aim)||Math.abs(delta(p.aim,aim))<.02)){this.shoot(p);p.pendingFire=0;}
+  else if(input.fire&&p.pendingFire<=0)this.shoot(p);this.move(p,dx*PLAYER_SPEED*dt,dy*PLAYER_SPEED*dt,dt);
   for(const t of this.tanks)if(t!==p&&t.alive)this.enemy(t,dt);
   for(const s of this.shots){
    if(!s.alive)continue;s.age+=dt;s.trail.push({x:s.x,y:s.y});if(s.trail.length>10)s.trail.shift();
