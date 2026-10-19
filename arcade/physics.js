@@ -1,4 +1,4 @@
-import {getDifficulty} from './difficulty.js';
+import {getDifficulty} from './difficulty.js?v=hard-aliens-20261019';
 export const TAU=Math.PI*2;
 export const LANDING_SPEED=65;
 export const RESCUE_SECONDS=30;
@@ -150,9 +150,28 @@ export class Mission{
    let tx,ty,baseVx=p.vx,baseVy=p.vy,maxSpeed=e.type==='fast'?205:e.type==='smart'?130:100;
    if(e.alert){if(e.type==='smart'){const look=Math.min(1.7,ds/330),side=(e.slot-1)*140,baseAngle=Math.atan2(s.y-p.y,s.x-p.x);tx=s.x+s.vx*look+Math.cos(baseAngle+Math.PI/2)*side;ty=s.y+s.vy*look+Math.sin(baseAngle+Math.PI/2)*side;}else{tx=s.x;ty=s.y;}if(e.type==='fast')maxSpeed=((e.age+e.phase)%3.7)<1.1?300:150;}
    else {const a=e.phase+this.time*.16+e.slot*TAU/3,rad=p.r+220;tx=p.x+Math.cos(a)*rad;ty=p.y+Math.sin(a)*rad;maxSpeed=85;}
-   if(e.alert&&ds<180){const away=Math.atan2(e.y-s.y,e.x-s.x);tx=s.x+Math.cos(away)*180;ty=s.y+Math.sin(away)*180;}const targetDistance=Math.hypot(tx-p.x,ty-p.y),patrolLimit=p.r+300;if(targetDistance>patrolLimit){tx=p.x+(tx-p.x)*patrolLimit/targetDistance;ty=p.y+(ty-p.y)*patrolLimit/targetDistance;}const dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),desired=Math.min(maxSpeed,d*1.2),turn=e.type==='fast'?1.2:1.8,g=this.gravity(e);e.vx+=g.x*dt;e.vy+=g.y*dt;const steering=this.avoidObstacles(e,baseVx+dx/Math.max(1,d)*desired,baseVy+dy/Math.max(1,d)*desired,obstacles),targetVx=steering.vx,targetVy=steering.vy,blend=1-Math.exp(-turn*dt);e.vx+=(targetVx-e.vx)*blend;e.vy+=(targetVy-e.vy)*blend;const heading=e.alert?Math.atan2(s.y-e.y,s.x-e.x):Math.atan2(e.vy-p.vy,e.vx-p.vx);e.a+=clamp(angleDelta(heading,e.a),-1.5*dt,1.5*dt);e.x+=e.vx*dt;e.y+=e.vy*dt;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;this.burst(e.x,e.y,8,true);continue;}
+   maxSpeed*=this.difficulty.enemySpeed??1;
+   if(e.alert&&ds<180){const away=Math.atan2(e.y-s.y,e.x-s.x);tx=s.x+Math.cos(away)*180;ty=s.y+Math.sin(away)*180;}const targetDistance=Math.hypot(tx-p.x,ty-p.y),patrolLimit=p.r+300;if(targetDistance>patrolLimit){tx=p.x+(tx-p.x)*patrolLimit/targetDistance;ty=p.y+(ty-p.y)*patrolLimit/targetDistance;}const dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),desired=Math.min(maxSpeed,d*1.2),turn=(e.type==='fast'?1.2:1.8)*(this.difficulty.enemySteering??1),g=this.gravity(e);e.vx+=g.x*dt;e.vy+=g.y*dt;const steering=this.avoidObstacles(e,baseVx+dx/Math.max(1,d)*desired,baseVy+dy/Math.max(1,d)*desired,obstacles),targetVx=steering.vx,targetVy=steering.vy,blend=1-Math.exp(-turn*dt);e.vx+=(targetVx-e.vx)*blend;e.vy+=(targetVy-e.vy)*blend;const heading=e.alert?Math.atan2(s.y-e.y,s.x-e.x):Math.atan2(e.vy-p.vy,e.vx-p.vx);e.a+=clamp(angleDelta(heading,e.a),-1.5*dt,1.5*dt);e.x+=e.vx*dt;e.y+=e.vy*dt;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;this.burst(e.x,e.y,8,true);continue;}
    const pd=distance(e,p);if(pd>p.r+470){const nx=(e.x-p.x)/pd,ny=(e.y-p.y)/pd;e.x=p.x+nx*(p.r+470);e.y=p.y+ny*(p.r+470);const outward=Math.max(0,(e.vx-p.vx)*nx+(e.vy-p.vy)*ny);e.vx-=outward*nx;e.vy-=outward*ny;e.returning=true;e.alert=false;}this.resolveEnemyObstacles(e,start,obstacles);
-   e.aim=null;if(e.alert&&ds<680){const lead=e.type==='smart'?Math.min(1.6,ds/330):0;const aim={x:s.x+(s.vx-e.vx)*lead,y:s.y+(s.vy-e.vy)*lead};if(e.type==='smart'&&e.cooldown<.75)e.aim=aim;if(e.cooldown<=0){const angle=Math.atan2(aim.y-e.y,aim.x-e.x);this.fire(e.x,e.y,angle,e.vx,e.vy,true,e.type==='smart');e.cooldown=((e.type==='smart'?3.6:e.type==='fast'?3.8:4.4)+this.random()*.8)*this.difficulty.fireInterval;}}
+   e.aim=null;if(e.alert&&ds<680){
+    const shotSpeed=(e.type==='smart'?260:200)*this.difficulty.shotSpeed;
+    let lead=e.type==='smart'?Math.min(1.6,ds/330):0;
+    if(this.difficulty.predictiveAim){
+     // Intercept relative to the firing ship: projectiles inherit its velocity.
+     const rx=s.x-e.x,ry=s.y-e.y,vx=s.vx-e.vx,vy=s.vy-e.vy;
+     const a=vx*vx+vy*vy-shotSpeed*shotSpeed,b=2*(rx*vx+ry*vy),c=rx*rx+ry*ry,disc=b*b-4*a*c;
+     const times=Math.abs(a)<1e-8?(Math.abs(b)>1e-8?[-c/b]:[]):disc>=0?[(-b-Math.sqrt(disc))/(2*a),(-b+Math.sqrt(disc))/(2*a)]:[];
+     const intercept=times.filter(t=>t>0).sort((a,b)=>a-b)[0];
+     lead=Math.min(2.4,intercept??ds/shotSpeed);
+    }
+    const aim={x:s.x+(s.vx-e.vx)*lead,y:s.y+(s.vy-e.vy)*lead};
+    if((e.type==='smart'||this.difficulty.predictiveAim)&&e.cooldown<.75)e.aim=aim;
+    if(e.cooldown<=0){
+     const angle=Math.atan2(aim.y-e.y,aim.x-e.x),volley=this.difficulty.volley??1;
+     for(let shot=0;shot<volley;shot++)this.fire(e.x,e.y,angle+(shot-(volley-1)/2)*.10,e.vx,e.vy,true,e.type==='smart');
+     e.cooldown=((e.type==='smart'?3.6:e.type==='fast'?3.8:4.4)+this.random()*.8)*this.difficulty.fireInterval;
+    }
+   }
    if(!s.docked&&distance(e,s)<e.r+s.r){this.damage('Alien collision');e.dead=true;this.kills++;this.score+=SPACE_POINTS.enemy;this.burst(e.x,e.y,20,true);}
   }
   this.enemies=this.enemies.filter(e=>!e.dead);for(const p of this.planets.filter(p=>p.fleet)){if(p.flag==='delivered')continue;if(this.enemies.filter(e=>e.home===p.id).length<p.crew){p.respawn+=dt;if(p.respawn>22){const used=new Set(this.enemies.filter(e=>e.home===p.id).map(e=>e.slot));this.spawnEnemy(p,Array.from({length:p.crew},(_,i)=>i).find(i=>!used.has(i)));p.respawn=0;}}else p.respawn=0;}
