@@ -30,7 +30,7 @@ test('technology pickups cannot be farmed by losing and reclaiming cargo',()=>{c
 test('kills award small points once and prevent the pacifist bonus',()=>{const m=fresh();m.spawnEnemy(m.planets.find(p=>p.id==='rust'),0);const e=m.enemies[0];e.hp=1;e.shield=false;for(let i=0;i<2;i++)m.shots.push({x:e.x,y:e.y,vx:0,vy:0,life:1,alien:false,dead:false});m.updateShots(0);assert.equal(m.kills,1);assert.equal(m.score,100);m.state='won';assert.equal(scoreSummary(m).pacifist,0);});
 test('pacifist completion gains a large bonus and longer runs reduce the final score',()=>{const m=fresh();for(const id of ['ember','rust','frost']){approach(m,id);step(m,.8);approach(m,'home');}assert.equal(m.score,15000);m.time=600;assert.deepEqual(scoreSummary(m),{points:15000,pacifist:6000,multiplier:.5,difficultyMultiplier:1.5,total:15750});m.time=1200;assert.ok(scoreSummary(m).total<15750);m.kills=1;assert.equal(scoreSummary(m).pacifist,0);});
 
-test('saucer collisions hurt but do not destroy a ship or disqualify pacifism',()=>{const m=fresh(),p=m.planets.find(p=>p.id==='frost');m.spawnEnemy(p,0);const e=m.enemies[0];Object.assign(m.ship,{docked:null,x:e.x+5,y:e.y,invulnerable:0,vx:e.vx,vy:e.vy});m.updateEnemies(1/120);assert.equal(m.ship.hull,2);assert.equal(m.kills,0);assert.equal(e.dead,false);assert.ok(Math.hypot(e.x-m.ship.x,e.y-m.ship.y)>e.r+m.ship.r);m.state='won';assert.equal(scoreSummary(m).pacifist,6000);});
+test('saucer collisions damage the ship, destroy the alien and count as a kill',()=>{const m=fresh(),p=m.planets.find(p=>p.id==='frost');m.spawnEnemy(p,0);const e=m.enemies[0];Object.assign(m.ship,{docked:null,x:e.x+5,y:e.y,invulnerable:0,vx:e.vx,vy:e.vy});m.updateEnemies(1/120);assert.equal(m.ship.hull,2);assert.equal(m.kills,1);assert.equal(m.score,100);assert.equal(e.dead,true);assert(!m.enemies.includes(e));m.updateEnemies(.01);assert.equal(m.kills,1);assert.equal(m.score,100);m.state='won';assert.equal(scoreSummary(m).pacifist,0);});
 test('launch protection covers departure and damage has a longer recovery window',()=>{const m=fresh();m.ship.invulnerable=0;m.updateDock(.31,{thrust:true});assert.ok(m.ship.invulnerable>=2.8);assert.equal(m.damage('Alien fire'),false);m.ship.invulnerable=0;assert.equal(m.damage('Alien fire'),true);assert.ok(m.ship.invulnerable>=2.7);assert.equal(m.damage('Alien fire'),false);});
 
 test('rescue penalties add scoring time without advancing orbital simulation or removing points',()=>{const m=fresh();step(m,10);m.score=1000;const t=m.time,position={x:m.home.x,y:m.home.y};m.rescue('Test');assert.equal(m.scoringTime,t+30);assert.equal(m.time,t);assert.equal(m.score,1000);assert.deepEqual({x:m.home.x,y:m.home.y},position);m.rescue('Test');assert.equal(m.scoringTime,t+60);const total=scoreSummary(m).total;m.rescueTime=0;assert.ok(total<scoreSummary(m).total);m.start();assert.equal(m.rescueTime,0);});
@@ -60,4 +60,33 @@ test('no forecast is drawn outside the flight boundary and it resumes inside',()
  const m=fresh();Object.assign(m.ship,{docked:null,x:FLIGHT_BOUNDARY+100,y:0,vx:-100,vy:0});assert.deepEqual(predictTrajectory(m).points,[]);
  m.ship.x=FLIGHT_BOUNDARY;assert.deepEqual(predictTrajectory(m).points,[]);
  m.ship.x=FLIGHT_BOUNDARY-10;assert.ok(predictTrajectory(m,1).points.length>1);
+});
+
+test('Vesper repairs after a short landing and awards salvage once per run',()=>{
+ const m=fresh();m.ship.hull=1;const p=approach(m,'vesper');step(m,1.9);assert.equal(m.ship.hull,1);assert.equal(m.score,0);step(m,.15);assert.equal(m.ship.hull,3);assert.equal(m.score,750);assert(p.salvaged);assert.equal(m.delivered,0);assert.equal(m.kills,0);
+ step(m,3);assert.equal(m.score,750);m.ship.hull=2;m.land(p);step(m,2.1);assert.equal(m.ship.hull,3);assert.equal(m.score,750);
+ m.rescue('test');assert(p.salvaged);m.start();assert(!m.planets.find(p=>p.id==='vesper').salvaged);
+});
+test('Vesper preserves carried technology and repair route works with cargo',()=>{
+ const m=fresh();approach(m,'rust');step(m,.8);m.ship.hull=1;m.target='vesper';assert.equal(m.targetBody.id,'vesper');approach(m,'vesper');step(m,2.1);assert.equal(m.ship.cargo,'rust');assert.equal(m.ship.hull,3);assert.equal(m.score,1750);assert.equal(m.delivered,0);m.target='home';assert.equal(m.targetBody.id,'home');approach(m,'home');assert.equal(m.delivered,1);assert.equal(m.score,5750);
+});
+test('launching early from Vesper does not repair or award salvage',()=>{
+ const m=fresh();m.ship.hull=1;const p=approach(m,'vesper');step(m,.4);m.updateDock(.01,{thrust:true});assert.equal(m.ship.docked,null);assert.equal(m.ship.hull,1);assert.equal(m.score,0);assert(!p.salvaged);
+});
+
+test('alien collisions destroy shielded and patrolling aliens and can cost the last hull',()=>{
+ for(const id of ['ember','rust','frost']){const m=fresh(),p=m.planets.find(p=>p.id===id);m.spawnEnemy(p,0);const e=m.enemies[0];Object.assign(m.ship,{docked:null,x:e.x,y:e.y,hull:1,invulnerable:0});m.updateEnemies(.001);assert(e.dead);assert.equal(m.kills,1);assert.equal(m.score,100);assert.equal(m.rescues,1);assert.equal(m.ship.docked,'home');}
+ const m=fresh();m.spawnEnemy(m.planets.find(p=>p.id==='rust'),0);const e=m.enemies[0];m.planets.find(p=>p.id==='rust').flag='delivered';Object.assign(m.ship,{docked:null,x:e.x,y:e.y,invulnerable:0});m.updateEnemies(.001);assert(!e.alert);assert(e.dead);assert.equal(m.ship.hull,2);
+});
+test('brief hull protection survives a collision while the alien is still destroyed',()=>{const m=fresh();m.spawnEnemy(m.planets.find(p=>p.id==='rust'),0);const e=m.enemies[0];Object.assign(m.ship,{docked:null,x:e.x,y:e.y,invulnerable:1});m.updateEnemies(.001);assert.equal(m.ship.hull,3);assert(e.dead);assert.equal(m.kills,1);});
+
+test('difficulty controls initial and replacement alien counts per defended planet',()=>{
+ for(const [mode,count] of [['easy',1],['medium',2],['hard',3]]){
+  const m=new Mission(12,mode);m.start();assert.equal(m.enemies.length,3*count);
+  for(const p of m.planets){assert.equal(m.enemies.filter(e=>e.home===p.id).length,p.fleet?count:0);assert.equal(p.crew,p.fleet?count:0);}
+  const p=m.planets.find(p=>p.id==='rust');m.enemies=m.enemies.filter(e=>e.home!==p.id);p.respawn=23;m.updateEnemies(.001);
+  for(let i=0;i<count;i++){p.respawn=23;m.updateEnemies(.001);}
+  assert.equal(m.enemies.filter(e=>e.home===p.id).length,count);assert.equal(new Set(m.enemies.filter(e=>e.home===p.id).map(e=>e.slot)).size,count);
+  m.start('easy');assert.equal(m.enemies.length,3);
+ }
 });
