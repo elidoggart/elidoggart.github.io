@@ -14,7 +14,9 @@ test('ending completes automatically within fifteen seconds',()=>{
  assert.ok(ENDING_SECONDS<=15);
  assert.equal(endingFrame(ENDING_SECONDS-.01).done,false);
  assert.equal(endingFrame(ENDING_SECONDS).done,true);
- assert.equal(endingFrame(ENDING_SECONDS).fade,1);
+ assert.equal(endingFrame(ENDING_SECONDS).shipScale,0);
+ assert.equal(endingFrame(ENDING_SECONDS).shipOpacity,0);
+ assert(endingFrame(ENDING_SECONDS).sparkle<1e-10);
 });
 
 test('departure begins at the actual dock and leaves the solar system from every landing angle',async()=>{
@@ -45,4 +47,15 @@ test('departure keeps moving smoothly through the old lift and turn junctions',a
   const angle=Math.atan2(v1.y,v1.x)-Math.atan2(v2.y,v2.x);
   assert(Math.abs(Math.atan2(Math.sin(angle),Math.cos(angle)))<.01,'no hard corner');
  }
+});
+
+test('ship continues flying, shrinks away, and becomes a sparkle before results',async()=>{
+ const {departureRoute,departurePose}=await import('../space-ending.js');
+ const route=departureRoute({id:'home',x:1450,y:0,r:94},{x:1557,y:0});
+ assert(departurePose(14,route).x>departurePose(12,route).x);
+ assert(endingFrame(12).shipScale>endingFrame(13).shipScale);
+ assert.equal(endingFrame(14).shipScale,0);
+ assert(endingFrame(14.3).sparkle>.9);
+ assert.equal(endingFrame(14.3).done,false);
+ assert.equal(endingFrame(15).trailOpacity,0);
 });
