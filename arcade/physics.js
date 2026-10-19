@@ -78,7 +78,7 @@ export class Mission{
  constructor(seed=42,difficulty='medium'){this.seed=seed;this.difficulty=getDifficulty(difficulty);this.reset();}
  reset(){
   this.random=rng(this.seed);this.state='ready';this.time=0;this.score=0;this.kills=0;this.rescues=0;this.rescueTime=0;this.events=[];this.particles=[];this.shots=[];this.enemies=[];this.rocks=[];this.target='ember';this.shotId=0;
-  this.planets=PLANETS.map(p=>({...p,...orbitPosition(p,0),mu:p.r*p.r*115,flag:p.tech?'available':null,claimed:false,respawn:0,salvaged:false}));
+  this.planets=PLANETS.map(p=>({...p,crew:p.fleet?this.difficulty.aliensPerPlanet:0,...orbitPosition(p,0),mu:p.r*p.r*115,flag:p.tech?'available':null,claimed:false,respawn:0,salvaged:false}));
   this.ship={x:0,y:0,vx:0,vy:0,a:-Math.PI/2,r:11,hull:3,cargo:null,docked:'home',dockAngle:-Math.PI/2,dockTime:0,launchArmed:true,invulnerable:3,fireCooldown:0,launchGrace:0,engine:false,trail:[],damageFlash:0};
   this.followDock();
   for(let i=0;i<58;i++)this.spawnRock(i);
@@ -130,7 +130,7 @@ export class Mission{
    e.aim=null;if(e.alert&&ds<680){const lead=e.type==='smart'?Math.min(1.6,ds/330):0;const aim={x:s.x+(s.vx-e.vx)*lead,y:s.y+(s.vy-e.vy)*lead};if(e.type==='smart'&&e.cooldown<.75)e.aim=aim;if(e.cooldown<=0){const angle=Math.atan2(aim.y-e.y,aim.x-e.x);this.fire(e.x,e.y,angle,e.vx,e.vy,true,e.type==='smart');e.cooldown=((e.type==='smart'?3.6:e.type==='fast'?3.8:4.4)+this.random()*.8)*this.difficulty.fireInterval;}}
    if(!s.docked&&distance(e,s)<e.r+s.r){this.damage('Alien collision');e.dead=true;this.kills++;this.score+=SPACE_POINTS.enemy;this.burst(e.x,e.y,20,true);}
   }
-  this.enemies=this.enemies.filter(e=>!e.dead);for(const p of this.planets.filter(p=>p.fleet)){if(p.flag==='delivered')continue;if(this.enemies.filter(e=>e.home===p.id).length<p.crew){p.respawn+=dt;if(p.respawn>22){const used=new Set(this.enemies.filter(e=>e.home===p.id).map(e=>e.slot));this.spawnEnemy(p,[0,1,2].find(i=>!used.has(i)));p.respawn=0;}}else p.respawn=0;}
+  this.enemies=this.enemies.filter(e=>!e.dead);for(const p of this.planets.filter(p=>p.fleet)){if(p.flag==='delivered')continue;if(this.enemies.filter(e=>e.home===p.id).length<p.crew){p.respawn+=dt;if(p.respawn>22){const used=new Set(this.enemies.filter(e=>e.home===p.id).map(e=>e.slot));this.spawnEnemy(p,Array.from({length:p.crew},(_,i)=>i).find(i=>!used.has(i)));p.respawn=0;}}else p.respawn=0;}
  }
  updateRocks(dt){for(const r of this.rocks){if(r.dead)continue;const g=this.gravity(r,false);r.vx+=g.x*dt;r.vy+=g.y*dt;r.x+=r.vx*dt;r.y+=r.vy*dt;r.a+=r.spin*dt;if(Math.hypot(r.x,r.y)<SUN.r+r.r||this.planets.some(p=>distance(r,p)<p.r+r.r)){r.dead=true;this.burst(r.x,r.y,5);continue;}if(!this.ship.docked&&distance(r,this.ship)<r.r+this.ship.r){if(this.damage('Asteroid impact')){r.dead=true;this.burst(r.x,r.y,14);}}}this.rocks=this.rocks.filter(r=>!r.dead);}
  updateShots(dt){for(const b of this.shots){b.life-=dt;const g=this.gravity(b,false);b.vx+=g.x*dt;b.vy+=g.y*dt;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.life<=0||Math.hypot(b.x,b.y)<SUN.r||this.planets.some(p=>distance(b,p)<p.r)){b.dead=true;continue;}if(b.alien){if(!this.ship.docked&&distance(b,this.ship)<this.ship.r+4){this.damage('Alien fire');b.dead=true;}}
