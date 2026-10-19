@@ -25,3 +25,13 @@ test('reject code fields, duplicate IDs, unknown refs, unsafe URLs and filenames
 test('escape all authored text without interpreting markup',()=>{const html=render(changed(d=>d.site.name='<img src=x onerror=alert(1)>'));assert.match(html,/&lt;img src=x onerror=alert\(1\)&gt;/);assert.doesNotMatch(html,/<img src=x/);});
 test('reject excessive content and nesting',()=>{assert.ok(validate(changed(d=>d.site.name='x'.repeat(101))).length);const d=changed(d=>{let b=d.sections[0].entries[0].roles[0].blocks[0];for(let i=0;i<20;i++){b.blocks=[{type:'section',title:'Nested',level:4,chapter:false,blocks:[]}];b=b.blocks[0];}});assert.ok(validate(d).length);});
 test('HTTPS links allow approved existing query strings and reject controls',()=>{assert.ok(safeURL(data.resources[1].url));for(const u of ['data:text/html,hi','http://example.com','https://x.test/\n','https:\\evil.test'])assert.equal(safeURL(u),false);});
+test('local MP4 resources render as controlled, accessible inline videos',()=>{
+ assert.equal(safeURL('assets/media/demo.mp4'),true);
+ for(const url of ['assets/media/../demo.mp4','assets/images/demo.mp4','assets/media/demo.mov','assets/media/demo.mp4?x=1'])assert.equal(safeURL(url),false);
+ const d=changed(d=>{d.resources[0].url='assets/media/demo.mp4';d.resources[0].label='Demo <test>';d.resources[0].note='Prototype & fixture';d.resources[0].download='';});
+ const html=render(d);
+ assert.match(html,/<video controls playsinline preload="metadata" aria-label="Demo &lt;test&gt;">/);
+ assert.match(html,/<source src="assets\/media\/demo.mp4" type="video\/mp4">/);
+ assert.match(html,/Prototype &amp; fixture/);
+ assert.doesNotMatch(html,/<video[^>]*autoplay/);
+});
