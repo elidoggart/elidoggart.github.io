@@ -8,7 +8,7 @@ const $=id=>document.getElementById(id),canvas=$('field'),game=new StillGame(),r
 bindSounds($('effects-button'),effects);bindAudioControl($('music'),music);let storage;try{storage=localStorage}catch{}
 let saved=false,shown='',last=performance.now(),lookX=0,lookY=0,fire=false,queued={},drag=null,touchMove={x:0,z:0},touchLook={x:0,y:0},wasLocked=false;const keys=new Set(),coarse=matchMedia('(pointer:coarse)').matches;
 const dialogOpen=()=>$('manual').open||$('scores-dialog').open;
-function reset(){keys.clear();fire=false;queued={};lookX=lookY=0;touchMove={x:0,z:0};touchLook={x:0,y:0};drag=null;document.querySelectorAll('.pad i').forEach(i=>i.style.transform='')}
+function reset(){last=performance.now();keys.clear();fire=false;queued={};lookX=lookY=0;touchMove={x:0,z:0};touchLook={x:0,y:0};drag=null;document.querySelectorAll('.pad i').forEach(i=>i.style.transform='')}
 function unlock(){if(document.pointerLockElement===canvas)document.exitPointerLock()}
 function capture(){if(coarse)return;try{const request=canvas.requestPointerLock?.();request?.catch(()=>{})}catch{}canvas.focus({preventScroll:true})}
 function start(mode){reset();saved=false;$('initials').value='';$('score-status').textContent='';game.start(mode);sync();capture()}
