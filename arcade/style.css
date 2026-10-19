@@ -55,3 +55,5 @@ footer{flex-shrink:0;border-top:0}
 .target-panel{top:24px}
 @media(max-width:650px){.game-header .flight-hud{gap:10px;font-size:10px;letter-spacing:1px}.target-panel{top:18px}}
 @media(max-width:360px){.game-header{gap:8px;padding:16px 12px;font-size:11px}.game-header .portfolio-return{max-width:100px}.game-header .flight-hud{gap:7px;letter-spacing:0}}
+
+.pause-menu{width:min(360px,88%);padding:30px;text-align:center}.pause-menu h2{font-size:28px;letter-spacing:-.8px;margin:0 0 24px}.pause-menu>.primary{margin:0;width:100%;min-width:0;justify-content:center}.pause-actions{display:grid;gap:9px;width:84%;margin:16px auto 0}.pause-actions .primary{display:block;min-width:0;width:100%;margin:0;padding:11px 14px;font-size:11px;text-align:center;text-decoration:none}
