@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {Mission,SUN,LANDING_SPEED,orbitPosition,predictTrajectory,gravityStrength,GRAVITY_POWER,shieldBlocks,scoreSummary} from '../physics.js';
+import {Mission,SUN,FLIGHT_BOUNDARY,LANDING_SPEED,orbitPosition,predictTrajectory,gravityStrength,GRAVITY_POWER,shieldBlocks,scoreSummary} from '../physics.js';
 const fresh=()=>{const m=new Mission(12);m.start();m.enemies=[];m.rocks=[];return m;};
 const step=(m,seconds,input={})=>{for(let i=0;i<Math.round(seconds*120);i++)m.step(1/120,input);};
 function approach(m,id,speed=0){const p=m.planets.find(p=>p.id===id),s=m.ship;s.docked=null;s.invulnerable=0;s.launchGrace=0;s.x=p.x;s.y=p.y-p.r-10;s.vx=p.vx;s.vy=p.vy+speed;s.a=-Math.PI/2;m.step(1/120,{});return p;}
@@ -45,4 +45,19 @@ test('Easy accepts a moderate approach that still crashes on Medium and Hard',()
 test('Easy braking is stronger locally but unchanged far from planets',()=>{
  function velocity(difficulty,near){const m=new Mission(12,difficulty);m.start();const p=m.home;Object.assign(m.ship,{docked:null,x:near?p.x+p.r+150:4500,y:near?p.y:0,vx:near?p.vx+140:140,vy:near?p.vy:0});m.updateShip(.1,{brake:true});return near?m.relativeSpeed(p):Math.hypot(m.ship.vx,m.ship.vy);}
  assert.ok(velocity('easy',true)<velocity('medium',true));assert.equal(velocity('medium',true),velocity('hard',true));assert.equal(velocity('easy',false),velocity('medium',false));
+});
+
+test('trajectory ends exactly at the flight boundary at different speeds and headings',()=>{
+ for(const angle of [0,.37,Math.PI/2,2.4,-2.8])for(const speed of [80,300,620]){
+  const m=fresh(),r=FLIGHT_BOUNDARY-20;Object.assign(m.ship,{docked:null,x:Math.cos(angle)*r,y:Math.sin(angle)*r,vx:Math.cos(angle+.3)*speed,vy:Math.sin(angle+.3)*speed});
+  const before=JSON.stringify(m.ship),prediction=predictTrajectory(m);
+  assert.equal(prediction.impact,'boundary');assert.ok(Math.abs(Math.hypot(prediction.end.x,prediction.end.y)-FLIGHT_BOUNDARY)<1e-8);
+  assert.ok(prediction.points.every(p=>Math.hypot(p.x,p.y)<=FLIGHT_BOUNDARY+1e-8));
+  assert.equal(JSON.stringify(m.ship),before);assert.ok(prediction.time<1);
+ }
+});
+test('no forecast is drawn outside the flight boundary and it resumes inside',()=>{
+ const m=fresh();Object.assign(m.ship,{docked:null,x:FLIGHT_BOUNDARY+100,y:0,vx:-100,vy:0});assert.deepEqual(predictTrajectory(m).points,[]);
+ m.ship.x=FLIGHT_BOUNDARY;assert.deepEqual(predictTrajectory(m).points,[]);
+ m.ship.x=FLIGHT_BOUNDARY-10;assert.ok(predictTrajectory(m,1).points.length>1);
 });

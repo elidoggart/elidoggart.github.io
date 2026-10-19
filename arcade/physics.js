@@ -36,20 +36,28 @@ export function moveShip(s,dt){
  const speed=Math.hypot(s.vx,s.vy);if(speed>620){s.vx*=620/speed;s.vy*=620/speed;}
  s.x+=s.vx*dt;s.y+=s.vy*dt;
 }
-export function boundaryPull(s,dt){if(Math.hypot(s.x,s.y)>4800){const a=Math.atan2(s.y,s.x);s.vx-=Math.cos(a)*130*dt;s.vy-=Math.sin(a)*130*dt;}}
+export const FLIGHT_BOUNDARY=4800;
+export function boundaryPull(s,dt){if(Math.hypot(s.x,s.y)>FLIGHT_BOUNDARY){const a=Math.atan2(s.y,s.x);s.vx-=Math.cos(a)*130*dt;s.vy-=Math.sin(a)*130*dt;}}
 // Same fixed step, moving planets, gravity, and speed cap as actual coasting.
-// Stop at first surface encounter; combat and future player inputs are unknowable.
+// Stop at the flight boundary or first surface encounter; never forecast the boundary pull.
 export function predictTrajectory(mission,seconds=60){
  const s={...mission.ship},points=[{x:s.x,y:s.y,t:mission.time}],planets=mission.planets.map(p=>({...p})),dt=1/120;
  let t=mission.time,impact=null,travel=0,previousAngle=Math.atan2(s.y,s.x);
+ if(Math.hypot(s.x,s.y)>=FLIGHT_BOUNDARY)return {points:[],impact:'boundary',end:{x:s.x,y:s.y,vx:s.vx,vy:s.vy},time:t};
  for(let i=0;i<Math.round(seconds/dt);i++){
   t+=dt;for(const p of planets)Object.assign(p,orbitPosition(p,t));
   if(s.docked){const p=planets.find(p=>p.id===s.docked);s.x=p.x+Math.cos(s.dockAngle)*(p.r+s.r+1);s.y=p.y+Math.sin(s.dockAngle)*(p.r+s.r+1);}
-  else{coastStep(s,planets,dt);moveShip(s,dt);
+  else{const previous={x:s.x,y:s.y};coastStep(s,planets,dt);moveShip(s,dt);
+   if(Math.hypot(s.x,s.y)>=FLIGHT_BOUNDARY){
+    // Clip the last integration segment to the circle, including fast diagonal exits.
+    const dx=s.x-previous.x,dy=s.y-previous.y,a=dx*dx+dy*dy,b=2*(previous.x*dx+previous.y*dy),c=previous.x**2+previous.y**2-FLIGHT_BOUNDARY**2;
+    const fraction=clamp((-b+Math.sqrt(Math.max(0,b*b-4*a*c)))/(2*a),0,1);
+    s.x=previous.x+dx*fraction;s.y=previous.y+dy*fraction;t-=dt*(1-fraction);
+    impact='boundary';points.push({x:s.x,y:s.y,t});break;
+   }
    const hit=planets.find(p=>distance(s,p)<p.r+s.r);
-   if(Math.hypot(s.x,s.y)<SUN.r+s.r)impact='sun';else if(hit)impact=hit.id;else if(Math.hypot(s.x,s.y)>6500)impact='boundary';
+   if(Math.hypot(s.x,s.y)<SUN.r+s.r)impact='sun';else if(hit)impact=hit.id;
    if(impact){points.push({x:s.x,y:s.y,t});break;}
-   boundaryPull(s,dt);
   }
   const angle=Math.atan2(s.y,s.x);travel+=angleDelta(angle,previousAngle);previousAngle=angle;
   if(Math.abs(travel)>=TAU){points.push({x:s.x,y:s.y,t});break;}
