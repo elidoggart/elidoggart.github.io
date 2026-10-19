@@ -3,7 +3,7 @@ import {SoundEffects,bindSounds} from './sound-effects.js';
 import {SpaceMusic} from './space-music.js';
 import {DIFFICULTIES} from './difficulty.js';
 import {readScores,saveScore} from './scores.js';
-import {Mission,PLANETS,SUN,TAU,angleDelta,orbitPosition,predictTrajectory,scoreSummary,distance,clamp} from './physics.js';
+import {Mission,PLANETS,SUN,TAU,angleDelta,orbitPosition,predictTrajectory,scoreSummary,distance,clamp,VESPER_SERVICE_SECONDS} from './physics.js';
 const $=id=>document.getElementById(id),canvas=$('space'),ctx=canvas.getContext('2d');
 const ink='#232421',red='#c73136',paper='#ffffff',muted='#8c8d86';
 const music=new SpaceMusic();
@@ -57,9 +57,12 @@ addEventListener('blur',()=>{clearInput();if(mission.state==='playing')setPause(
 for(const button of document.querySelectorAll('[data-control]')){button.addEventListener('pointerdown',e=>{e.preventDefault();button.setPointerCapture(e.pointerId);input[button.dataset.control]=true;button.classList.add('pressed');});const release=()=>{input[button.dataset.control]=false;button.classList.remove('pressed');};button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);}
 const techOrder=PLANETS.filter(p=>p.tech).map(p=>p.id);
 for(const id of techOrder){const p=mission.planets.find(p=>p.id===id),button=document.createElement('button');button.className='tech-button';button.dataset.planet=id;button.innerHTML=`<span class="tech-icon" aria-hidden="true">${p.glyph}</span><span class="tech-state" aria-hidden="true">○</span>`;button.onclick=()=>{mission.selectTarget(id);canvas.focus({preventScroll:true});updateUI();};$('tech-list').append(button);}
+$('vesper-target').onclick=()=>{mission.target=mission.target==='vesper'?'home':'vesper';canvas.focus({preventScroll:true});updateUI();};
 function announce(text){$('notice').textContent=text;$('notice').classList.add('show');noticeTimer=3;}
 function updateUI(){const s=mission.ship,target=mission.targetBody,nearest=mission.nearest(),p=nearest.planet,rel=mission.relativeSpeed(p);$('hull').textContent=Array.from({length:3},(_,i)=>i<s.hull?'●':'○').join(' ');$('hull').setAttribute('aria-label',`${s.hull} of 3 hull remaining`);canvas.dataset.time=String(mission.time);$('clock').textContent=formatTime(mission.scoringTime);$('clock').title=`Flight ${formatTime(mission.time)} + ${mission.rescueTime}s rescue penalty`;$('points').textContent=String(mission.score).padStart(4,'0');$('points').setAttribute('aria-label',`${mission.score} points`);
  for(const b of $('tech-list').children){const planet=mission.planets.find(p=>p.id===b.dataset.planet);b.classList.toggle('active',!s.cargo&&planet.id===mission.target);b.classList.toggle('delivered',planet.flag==='delivered');b.querySelector('.tech-state').textContent=planet.flag==='delivered'?'✓':planet.flag==='carried'?'↑':'○';b.setAttribute('aria-pressed',String(!s.cargo&&planet.id===mission.target));b.setAttribute('aria-label',`${planet.tech}, ${planet.name}, ${planet.fleet} fleet, ${planet.flag}`);b.title=`${planet.tech} — ${planet.flag==='carried'?'carrying home':planet.flag==='delivered'?'delivered':planet.name}`;}
+ const vesper=mission.planets.find(p=>p.service);$('vesper-target').classList.toggle('active',target.id==='vesper');$('vesper-target').setAttribute('aria-pressed',String(target.id==='vesper'));$('vesper-target').title=vesper.salvaged?'Vesper — hull repair station':'Vesper — hull repair and 750 salvage points';
+ const service=$('service-readout');service.hidden=s.docked!=='vesper'||map||mission.state==='ready';service.textContent=s.serviceComplete?'Hull repaired · ↑ to launch':`Vesper station · servicing ${Math.min(100,Math.floor(s.dockTime/VESPER_SERVICE_SECONDS*100))}%`;
  const landing=$('landing-readout');landing.style.setProperty('--landing-safe-limit',`${mission.difficulty.landingSpeed/180*100}%`);landing.hidden=mission.state==='ready'||mission.state==='won'||map||nearest.gap>360;landing.classList.toggle('unsafe',rel>mission.difficulty.landingSpeed&&!s.docked);landing.setAttribute('aria-valuenow',String(Math.min(180,Math.round(rel))));landing.setAttribute('aria-valuetext',s.docked?'Docked':rel>mission.difficulty.landingSpeed?'Too fast — brake':'Safe approach speed');$('landing-bar').style.width=Math.min(100,rel/180*100)+'%';canvas.dataset.state=mission.state;canvas.dataset.difficulty=mission.difficulty.id;canvas.dataset.delivered=String(mission.delivered);canvas.dataset.docked=s.docked||'';
 }
 function line(points,color=ink,weight=1){ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.strokeStyle=color;ctx.lineWidth=weight;ctx.stroke();}
@@ -70,6 +73,16 @@ function inView(x,y,r=100){const p=worldPoint(x,y);return p.x>-r&&p.x<width+r&&p
 function drawSun(t){const p=worldPoint(0,0),r=SUN.r*camera.zoom;if(!inView(0,0,r+60))return;circle(p.x,p.y,r,ink,1.5,paper);circle(p.x,p.y,r*.82,ink,.6);for(let i=0;i<32;i++){const a=i*TAU/32+(!reduced?t*.025:0),a2=a+.025,inner=r+4,outer=r+8+(i%3)*4;line([[p.x+Math.cos(a)*inner,p.y+Math.sin(a)*inner],[p.x+Math.cos(a2)*outer,p.y+Math.sin(a2)*outer]],i%4===0?red:ink,.8);}if(r>40){ctx.setLineDash([3,7]);circle(p.x,p.y,r+24,red,.65);ctx.setLineDash([]);}}
 function drawFlag(x,y,scale,kind){ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);line([[0,6],[0,-21]],red,1.3);line([[0,-21],[21,-16],[0,-9]],red,1.3);if(kind==='fast')line([[8,-19],[5,-15],[13,-16],[10,-12]],red,.8);if(kind==='normal'){line([[6,-17],[12,-17]],red,.8);line([[9,-19],[9,-14]],red,.8);}if(kind==='shield')line([[6,-19],[13,-17],[11,-13],[6,-14],[6,-19]],red,.8);if(kind==='smart'){circle(9,-16,2,red,.8);line([[5,-16],[13,-16]],red,.6);}ctx.restore();}
 function drawPlanet(p,t,overview){const q=bodyPoint(p),r=p.r*camera.zoom,minR=overview?5:0,rr=Math.max(r,minR);if(!inView(p.x,p.y,rr+100))return;const selected=mission.state!=='ready'&&mission.targetBody.id===p.id;circle(q.x,q.y,rr,ink,1.2,paper);ctx.save();ctx.beginPath();ctx.arc(q.x,q.y,rr,0,TAU);ctx.clip();ctx.strokeStyle='#b6b7af';ctx.lineWidth=.65;for(const f of [-.55,0,.55]){ctx.beginPath();ctx.ellipse(q.x,q.y+f*rr,rr*Math.sqrt(1-f*f),rr*.19,0,0,TAU);ctx.stroke();}ctx.beginPath();ctx.ellipse(q.x,q.y,rr*.4,rr,0,0,TAU);ctx.stroke();ctx.restore();
+ if(p.service){
+  ctx.save();ctx.translate(q.x,q.y-rr*.25);const size=overview?.6:Math.max(.65,Math.min(1.2,camera.zoom));ctx.scale(size,size);
+  ctx.fillStyle=paper;ctx.strokeStyle=ink;ctx.lineWidth=1.2;ctx.fillRect(-12,-9,24,18);ctx.strokeRect(-12,-9,24,18);
+  line([[-12,0],[-31,0]],ink);line([[12,0],[28,0]],ink);
+  line([[-31,-10],[-19,-10],[-19,10],[-31,10],[-31,-10]],ink);line([[19,-10],[29,-7],[25,2],[29,10],[19,10]],muted);
+  line([[0,-9],[0,-18],[7,-22]],ink);circle(8,-23,2,ink,.8);
+  line([[-5,0],[5,0]],red,2);line([[0,-5],[0,5]],red,2);
+  if(!p.salvaged){ctx.strokeStyle=red;ctx.strokeRect(16,13,8,7);}ctx.restore();
+  if(!overview)label('VESPER · REPAIR',q.x,q.y+rr+43,10,muted);
+ }
  if(p.id==='home'){circle(q.x,q.y,rr+4,red,1);}
  if(p.flag==='available')drawFlag(q.x,q.y-rr,overview?.55:1,p.fleet);else if(p.flag==='delivered'){label('✓',q.x,q.y+4,overview?9:16,red);}
  if(selected){ctx.setLineDash([4,5]);circle(q.x,q.y,rr+12,red,.8);ctx.setLineDash([]);}
