@@ -34,3 +34,15 @@ test('departure chooses a clear outbound lane around other planets',async()=>{
  const route=departureRoute(home,{x:1557,y:0},[home,planet]);
  for(let t=9.5;t<12;t+=.01){const p=departurePose(t,route);assert(Math.hypot(p.x-planet.x,p.y-planet.y)>planet.r+30);}
 });
+
+test('departure keeps moving smoothly through the old lift and turn junctions',async()=>{
+ const {departureRoute,departurePose}=await import('../space-ending.js');
+ const route=departureRoute({id:'home',x:1450,y:0,r:94},{x:1343,y:0});
+ for(const t of [7.5,9.5,10.8]){
+  const before=departurePose(t-.001,route),at=departurePose(t,route),after=departurePose(t+.001,route);
+  const v1={x:at.x-before.x,y:at.y-before.y},v2={x:after.x-at.x,y:after.y-at.y};
+  assert(Math.hypot(v1.x,v1.y)>.08,'no stop between departure phases');
+  const angle=Math.atan2(v1.y,v1.x)-Math.atan2(v2.y,v2.x);
+  assert(Math.abs(Math.atan2(Math.sin(angle),Math.cos(angle)))<.01,'no hard corner');
+ }
+});
