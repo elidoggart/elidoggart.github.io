@@ -49,17 +49,17 @@ function drawTank(t){
  if(game.state!=='replay'&&type==='stealth'&&t.hold<=0&&t.mineCool<2.6)ctx.globalAlpha=.045;
  ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.angle);
  for(const y of [-16,7]){
-  roundedBox(-length/2,y,length,9,heavy?2:4.5,player?red:ink,player?red:'white');
-  for(let x=-13;x<=14;x+=7)line(x,y+2,x,y+7,player?'#e77c7c':ink,.8);
+  roundedBox(-length/2,y,length,9,heavy?2:4.5,player?red:ink,'white');
+  for(let x=-13;x<=14;x+=7)line(x,y+2,x,y+7,player?red:ink,.8);
  }
  if(['stealth','elite'].includes(type))polygon([[-22,-7],[8,-12],[21,0],[8,12],[-22,7],[-15,0]],'white',c);
- else roundedBox(-18,-10,36,20,heavy?2:7,player?red:ink,player?red:'white');
+ else roundedBox(-18,-10,36,20,heavy?2:7,player?red:ink,'white');
  if(type==='miner')for(const y of [-7,7])circle(-19,y,5,red,'white',1.4);
  if(type==='sentry')for(const x of [-19,19])line(x,-19,x,19,ink,2);
  if(type==='warrior'){line(-15,-19,15,-19,red,2);line(-15,19,15,19,red,2);}
  ctx.restore();
  ctx.save();ctx.translate(t.x,t.y);ctx.rotate(t.aim);ctx.lineJoin='round';ctx.lineCap='round';
- const fill=player?ink:'white';
+ const fill='white';
  if(type==='sniper'){
   roundedBox(4,-2,34,4,1,c);line(30,-6,30,6,c,2);polygon([[-13,-9],[8,-9],[12,0],[8,9],[-13,9]],'white',c);
  }else if(type==='rocket'||type==='elite'){
