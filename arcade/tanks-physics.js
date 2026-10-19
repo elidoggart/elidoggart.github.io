@@ -1,5 +1,6 @@
 import {createCampaign,LEVELS,ARENA_WIDTH,ARENA_HEIGHT} from './tanks-levels.js';
 export {LEVELS} from './tanks-levels.js';
+export const LEVEL_TRANSITION_SECONDS=3;
 export const W=ARENA_WIDTH,H=ARENA_HEIGHT,R=17;
 // Frame-measured reference: ~3.06 columns/sec for tracks; ~5.1 columns/sec for shells.
 export const PLAYER_SPEED=136, SHELL_SPEED=226, MINE_FUSE=9, MINE_WARNING=.75, BLAST_RADIUS=95;
@@ -61,7 +62,7 @@ export function traceShot(x,y,angle,walls,bounces=1,maxDistance=2400){
 function targetOnRay(segments,target,r=R){let distance=0;for(const s of segments){const dx=s.ex-s.x,dy=s.ey-s.y,l=s.length;if(l<.001)continue;const along=((target.x-s.x)*dx+(target.y-s.y)*dy)/l;if(along>=0&&along<=l&&Math.abs((target.x-s.x)*dy-(target.y-s.y)*dx)/l<r)return{distance:distance+along,bounce:s.bounce};distance+=l;}return null;}
 export class TankGame{
  constructor(seed=Date.now()){this.seed=seed>>>0;this.levels=createCampaign(this.seed);this.level=0;this.lives=3;this.score=0;this.time=0;this.state='ready';this.load();}
- load(){const l=this.levels[this.level];this.layout=l.layout;this.grid={cols:l.cols,rows:l.rows};this.walls=l.walls.map(b=>({...b}));this.pits=(l.pits||[]).map(b=>({...b}));this.player=tank(...l.player,'player',0);this.player.mineCool=0;this.tanks=[this.player,...l.enemies.map(([x,y,type],i)=>tank(x,y,type,i+1))];this.shots=[];this.mines=[];this.effects=[];this.tracks=[];this.wrecks=[];this.death=null;this.respawnTime=0;this.levelScore=this.score;this.time=0;this.aiSeed=(this.seed^Math.imul(this.level+1,2654435761))>>>0;
+ load(){const l=this.levels[this.level];this.layout=l.layout;this.grid={cols:l.cols,rows:l.rows};this.walls=l.walls.map(b=>({...b}));this.pits=(l.pits||[]).map(b=>({...b}));this.player=tank(...l.player,'player',0);this.player.mineCool=0;this.tanks=[this.player,...l.enemies.map(([x,y,type],i)=>tank(x,y,type,i+1))];this.shots=[];this.mines=[];this.effects=[];this.tracks=[];this.wrecks=[];this.death=null;this.respawnTime=0;this.transitionTime=0;this.levelScore=this.score;this.time=0;this.aiSeed=(this.seed^Math.imul(this.level+1,2654435761))>>>0;
   for(const t of this.tanks.slice(1)){const timing=AI_TIMING[t.type];t.cool=this.interval(timing.open);t.mineCool=timing.mineOpen?this.interval(timing.mineOpen):0;t.planTimer=this.interval([0,.15]);}
  }
  start(){this.state='playing';}
@@ -195,6 +196,7 @@ export class TankGame{
  step(dt,input={}){
   if(this.state==='paused'||this.state==='ready')return;
   for(const e of this.effects)e.age+=dt;this.effects=this.effects.filter(e=>e.age<.65);
+  if(this.state==='clear'){this.transitionTime+=dt;if(this.transitionTime>=LEVEL_TRANSITION_SECONDS)this.next();return;}
   if(this.state==='replay'){this.respawnTime-=dt;if(this.respawnTime<=0){if(this.lives>0)this.retry();else this.state='dead';}return;}
   if(this.state!=='playing')return;this.time+=dt;this.player.invulnerable=Math.max(0,(this.player.invulnerable||0)-dt);
   for(const t of this.tracks)t.life-=dt;this.tracks=this.tracks.filter(t=>t.life>0).slice(-1600);
@@ -223,6 +225,6 @@ export class TankGame{
    if(m.warning!==null){m.warning-=dt;if(m.warning<=0)this.explode(m);}
   }
   this.shots=this.shots.filter(s=>s.alive);this.mines=this.mines.filter(m=>m.alive);
-  if(this.state==='playing'&&!this.tanks.some(t=>t!==p&&t.alive)){this.state=this.level===LEVELS.length-1?'won':'clear';this.shots=[];this.mines=[];}
+  if(this.state==='playing'&&!this.tanks.some(t=>t!==p&&t.alive)){this.state=this.level===LEVELS.length-1?'won':'clear';this.transitionTime=0;this.shots=[];this.mines=[];}
  }
 }
