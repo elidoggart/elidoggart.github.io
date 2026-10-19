@@ -1,35 +1,41 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
-import {musicLayers} from '../tanks-music.js';
-const reference=JSON.parse(readFileSync(new URL('../research/music-rules.json',import.meta.url)));
-const types=['','sentry','patrol','rocket','hunter','miner','warrior','sniper','stealth','elite'];
-for(let rank=1;rank<=9;rank++)for(let count=1;count<=8;count++){
- test(`music matches documented rank ${rank}, count ${count}`,()=>{
-  const row=reference.rows.filter(r=>r.rank===rank&&parseInt(r.count)<=count).at(-1);
-  const expected=['piccolo',...row.instruments.map(i=>reference.columns[i])].sort();
-  const tanks=Array.from({length:count},(_,i)=>({id:i+1,alive:true,type:i===0?types[rank]:'sentry'}));
-  assert.deepEqual(musicLayers(tanks).sort(),expected);
-  assert.deepEqual(musicLayers(tanks.map(t=>({...t,type:types[rank]}))).sort(),expected);
- });
-}
-test('destroying strongest enemy changes arrangement; corpses and player do not count',()=>{
- const tanks=[{id:0,type:'elite',alive:true},{id:1,type:'stealth',alive:true},{id:2,type:'sniper',alive:true},{id:3,type:'sentry',alive:true}];
- assert(musicLayers(tanks).includes('synth'));assert(!musicLayers(tanks).includes('bells'));
- tanks[1].alive=false;assert(musicLayers(tanks).includes('bells'));assert(!musicLayers(tanks).includes('synth'));
- tanks[2].alive=false;assert.deepEqual(musicLayers(tanks),['piccolo','snare']);
- tanks[3].alive=false;assert.deepEqual(musicLayers(tanks),[]);
+import {musicLayers,TankMusic,PARTS} from '../tanks-music.js';
+const tank=(type,id=1)=>({id,type,alive:true});
+const signatures={sentry:['snare','bassDrum'],patrol:['metronome','harmony'],rocket:['timpaniA','horns'],hunter:['counterFife','cymbals'],miner:['bells','triangle'],warrior:['timpaniB','horns','rolls'],sniper:['clarinet','harmony'],stealth:['synth','counterFife','triangle'],elite:['horns','clarinet','bells','cymbals','rolls','harmony']};
+for(const [type,parts] of Object.entries(signatures))for(let count=1;count<=8;count++)test(`${type}, ${count} tanks retain their instrument layers`,()=>{
+ const layers=musicLayers(Array.from({length:count},(_,i)=>tank(type,i+1)));
+ for(const part of ['piccolo','snare','bassDrum','tuba',...parts])assert(layers.includes(part));
+ assert.equal(new Set(layers).size,layers.length);
+ if(count>=2)assert(layers.includes('harmony'));
+ if(count>=3)assert(layers.includes('rolls'));
+ if(count>=4)assert(layers.includes('cymbals'));
 });
-test('traditional military march has sixteen complete bars and sustained notes',async()=>{
+test('mixed armies combine every tank type; destruction removes only unsupported parts',()=>{
+ const tanks=[tank('miner'),tank('stealth',2),tank('rocket',3)];
+ assert(musicLayers(tanks).includes('bells'));assert(musicLayers(tanks).includes('synth'));assert(musicLayers(tanks).includes('horns'));
+ tanks[1].alive=false;
+ assert(!musicLayers(tanks).includes('synth'));assert(musicLayers(tanks).includes('bells'));assert(musicLayers(tanks).includes('horns'));
+ assert.deepEqual(musicLayers([...tanks].reverse()),musicLayers(tanks));
+ assert.deepEqual(musicLayers([tank('elite',0),{...tank('elite'),alive:false}]),[]);
+});
+test('full army uses all sixteen layers and every layer has scheduled notes',()=>{
+ const layers=musicLayers(Object.keys(signatures).map((t,i)=>tank(t,i+1)));
+ assert.deepEqual(layers,PARTS);
+ const music=new TankMusic(),heard=new Set();music.note=part=>heard.add(part);
+ for(let i=0;i<256;i++)music.beat(i,1+i*.15);
+ for(const part of PARTS)assert(heard.has(part),part);
+});
+test('Road to Boston has thirty-two complete AABB bars and sustained notes',async()=>{
  const {MELODY}=await import('../tanks-music.js');
- assert.equal(MELODY.length,128);
- assert.equal(MELODY.filter(Boolean).reduce((n,[,duration])=>n+duration,0),128);
- assert.deepEqual(MELODY.slice(0,8),[[88,2],null,[86,2],null,[83,2],null,[79,2],null]);
+ assert.equal(MELODY.length,256);
+ assert.equal(MELODY.filter(Boolean).reduce((n,[,duration])=>n+duration,0),256);
+ assert.deepEqual(MELODY.slice(0,8),[[78,4],null,null,null,[78,2],null,[76,1],[78,1]]);
 });
 
 test('fife carries the melody from the first level at a lively tempo',async()=>{
  const {TankMusic,TEMPO}=await import('../tanks-music.js');
- assert.equal(TEMPO,120);
+ assert.equal(TEMPO,112);
  const music=new TankMusic(),notes=[];
  music.note=(...args)=>notes.push(args);
  music.beat(0,1);
@@ -41,7 +47,7 @@ test('starting a mission starts the melody immediately without a snare count-in'
  const {TankMusic}=await import('../tanks-music.js');
  const music=new TankMusic(),cues=[];
  music.enabled=true;music.context={currentTime:10};music.state='ready';
- music.layers=['piccolo','snare'];music.cue=kind=>cues.push(kind);music.schedule=()=>{};
+ music.layers=musicLayers([tank('sentry')]);music.cue=kind=>cues.push(kind);music.schedule=()=>{};
  try{
   music.update({state:'playing',level:0,lives:3,tanks:[{id:1,alive:true,type:'sentry'}]});
   assert.equal(music.next,10.04);assert.equal(music.step,0);

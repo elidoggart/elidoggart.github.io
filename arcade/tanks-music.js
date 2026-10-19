@@ -1,53 +1,60 @@
-// Instrument activation facts: https://nintendo.fandom.com/wiki/Tanks!#Audio
-// Traditional military tune: The Girl I Left Behind Me (Brighton Camp).
-// Public-domain melody; new synthesized fife-and-drum arrangement.
-// The legacy piccolo bus name is retained for instrument-layer compatibility.
-const RANK={sentry:1,patrol:2,rocket:3,hunter:4,miner:5,warrior:6,sniper:7,stealth:8,elite:9};
-const TABLE={
- 1:[[1,'snare']],
- 2:[[1,'snare metronome'],[3,'snare metronome timpaniA']],
- 3:[[1,'metronome timpaniA cymbals'],[2,'snare metronome timpaniA cymbals'],[4,'snare metronome cymbals timpaniB']],
- 4:[[1,'snare timpaniB'],[2,'snare cymbals timpaniB'],[3,'snare metronome cymbals timpaniB']],
- 5:[[1,'metronome timpaniA cymbals bassDrum'],[2,'snare metronome timpaniA cymbals bassDrum'],[3,'snare metronome cymbals timpaniB bassDrum']],
- 6:[[1,'timpaniA cymbals tuba'],[2,'snare timpaniA cymbals bassDrum tuba'],[3,'snare metronome cymbals timpaniB bassDrum tuba']],
- 7:[[1,'timpaniA cymbals tuba bells'],[2,'timpaniA cymbals bassDrum tuba bells'],[3,'snare metronome timpaniA cymbals bassDrum tuba bells'],[4,'snare metronome cymbals timpaniB bassDrum tuba bells']],
- 8:[[1,'snare timpaniA tuba synth'],[2,'snare metronome timpaniB bassDrum tuba synth'],[3,'snare metronome cymbals timpaniB bassDrum tuba synth']],
- 9:[[1,'metronome cymbals timpaniB bassDrum tuba bells synth']]
+// The Road to Boston: traditional public-domain melody, new adaptive arrangement.
+// Requested reference: https://www.youtube.com/watch?v=6qfBJwDjbUA
+// Score: https://abcnotation.com/tunePage?a=trillian.mit.edu/~jc/music/abc/march/Road_to_Boston_D/0000
+// Keep the legacy piccolo bus name; its voice is a synthesized fife.
+export const TANK_PARTS={
+ sentry:['snare','bassDrum'],
+ patrol:['metronome','harmony'],
+ rocket:['timpaniA','horns'],
+ hunter:['counterFife','cymbals'],
+ miner:['bells','triangle'],
+ warrior:['timpaniB','horns','rolls'],
+ sniper:['clarinet','harmony'],
+ stealth:['synth','counterFife','triangle'],
+ elite:['horns','clarinet','bells','cymbals','rolls','harmony']
 };
+export const PARTS=['piccolo','snare','bassDrum','tuba','metronome','timpaniA','timpaniB','cymbals','bells','synth','harmony','counterFife','horns','clarinet','rolls','triangle'];
 export function musicLayers(tanks){
- const enemies=tanks.filter(t=>t.id!==0&&t.alive&&RANK[t.type]);
+ const enemies=tanks.filter(t=>t.id!==0&&t.alive&&TANK_PARTS[t.type]);
  if(!enemies.length)return [];
- const rank=Math.max(...enemies.map(t=>RANK[t.type]));
- const rows=TABLE[rank];let parts=rows[0][1];
- for(const [count,mix] of rows)if(enemies.length>=count)parts=mix;
- return ['piccolo',...parts.split(' ')];
+ const parts=new Set(['piccolo','snare','bassDrum','tuba']);
+ for(const tank of enemies)for(const part of TANK_PARTS[tank.type])parts.add(part);
+ for(const [count,part] of [[2,'harmony'],[3,'rolls'],[4,'cymbals'],[6,'horns'],[8,'bells']])if(enemies.length>=count)parts.add(part);
+ // The bus order is stable, independent of tank order. Surviving types retain
+ // their instruments when another type dies; all parts share one music clock.
+ return PARTS.filter(part=>parts.has(part));
 }
-const PARTS=['piccolo','snare','metronome','timpaniA','cymbals','timpaniB','bassDrum','tuba','bells','synth'];
-export const TEMPO=120;
-const EIGHTH=60/TEMPO/2;
-// Traditional melody, transposed to a fife register in G.
-// Reference: https://abcnotation.com/tunePage?a=trillian.mit.edu/~jc/music/abc/session/KingStreetSession/other/Girl_I_left_behind_me/0000
-// Durations are eighth-note clock units; pickups close each phrase for looping.
-const BARS=[
- [[88,2],[86,2],[83,2],[79,2]],
- [[81,1],[83,1],[81,1],[79,1],[76,2],[74,2]],
- [[79,2],[79,2],[79,1],[81,1],[83,1],[84,1]],
- [[86,4],[83,2],[91,1],[90,1]],
- [[88,2],[86,2],[83,2],[79,2]],
- [[81,1],[83,1],[81,1],[79,1],[76,2],[79,2]],
- [[78,2],[81,2],[74,2],[76,1],[78,1]],
- [[79,4],[79,2],[79,1],[81,1]],
- [[83,2],[86,2],[88,2],[90,2]],
- [[91,2],[86,2],[83,2],[81,2]],
- [[83,1],[79,1],[83,1],[86,1],[88,1],[86,1],[88,1],[90,1]],
- [[91,2],[93,1],[91,1],[90,2],[91,1],[90,1]],
- [[88,2],[86,2],[83,2],[79,2]],
- [[81,1],[83,1],[81,1],[79,1],[76,2],[79,2]],
- [[78,2],[81,2],[74,2],[76,1],[78,1]],
- [[79,4],[79,2],[91,1],[90,1]]
+export const TEMPO=112;
+// Cut-time score: eight subdivisions per two-beat marching bar.
+export const STEP_SECONDS=60/TEMPO/4;
+const EIGHTH=STEP_SECONDS;
+const A=[
+ [[78,4],[78,2],[76,1],[78,1]],
+ [[79,2],[78,2],[76,2],[74,2]],
+ [[73,2],[74,2],[76,2],[78,2]],
+ [[74,2],[69,2],[66,2],[69,2]],
+ [[78,4],[78,2],[76,1],[78,1]],
+ [[79,2],[78,2],[76,2],[74,2]],
+ [[73,2],[74,2],[76,2],[73,2]],
+ [[74,6],[74,1],[76,1]]
 ];
+const B=[
+ [[81,4],[81,2],[80,1],[81,1]],
+ [[83,2],[81,2],[79,2],[78,2]],
+ [[79,4],[79,2],[78,1],[79,1]],
+ [[81,2],[79,2],[78,2],[76,2]],
+ [[78,4],[78,2],[76,1],[78,1]],
+ [[79,2],[78,2],[76,2],[74,2]],
+ [[73,2],[74,2],[76,2],[73,2]],
+ [[74,6],[78,1],[79,1]]
+];
+// AABB form; pickups point into the next strain instead of adding a count-in.
+const BARS=[...A,...A.slice(0,7),[[74,6],[78,1],[79,1]],...B,...B.slice(0,7),[[74,6],[74,1],[76,1]]];
 export const MELODY=BARS.flatMap(bar=>bar.flatMap(([pitch,length])=>[[pitch,length],...Array.from({length:length-1},()=>null)]));
-const ROOTS=[55,55,48,48,55,55,50,50,55,55,48,48,50,50,55,55,55,50,55,50,55,48,55,50,55,55,48,48,50,50,55,50];
+const A_ROOTS=[50,55,57,50,50,55,57,50],B_ROOTS=[50,55,52,57,50,55,57,50];
+const ROOTS=[...A_ROOTS,...A_ROOTS,...B_ROOTS,...B_ROOTS];
+const SCALE=[50,52,54,55,57,59,61];
+function thirdBelow(pitch){let note=pitch-3;while(!SCALE.some(p=>(p%12)===(note%12)))note--;return note;}
 export class TankMusic{
  constructor(){this.volume=.65;this.enabled=false;this.context=null;this.active=false;this.step=0;this.next=0;this.state='';this.level=-1;this.count=0;this.lives=0;this.voices=new Set();this.cache=new Map();this.layers=[];}
  setVolume(value){this.volume=value;if(this.context)this.master.gain.setTargetAtTime(value,this.context.currentTime,.03);}
@@ -121,6 +128,9 @@ export class TankMusic{
     v=(Math.sin(p)+.30*Math.sin(2*p)+.13*Math.sin(3*p)+.045*Math.sin(4*p))*.65+noise*.025;
     env=Math.min(1,t/.006)*Math.min(1,(duration-t)/.025)*(.88+.12*Math.exp(-t*32));
    }
+   else if(voice==='clarinet'){v=(Math.sin(phase)+.38*Math.sin(phase*3)+.16*Math.sin(phase*5))*.6;}
+   else if(voice==='horn'){v=(Math.sin(phase)+.22*Math.sin(phase*2)+.09*Math.sin(phase*3))*.7;env*=Math.min(1,t/.025);}
+   else if(voice==='triangle'){v=(Math.sin(phase)+.35*Math.sin(phase*2.71)+.15*Math.sin(phase*4.13))*Math.exp(-t*9);}
    else if(voice==='tuba'){v=(Math.sin(phase)+.32*Math.sin(phase*2)+.14*Math.sin(phase*3))*.7;}
    else if(voice==='trumpet'){v=(Math.sin(phase)+.55*Math.sin(phase*2)+.3*Math.sin(phase*3)+.12*Math.sin(phase*4))*.5;env*=.8+.2*Math.exp(-t*12);}
    else if(voice==='synth'){v=(Math.sin(phase)+.3*Math.sin(phase*2+.5*Math.sin(tau*4*t)))*.7;}
@@ -136,25 +146,34 @@ export class TankMusic{
   source.onended=()=>{this.voices.delete(source);source.disconnect();gain.disconnect();};source.start(time);
  }
  beat(step,time){
-  const i=step%MELODY.length,beat=i%8,root=ROOTS[Math.floor(i/4)],melody=MELODY[i];
+  const i=step%MELODY.length,beat=i%8,root=ROOTS[Math.floor(i/8)],melody=MELODY[i];
   // All parts share a clock, even while muted, so changes never restart the melody.
   if(melody){
    const [pitch,length]=melody,duration=length*EIGHTH*.88;
-   this.note('piccolo','fife',pitch,time,duration,beat===0?.16:.135);
+   this.note('piccolo','fife',pitch,time,duration,beat===0?.18:.155);
+   this.note('harmony','fife',thirdBelow(pitch),time,duration,.055);
+   this.note('clarinet','clarinet',pitch-12,time,duration,.055);
   }
   if(beat===2||beat===6)this.note('snare','snare',0,time,.12,.17);
   if(beat===3||beat===7){
    this.note('snare','snare',0,time,.08,.065);
    if(beat===7)this.note('snare','snare',0,time+EIGHTH/2,.07,.085);
   }
-  if(beat%2===0)this.note('metronome','metronome',0,time,.06,.10);
-  if(beat===0||beat===4)this.note('cymbals','cymbals',0,time,.32,.10);
-  if(beat===0||beat===4)this.note('bassDrum','bassDrum',0,time,.35,.22);
-  if(beat===0||beat===3){this.note('timpaniA','timpani',root,time,.4,.13);this.note('timpaniB','timpani',root,time,.4,.13);}
-  if(beat===5||beat===6||beat===7)this.note('timpaniB','timpani',root+(beat===6?7:0),time,.3,.10);
-  if(beat%2===0)this.note('tuba','tuba',root+(beat===4?7:0)-12,time,.28,.14);
-  if(beat===0||beat===4)this.note('bells','bells',root+24+(beat===4?7:0),time,.7,.10);
-  if(beat===1||beat===5){this.note('synth','synth',root+12,time,.3,.10);this.note('synth','synth',root+19,time,.3,.06);}
+  if(beat%2===0)this.note('metronome','metronome',0,time,.04,.055);
+  if(beat===0||beat===4)this.note('cymbals','cymbals',0,time,.24,.05);
+  if(beat===0||beat===4)this.note('bassDrum','bassDrum',0,time,.3,.16);
+  if(beat===0||beat===3){this.note('timpaniA','timpani',root,time,.3,.075);this.note('timpaniB','timpani',root,time,.3,.075);}
+  if(beat===5||beat===6||beat===7)this.note('timpaniB','timpani',root+(beat===6?7:0),time,.22,.055);
+  if(beat%2===0)this.note('tuba','tuba',root+(beat===4?7:0)-12,time,.18,.095);
+  if(beat===0||beat===4)this.note('bells','bells',root+24+(beat===4?7:0),time,.45,.045);
+  if(beat===0||beat===4){
+   this.note('horns','horn',root+12,time,EIGHTH*2.8,.055);
+   this.note('horns','horn',root+19,time,EIGHTH*2.8,.035);
+  }
+  if(beat===1||beat===3||beat===5||beat===7)this.note('counterFife','fife',root+24+(beat===3?7:beat===7?12:0),time,EIGHTH*.75,.045);
+  if(beat===3||beat===7)for(let n=0;n<3;n++)this.note('rolls','snare',0,time+n*EIGHTH/3,.055,.035+n*.009);
+  if(beat===2||beat===6)this.note('triangle','triangle',98,time,.18,.035);
+  if(beat===1||beat===5){this.note('synth','synth',root+12,time,.22,.055);this.note('synth','synth',root+19,time,.22,.035);}
  }
  cue(kind){
   if(!this.enabled||!this.context||this.context.state!=='running')return;
