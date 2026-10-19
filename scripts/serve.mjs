@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 const browserTest=process.argv.includes('--browser-test');
 const root=await fs.realpath(browserTest?'.local/browser-dist':'dist');const port=browserTest?4175:Number(process.env.PORT||4173);
-const types={'.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json','.webp':'image/webp','.jpg':'image/jpeg','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.pdf':'application/pdf','.csv':'text/csv'};
+const types={'.mp4':'video/mp4','.html':'text/html; charset=utf-8','.css':'text/css','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json','.webp':'image/webp','.jpg':'image/jpeg','.png':'image/png','.svg':'image/svg+xml','.ico':'image/x-icon','.woff2':'font/woff2','.pdf':'application/pdf','.csv':'text/csv'};
 http.createServer(async(req,res)=>{
  try{
   if(!['GET','HEAD'].includes(req.method)){res.writeHead(405);return res.end();}
