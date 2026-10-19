@@ -9,7 +9,7 @@ test('mine arms, destroys nearby tanks and marked cover, and costs a life',()=>{
 test('mines can be escaped and maximum two are active',()=>{const g=new TankGame();g.start();g.tanks.slice(1).forEach(t=>t.cool=100);g.mine();advance(g,.7,{x:1});assert(g.mine());advance(g,.7,{y:-1});assert(!g.mine());assert.equal(g.state,'playing');});
 test('clearing a field advances, respawn preserves partial score, last field wins',()=>{const g=new TankGame();g.start();g.kill(g.tanks[1]);g.kill(g.player);assert.equal(g.score,200);g.retry();assert.equal(g.score,200);assert(!g.tanks[1].alive);for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'clear');g.next();assert.equal(g.level,1);assert.equal(g.state,'playing');g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'won');});
 test('paused simulation does not advance',()=>{const g=new TankGame();const x=g.player.x;g.state='paused';advance(g,2,{x:1,fire:true});assert.equal(g.player.x,x);assert.equal(g.time,0);assert.equal(g.shots.length,0);});
-test('tracks pivot before driving and reverse without spinning around',()=>{const g=new TankGame(),p=g.player,y=p.y;g.move(p,0,-1,1/120);assert.equal(p.y,y);assert(p.angle<0);for(let i=0;i<30;i++)g.move(p,0,-1,1/120);assert(p.y<y);p.angle=0;const x=p.x;g.move(p,-1,0,1/120);assert(Math.abs(p.angle)<1e-8);assert(p.x<x);});
+test('tracks keep moving through turns and reverse without spinning around',()=>{const g=new TankGame(),p=g.player,y=p.y;g.move(p,0,-1,1/120);assert(p.y<y);assert(p.angle<0);for(let i=0;i<30;i++)g.move(p,0,-1,1/120);assert(p.y<y);p.angle=0;const x=p.x;g.move(p,-1,0,1/120);assert(Math.abs(p.angle)<1e-8);assert(p.x<x);});
 test('firing preserves movement; five live shells exhaust the magazine',()=>{const g=new TankGame(),p=g.player;g.start();const x=p.x;g.step(1/120,{x:1,fire:true,aim:0});assert(p.x>x);assert.equal(g.shots.length,1);g.walls=[];g.shots=[];for(let i=0;i<5;i++){p.cool=0;assert(g.shoot(p));}p.cool=0;assert(!g.shoot(p));g.shots.pop();assert(g.shoot(p));});
 test('bank-shot planner reaches a target behind cover using the live projectile geometry',()=>{const g=new TankGame();g.start();const t=g.tanks[1];t.type='sniper';t.x=800;t.y=320;t.cool=100;g.player.x=140;g.player.y=320;assert(!g.clearLine(t,g.player));const plan=g.shotPlan(t);assert(plan);assert(plan.bounce>0);t.aim=plan.angle;t.cool=0;assert(g.shoot(t));t.cool=100;for(let i=0;i<1200&&g.player.alive;i++){g.step(1/120);t.cool=100;}assert(!g.player.alive);});
 test('pits stop tracks but allow shells across',()=>{const g=new TankGame();g.start();g.walls=[];g.pits=[{x:190,y:250,w:50,h:140}];g.tanks[1].cool=100;advance(g,1,{x:1});assert(g.player.x<190-R);g.player.aim=0;g.player.cool=0;g.shoot(g.player);const shot=g.shots[0];advance(g,.5);assert(shot.x>240);});
@@ -76,7 +76,7 @@ test('late enemy slots do not receive an artificial multi-second opening delay',
 test('mine layers begin laying mines during the first second or so',()=>{
  const g=new TankGame(19);g.level=7;g.load();g.start();const miner=g.tanks.find(t=>t.type==='miner');assert(miner);
  const first=miner.mineCool;assert(first>=.65&&first<=1.4);
- g.walls=[];g.pits=[];g.kill=()=>{};for(const t of g.tanks)t.cool=100;
+ g.walls=[];g.pits=[];g.tanks=[g.player,miner];Object.assign(g.player,{x:100,y:100});Object.assign(miner,{x:600,y:400});g.kill=()=>{};for(const t of g.tanks)t.cool=100;
  advance(g,first+.02);assert(g.mines.some(m=>m.owner===miner.id));
 });
 test('gray tanks cannot calculate bank shots around cover, advanced tanks still can',()=>{
@@ -157,4 +157,9 @@ test('a click waits for the turret to reach its aim instead of firing sideways',
  g.tanks.slice(1).forEach(t=>t.cool=100);
  g.step(1/120,{aim:Math.PI,firePressed:true});assert.equal(g.shots.length,0);
  advance(g,.19,{aim:Math.PI});assert.equal(g.shots.length,1);assert(g.shots[0].vx<0);assert(Math.abs(g.shots[0].vy)<5);
+});
+
+test('the firing pose does not halt a tank in motion',()=>{
+ const g=new TankGame();g.walls=[];g.pits=[];const p=g.player;p.x=450;p.y=350;p.angle=0;p.hold=.1;
+ g.move(p,2,0,1/120);assert.equal(p.x,452);
 });

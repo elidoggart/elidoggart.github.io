@@ -71,12 +71,11 @@ export class TankGame{
  retry(){if(this.lives<=0){this.newRun();return;}const survivors=new Set(this.tanks.filter(t=>t.alive&&t.id!==0).map(t=>t.id)),score=this.score,walls=this.walls,wrecks=this.wrecks;this.load();this.score=score;this.walls=walls;this.wrecks=wrecks;for(const t of this.tanks.slice(1))t.alive=survivors.has(t.id);this.player.invulnerable=1.5;this.start();}
  free(x,y,r=R,ignore){return x>=r+12&&x<=W-r-12&&y>=r+12&&y<=H-r-12&&!this.walls.concat(this.pits).some(b=>circleRect(x,y,r,b))&&!this.tanks.some(t=>t!==ignore&&t.alive&&Math.hypot(t.x-x,t.y-y)<r+R);}
  move(t,dx,dy,dt=1/120){
-  if(t.hold>0||(!dx&&!dy))return;
+  if(!dx&&!dy)return;
   const wanted=Math.atan2(dy,dx);let facing=wanted,reverse=false;
   if(Math.abs(delta(t.angle,wanted))>Math.PI/2){facing=wanted+Math.PI;reverse=true;}
   t.angle=turn(t.angle,facing,dt*7);
-  // Pivot before translating: no sliding sideways while the tracks turn.
-  if(Math.abs(delta(t.angle,facing))>.07)return;
+  // Keep driving along the tracks as they turn, producing a continuous arc.
   const distance=Math.hypot(dx,dy)*(reverse?-1:1),mx=Math.cos(t.angle)*distance,my=Math.sin(t.angle)*distance,ox=t.x,oy=t.y;
   if(this.free(t.x+mx,t.y+my,R,t)){t.x+=mx;t.y+=my;}
   else if(Math.abs(mx)>Math.abs(my)&&this.free(t.x+mx,t.y,R,t))t.x+=mx;
