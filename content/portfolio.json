@@ -2506,7 +2506,7 @@
                       {
                         "type": "text",
                         "style": "body",
-                        "text": "In a WPI course, Otis presented our team with an elevator door interlock alignment problem. The goal was to position the interlock relative to the door vane without requiring a technician to ride on top of the elevator car during alignment in order to reduce risk to the technician and time needed for the repair."
+                        "text": "In a WPI course, Otis presented our team with an elevator door interlock alignment problem. The goal was to position the interlock relative to the door vane without requiring a technician to ride on top of the elevator car during alignment in order to reduce risk to the technician and time needed for the repair. The vane must align with the interlock for the door to open, realignment is a common repair need."
                       }
                     ]
                   },
