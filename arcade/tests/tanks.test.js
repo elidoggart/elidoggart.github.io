@@ -128,3 +128,13 @@ test('mine layers avoid allies and escape their own bombs',()=>{
  assert(g.mine(t));const m=g.mines[0];advance(g,2);assert(t.alive);assert(Math.hypot(t.x-m.x,t.y-m.y)>95);
 });
 test('sniper shells keep the shell silhouette while rocket tanks launch rockets',()=>{const g=new TankGame(2);g.walls=[];const t=g.tanks[1];Object.assign(t,{x:600,y:300,aim:Math.PI,cool:0,type:'sniper'});Object.assign(g.player,{x:100,y:300});assert(g.shoot(t));assert(!g.shots[0].rocket);g.shots=[];t.cool=0;t.type='rocket';assert(g.shoot(t));assert(g.shots[0].rocket);});
+
+test('cleared fields automatically advance once after their mission transition',()=>{
+ const g=new TankGame(4);g.start();g.enemy=()=>{};g.kill(g.tanks[1]);g.step(1/120);assert.equal(g.state,'clear');const score=g.score;
+ advance(g,2.9,{fire:true,x:1});assert.equal(g.level,0);assert.equal(g.shots.length,0);
+ advance(g,.12);assert.equal(g.level,1);assert.equal(g.state,'playing');assert.equal(g.score,score);assert.equal(g.lives,3);
+});
+test('paused mission transitions freeze and milestone bonus is awarded once',()=>{
+ const g=new TankGame(4);g.level=4;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);advance(g,1);g.state='paused';const elapsed=g.transitionTime;advance(g,5);assert.equal(g.level,4);assert.equal(g.transitionTime,elapsed);g.state='clear';advance(g,2.1);assert.equal(g.level,5);assert.equal(g.lives,4);
+});
+test('the final field keeps the victory screen instead of advancing past the campaign',()=>{const g=new TankGame(4);g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);advance(g,5);assert.equal(g.state,'won');assert.equal(g.level,99);});
