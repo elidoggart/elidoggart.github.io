@@ -6,7 +6,7 @@ export const GRAVITY_POWER=1.6;
 export const SUN={x:0,y:0,r:140,mu:24_480_000};
 export const PLANETS=[
  {id:'ember',name:'EMBER',orbit:650,r:54,phase:-2.15,tech:'Fusion drive',fleet:'fast',glyph:'↯',crew:3},
- {id:'vesper',name:'VESPER',orbit:1050,r:73,phase:2.2,tech:null,service:true,fleet:null,glyph:'+',crew:0},
+ {id:'vesper',name:'VESPER',orbit:1050,r:73,phase:2.2,tech:null,service:true,fleet:null,glyph:'🔧',crew:0},
  {id:'home',name:'HOME',orbit:1450,r:94,phase:1.76,tech:null,fleet:null,glyph:'⌂',crew:0},
  {id:'rust',name:'RUST',orbit:2050,r:83,phase:.25,tech:'Radiation shield',fleet:'shield',glyph:'◇',crew:3},
  {id:'frost',name:'FROST',orbit:2700,r:106,phase:3.05,tech:'Stellar navigation',fleet:'smart',glyph:'⌖',crew:3}
@@ -121,12 +121,37 @@ export class Mission{
   boundaryPull(s,dt);if(Math.hypot(s.x,s.y)>6500)this.rescue('Beyond recovery range.');
   if(!s.trail.length||distance(s,s.trail.at(-1))>16)s.trail.push({x:s.x,y:s.y});if(s.trail.length>38)s.trail.shift();
  }
- updateEnemies(dt){const s=this.ship;for(const e of this.enemies){if(e.dead)continue;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;continue;}const p=this.planets.find(p=>p.id===e.home);e.age+=dt;e.cooldown-=dt;e.shield=e.type==='shield';const ds=distance(e,s),nearHome=distance(s,this.home)<this.home.r+340;const homeDistance=distance(e,p);if(homeDistance>p.r+400)e.returning=true;else if(homeDistance<p.r+260)e.returning=false;e.alert=!e.returning&&!s.docked&&!nearHome&&distance(s,p)<p.r+450&&p.flag!=='delivered';
+ // Predict relative motion so patrols steer around moving rocks as well as planets.
+ avoidObstacles(e,vx,vy,obstacles){
+  let threat=null;
+  for(const o of obstacles){const rx=e.x-o.x,ry=e.y-o.y,dx=vx-(o.vx||0),dy=vy-(o.vy||0),speed2=dx*dx+dy*dy;
+   const time=clamp(-(rx*dx+ry*dy)/Math.max(1,speed2),0,1.6),gap=Math.hypot(rx+dx*time,ry+dy*time),safe=e.r+o.r+45;
+   if(gap<safe&&(!threat||time<threat.time))threat={o,time,safe};
+  }
+  if(!threat)return {vx,vy};
+  const {o,safe}=threat,rx=e.x-o.x,ry=e.y-o.y,d=Math.hypot(rx,ry)||1,nx=rx/d,ny=ry/d,rvx=vx-(o.vx||0),rvy=vy-(o.vy||0);
+  const cross=nx*rvy-ny*rvx,side=Math.abs(cross)>5?Math.sign(cross):(e.slot%2?1:-1),speed=Math.max(100,Math.hypot(rvx,rvy));
+  const outward=Math.max(0,(safe-d)*3);
+  return {vx:(o.vx||0)-ny*side*speed+nx*outward,vy:(o.vy||0)+nx*side*speed+ny*outward};
+ }
+ resolveEnemyObstacles(e,start,obstacles){
+  // Swept circles catch crossings even when a fast mover finishes beyond the obstacle.
+  for(let pass=0;pass<4;pass++){let contact=false;
+   for(const o of obstacles){const ox=pass?o.x:(o.collisionX??o.x),oy=pass?o.y:(o.collisionY??o.y),r=e.r+o.r+1;
+    const rx=start.x-ox,ry=start.y-oy,dx=(e.x-start.x)-(o.x-ox),dy=(e.y-start.y)-(o.y-oy),a=dx*dx+dy*dy,b=2*(rx*dx+ry*dy),c=rx*rx+ry*ry-r*r,disc=b*b-4*a*c;
+    let time=null;if(c>0&&a>1e-12&&disc>=0){const hit=(-b-Math.sqrt(disc))/(2*a);if(hit>=0&&hit<=1)time=hit;}
+    if(time===null&&Math.hypot(e.x-o.x,e.y-o.y)>=r)continue;
+    let nx=time===null?e.x-o.x:rx+dx*time,ny=time===null?e.y-o.y:ry+dy*time;const length=Math.hypot(nx,ny);if(length){nx/=length;ny/=length;}else{nx=1;ny=0;}
+    e.x=o.x+nx*(r+.01);e.y=o.y+ny*(r+.01);const inward=Math.min(0,(e.vx-(o.vx||0))*nx+(e.vy-(o.vy||0))*ny);e.vx-=inward*nx;e.vy-=inward*ny;contact=true;
+   }if(!contact)break;start={x:e.x,y:e.y};
+  }
+ }
+ updateEnemies(dt){const s=this.ship,obstacles=[...this.planets,...this.rocks.filter(r=>!r.dead)];for(const e of this.enemies){if(e.dead)continue;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;continue;}const start={x:e.x,y:e.y},p=this.planets.find(p=>p.id===e.home);e.age+=dt;e.cooldown-=dt;e.shield=e.type==='shield';const ds=distance(e,s),nearHome=distance(s,this.home)<this.home.r+340;const homeDistance=distance(e,p);if(homeDistance>p.r+400)e.returning=true;else if(homeDistance<p.r+260)e.returning=false;e.alert=!e.returning&&!s.docked&&!nearHome&&distance(s,p)<p.r+450&&p.flag!=='delivered';
    let tx,ty,baseVx=p.vx,baseVy=p.vy,maxSpeed=e.type==='fast'?205:e.type==='smart'?130:100;
    if(e.alert){if(e.type==='smart'){const look=Math.min(1.7,ds/330),side=(e.slot-1)*140,baseAngle=Math.atan2(s.y-p.y,s.x-p.x);tx=s.x+s.vx*look+Math.cos(baseAngle+Math.PI/2)*side;ty=s.y+s.vy*look+Math.sin(baseAngle+Math.PI/2)*side;}else{tx=s.x;ty=s.y;}if(e.type==='fast')maxSpeed=((e.age+e.phase)%3.7)<1.1?300:150;}
    else {const a=e.phase+this.time*.16+e.slot*TAU/3,rad=p.r+220;tx=p.x+Math.cos(a)*rad;ty=p.y+Math.sin(a)*rad;maxSpeed=85;}
-   if(e.alert&&ds<180){const away=Math.atan2(e.y-s.y,e.x-s.x);tx=s.x+Math.cos(away)*180;ty=s.y+Math.sin(away)*180;}const targetDistance=Math.hypot(tx-p.x,ty-p.y),patrolLimit=p.r+300;if(targetDistance>patrolLimit){tx=p.x+(tx-p.x)*patrolLimit/targetDistance;ty=p.y+(ty-p.y)*patrolLimit/targetDistance;}const dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),desired=Math.min(maxSpeed,d*1.2),turn=e.type==='fast'?1.2:1.8,g=this.gravity(e);e.vx+=g.x*dt;e.vy+=g.y*dt;const targetVx=baseVx+dx/Math.max(1,d)*desired,targetVy=baseVy+dy/Math.max(1,d)*desired,blend=1-Math.exp(-turn*dt);e.vx+=(targetVx-e.vx)*blend;e.vy+=(targetVy-e.vy)*blend;const heading=e.alert?Math.atan2(s.y-e.y,s.x-e.x):Math.atan2(e.vy-p.vy,e.vx-p.vx);e.a+=clamp(angleDelta(heading,e.a),-1.5*dt,1.5*dt);e.x+=e.vx*dt;e.y+=e.vy*dt;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;this.burst(e.x,e.y,8,true);continue;}
-   const pd=distance(e,p);if(pd>p.r+470){const nx=(e.x-p.x)/pd,ny=(e.y-p.y)/pd;e.x=p.x+nx*(p.r+470);e.y=p.y+ny*(p.r+470);const outward=Math.max(0,(e.vx-p.vx)*nx+(e.vy-p.vy)*ny);e.vx-=outward*nx;e.vy-=outward*ny;e.returning=true;e.alert=false;}if(pd<p.r+42){const a=Math.atan2(e.y-p.y,e.x-p.x);e.x=p.x+Math.cos(a)*(p.r+43);e.y=p.y+Math.sin(a)*(p.r+43);}
+   if(e.alert&&ds<180){const away=Math.atan2(e.y-s.y,e.x-s.x);tx=s.x+Math.cos(away)*180;ty=s.y+Math.sin(away)*180;}const targetDistance=Math.hypot(tx-p.x,ty-p.y),patrolLimit=p.r+300;if(targetDistance>patrolLimit){tx=p.x+(tx-p.x)*patrolLimit/targetDistance;ty=p.y+(ty-p.y)*patrolLimit/targetDistance;}const dx=tx-e.x,dy=ty-e.y,d=Math.hypot(dx,dy),desired=Math.min(maxSpeed,d*1.2),turn=e.type==='fast'?1.2:1.8,g=this.gravity(e);e.vx+=g.x*dt;e.vy+=g.y*dt;const steering=this.avoidObstacles(e,baseVx+dx/Math.max(1,d)*desired,baseVy+dy/Math.max(1,d)*desired,obstacles),targetVx=steering.vx,targetVy=steering.vy,blend=1-Math.exp(-turn*dt);e.vx+=(targetVx-e.vx)*blend;e.vy+=(targetVy-e.vy)*blend;const heading=e.alert?Math.atan2(s.y-e.y,s.x-e.x):Math.atan2(e.vy-p.vy,e.vx-p.vx);e.a+=clamp(angleDelta(heading,e.a),-1.5*dt,1.5*dt);e.x+=e.vx*dt;e.y+=e.vy*dt;if(Math.hypot(e.x,e.y)<=SUN.r+e.r){e.dead=true;this.burst(e.x,e.y,8,true);continue;}
+   const pd=distance(e,p);if(pd>p.r+470){const nx=(e.x-p.x)/pd,ny=(e.y-p.y)/pd;e.x=p.x+nx*(p.r+470);e.y=p.y+ny*(p.r+470);const outward=Math.max(0,(e.vx-p.vx)*nx+(e.vy-p.vy)*ny);e.vx-=outward*nx;e.vy-=outward*ny;e.returning=true;e.alert=false;}this.resolveEnemyObstacles(e,start,obstacles);
    e.aim=null;if(e.alert&&ds<680){const lead=e.type==='smart'?Math.min(1.6,ds/330):0;const aim={x:s.x+(s.vx-e.vx)*lead,y:s.y+(s.vy-e.vy)*lead};if(e.type==='smart'&&e.cooldown<.75)e.aim=aim;if(e.cooldown<=0){const angle=Math.atan2(aim.y-e.y,aim.x-e.x);this.fire(e.x,e.y,angle,e.vx,e.vy,true,e.type==='smart');e.cooldown=((e.type==='smart'?3.6:e.type==='fast'?3.8:4.4)+this.random()*.8)*this.difficulty.fireInterval;}}
    if(!s.docked&&distance(e,s)<e.r+s.r){this.damage('Alien collision');e.dead=true;this.kills++;this.score+=SPACE_POINTS.enemy;this.burst(e.x,e.y,20,true);}
   }
@@ -139,5 +164,5 @@ export class Mission{
    }
   }this.shots=this.shots.filter(b=>!b.dead);if(this.shots.length>180)this.shots.splice(0,this.shots.length-180);
  }
- step(dt,input={}){if(this.state!=='playing')return;dt=clamp(dt,0,.05);this.time+=dt;for(const p of this.planets)Object.assign(p,orbitPosition(p,this.time));this.updateShip(dt,input);if(this.state==='playing'){this.updateEnemies(dt);this.updateRocks(dt);this.updateShots(dt);}for(const p of this.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;}this.particles=this.particles.filter(p=>p.life>0);}
+ step(dt,input={}){if(this.state!=='playing')return;dt=clamp(dt,0,.05);this.time+=dt;for(const o of [...this.planets,...this.rocks]){o.collisionX=o.x;o.collisionY=o.y;}for(const p of this.planets)Object.assign(p,orbitPosition(p,this.time));this.updateShip(dt,input);if(this.state==='playing'){this.updateRocks(dt);this.updateEnemies(dt);this.updateShots(dt);}for(const p of this.particles){p.life-=dt;p.x+=p.vx*dt;p.y+=p.vy*dt;}this.particles=this.particles.filter(p=>p.life>0);}
 }
