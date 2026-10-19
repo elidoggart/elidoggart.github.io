@@ -61,13 +61,13 @@ export function traceShot(x,y,angle,walls,bounces=1,maxDistance=2400){
 function targetOnRay(segments,target,r=R){let distance=0;for(const s of segments){const dx=s.ex-s.x,dy=s.ey-s.y,l=s.length;if(l<.001)continue;const along=((target.x-s.x)*dx+(target.y-s.y)*dy)/l;if(along>=0&&along<=l&&Math.abs((target.x-s.x)*dy-(target.y-s.y)*dx)/l<r)return{distance:distance+along,bounce:s.bounce};distance+=l;}return null;}
 export class TankGame{
  constructor(seed=Date.now()){this.seed=seed>>>0;this.levels=createCampaign(this.seed);this.level=0;this.lives=3;this.score=0;this.time=0;this.state='ready';this.load();}
- load(){const l=this.levels[this.level];this.layout=l.layout;this.grid={cols:l.cols,rows:l.rows};this.walls=l.walls.map(b=>({...b}));this.pits=(l.pits||[]).map(b=>({...b}));this.player=tank(...l.player,'player',0);this.player.mineCool=0;this.tanks=[this.player,...l.enemies.map(([x,y,type],i)=>tank(x,y,type,i+1))];this.shots=[];this.mines=[];this.effects=[];this.tracks=[];this.wrecks=[];this.levelScore=this.score;this.time=0;this.aiSeed=(this.seed^Math.imul(this.level+1,2654435761))>>>0;
+ load(){const l=this.levels[this.level];this.layout=l.layout;this.grid={cols:l.cols,rows:l.rows};this.walls=l.walls.map(b=>({...b}));this.pits=(l.pits||[]).map(b=>({...b}));this.player=tank(...l.player,'player',0);this.player.mineCool=0;this.tanks=[this.player,...l.enemies.map(([x,y,type],i)=>tank(x,y,type,i+1))];this.shots=[];this.mines=[];this.effects=[];this.tracks=[];this.wrecks=[];this.death=null;this.respawnTime=0;this.levelScore=this.score;this.time=0;this.aiSeed=(this.seed^Math.imul(this.level+1,2654435761))>>>0;
   for(const t of this.tanks.slice(1)){const timing=AI_TIMING[t.type];t.cool=this.interval(timing.open);t.mineCool=timing.mineOpen?this.interval(timing.mineOpen):0;t.planTimer=this.interval([0,.15]);}
  }
  start(){this.state='playing';}
  next(){if(this.level===LEVELS.length-1){this.state='won';return;}this.level++;if(this.level%5===0)this.lives++;this.load();this.start();}
  newRun(){this.seed=(this.seed+1)>>>0;this.levels=createCampaign(this.seed);this.level=0;this.lives=3;this.score=0;this.load();this.start();}
- retry(){if(this.lives<=0){this.newRun();return;}this.score=this.levelScore;this.load();this.start();}
+ retry(){if(this.lives<=0){this.newRun();return;}const survivors=new Set(this.tanks.filter(t=>t.alive&&t.id!==0).map(t=>t.id)),score=this.score,walls=this.walls,wrecks=this.wrecks;this.load();this.score=score;this.walls=walls;this.wrecks=wrecks;for(const t of this.tanks.slice(1))t.alive=survivors.has(t.id);this.player.invulnerable=1.5;this.start();}
  free(x,y,r=R,ignore){return x>=r+12&&x<=W-r-12&&y>=r+12&&y<=H-r-12&&!this.walls.concat(this.pits).some(b=>circleRect(x,y,r,b))&&!this.tanks.some(t=>t!==ignore&&t.alive&&Math.hypot(t.x-x,t.y-y)<r+R);}
  move(t,dx,dy,dt=1/120){
   if(t.hold>0||(!dx&&!dy))return;
@@ -85,19 +85,37 @@ export class TankGame{
  clearLine(a,b){const d=dist(a,b);return !d||wallHit(a.x,a.y,(b.x-a.x)/d,(b.y-a.y)/d,this.walls,d).distance>=d-.001;}
  shoot(t){
   if(!t.alive||t.cool>0)return false;const player=t===this.player,kind=TYPES[t.type];if(this.shots.filter(s=>s.alive&&s.owner===t.id).length>=(player?5:kind.ammo))return false;
+  if(!player&&!this.safeShot(t,t.aim))return false;
   const c=Math.cos(t.aim),s=Math.sin(t.aim),muzzle=37,hit=wallHit(t.x,t.y,c,s,this.walls,muzzle);
   if(hit.hit){t.cool=.12;this.spark(t.x+c*hit.distance,t.y+s*hit.distance);return false;}
   t.cool=player?.16:this.interval(AI_TIMING[t.type].shot);t.aimReady=0;t.hold=.10;const speed=player?SHELL_SPEED:kind.shot;
-  this.shots.push({x:t.x+c*muzzle,y:t.y+s*muzzle,vx:c*speed,vy:s*speed,owner:t.id,bounces:player?1:kind.bounces,age:0,alive:true,rocket:!player&&kind.shot>SHELL_SPEED,trail:[]});return true;
+  this.shots.push({x:t.x+c*muzzle,y:t.y+s*muzzle,vx:c*speed,vy:s*speed,owner:t.id,bounces:player?1:kind.bounces,age:0,alive:true,rocket:!player&&['rocket','elite'].includes(t.type),trail:[],path:[{x:t.x,y:t.y},{x:t.x+c*muzzle,y:t.y+s*muzzle}]});return true;
  }
  mine(t=this.player){
   const max=t===this.player?2:TYPES[t.type].mines||0;
   if(this.state!=='playing'||!t.alive||t.mineCool>0||this.mines.filter(m=>m.alive&&m.owner===t.id).length>=max)return false;
+  if(t!==this.player&&!this.safeMine(t))return false;
   this.mines.push({x:t.x,y:t.y,age:0,owner:t.id,alive:true,warning:null});t.mineCool=t===this.player?.45:this.interval(AI_TIMING[t.type].mine);t.hold=.16;return true;
  }
  spark(x,y,big=false){this.effects.push({x,y,age:0,big});}
- kill(t){if(!t.alive)return;t.alive=false;this.wrecks.push({x:t.x,y:t.y});this.spark(t.x,t.y,true);if(t===this.player){this.lives--;this.state='dead';}else this.score+=TANK_POINTS[t.type];}
- explode(m){if(!m.alive)return;m.alive=false;this.spark(m.x,m.y,true);for(const t of this.tanks)if(t.alive&&dist(t,m)<BLAST_RADIUS)this.kill(t);this.walls=this.walls.filter(w=>!w.soft||!circleRect(m.x,m.y,BLAST_RADIUS,w));for(const other of this.mines)if(other.alive&&dist(other,m)<BLAST_RADIUS)this.explode(other);for(const s of this.shots)if(dist(s,m)<BLAST_RADIUS)s.alive=false;}
+ kill(t,source=null){if(!t.alive||(t===this.player&&t.invulnerable>0))return;t.alive=false;this.wrecks.push({x:t.x,y:t.y});this.spark(t.x,t.y,true);if(t===this.player){this.lives--;this.state='replay';this.respawnTime=2.6;const attacker=this.tanks.find(a=>a.id===source?.owner);this.death={attacker:attacker?{...attacker}:null,path:source?.path?[...source.path,{x:source.x,y:source.y}]:[],impact:{x:t.x,y:t.y},mine:source&&!source.path?{x:source.x,y:source.y}:null};}else this.score+=TANK_POINTS[t.type];}
+ explode(m){if(!m.alive)return;m.alive=false;this.spark(m.x,m.y,true);for(const t of this.tanks)if(t.alive&&dist(t,m)<BLAST_RADIUS)this.kill(t,m);this.walls=this.walls.filter(w=>!w.soft||!circleRect(m.x,m.y,BLAST_RADIUS,w));for(const other of this.mines)if(other.alive&&dist(other,m)<BLAST_RADIUS)this.explode(other);for(const s of this.shots)if(dist(s,m)<BLAST_RADIUS)s.alive=false;}
+ safeShot(t,angle){
+  const kind=TYPES[t.type],c=Math.cos(angle),s=Math.sin(angle),segments=traceShot(t.x+c*37,t.y+s*37,angle,this.walls,kind.bounces);
+  const target=targetOnRay(segments,this.player,R+3),limit=target?.distance??Infinity;
+  for(const ally of this.tanks){if(!ally.alive||ally===this.player)continue;const hit=targetOnRay(segments,ally,R+14);if(hit&&hit.distance<limit)return false;}
+  for(const m of this.mines){const hit=m.alive&&targetOnRay(segments,m,18);if(hit&&hit.distance<limit&&this.tanks.some(a=>a.alive&&a!==this.player&&dist(a,m)<BLAST_RADIUS+R))return false;}
+  return true;
+ }
+ escapeMine(t,m){
+  let best=null;
+  for(let i=0;i<24;i++){const angle=i*Math.PI/12,dx=Math.cos(angle),dy=Math.sin(angle);let safe=true;
+   for(let d=12;d<=140;d+=12)if(!this.free(t.x+dx*d,t.y+dy*d,R,t)){safe=false;break;}
+   const end={x:t.x+dx*140,y:t.y+dy*140},gain=dist(end,m)-dist(t,m);
+   if(safe&&gain>0&&(!best||gain>best.gain))best={x:dx,y:dy,gain};
+  }return best;
+ }
+ safeMine(t){return !this.tanks.some(a=>a.alive&&a!==t&&a!==this.player&&dist(a,t)<BLAST_RADIUS+45)&&!this.mines.some(m=>m.alive&&dist(m,t)<BLAST_RADIUS*2)&&!!this.escapeMine(t,t);}
  interval([min,max]){return min+(max-min)*this.random();}
  random(){this.aiSeed=(Math.imul(this.aiSeed,1664525)+1013904223)>>>0;return this.aiSeed/4294967296;}
  waypoint(t,target=this.player){
@@ -117,7 +135,7 @@ export class TankGame{
    if(kind.bounces>1)for(const f of faces.slice(0,4))for(const g of faces){const q=mirror(mirror(p,g),f);angles.push(Math.atan2(q.y-t.y,q.x-t.x));}
   }
   let best=null;
-  for(const angle of angles){const c=Math.cos(angle),s=Math.sin(angle);if(wallHit(t.x,t.y,c,s,this.walls,37).hit)continue;const hit=targetOnRay(traceShot(t.x+c*37,t.y+s*37,angle,this.walls,kind.bounces),p,R*.75);if(!hit)continue;
+  for(const angle of angles){const c=Math.cos(angle),s=Math.sin(angle);if(wallHit(t.x,t.y,c,s,this.walls,37).hit)continue;const hit=targetOnRay(traceShot(t.x+c*37,t.y+s*37,angle,this.walls,kind.bounces),p,R*.75);if(!hit||!this.safeShot(t,angle))continue;
    const cost=hit.distance+(t.type==='sniper'&&hit.bounce===0?2500:hit.bounce*80);
    if(!best||cost<best.cost)best={angle,cost,bounce:hit.bounce};
   }return best;
@@ -166,18 +184,19 @@ export class TankGame{
      if(t.dodgeVector){ax=t.dodgeVector.x;ay=t.dodgeVector.y;}
     }else for(const s of this.shots){const speed=Math.hypot(s.vx,s.vy),rx=t.x-s.x,ry=t.y-s.y,toward=(rx*s.vx+ry*s.vy)/speed,cross=(rx*s.vy-ry*s.vx)/speed;if(toward>0&&toward<115&&Math.abs(cross)<R+10){ax=s.vy*Math.sign(cross||1);ay=-s.vx*Math.sign(cross||1);break;}}
    }
-   for(const m of this.mines)if(m.alive&&(!kind.roam||m.owner!==0)&&dist(t,m)<125){ax=t.x-m.x;ay=t.y-m.y;break;}
+   let escaping=false;for(const m of this.mines)if(m.alive&&dist(t,m)<BLAST_RADIUS+45){const escape=this.escapeMine(t,m);ax=escape?.x??t.x-m.x;ay=escape?.y??t.y-m.y;escaping=true;break;}t.escaping=escaping;
    if(kind.mines&&t.type!=='miner'&&t.mineCool<=0&&d<330)this.mine(t);
    const n=Math.hypot(ax,ay);if(n)this.move(t,ax/n*kind.speed*dt,ay/n*kind.speed*dt,dt);
   }
   // A newly acquired line needs a short stable aim; small tracking updates keep progress.
   if(t.plan&&Math.abs(delta(t.aim,aim))<.055)t.aimReady+=dt;else t.aimReady=0;
-  if(t.aimReady>=timing.settle)this.shoot(t);
+  if(t.aimReady>=timing.settle&&!t.escaping)this.shoot(t);
  }
  step(dt,input={}){
   if(this.state==='paused'||this.state==='ready')return;
   for(const e of this.effects)e.age+=dt;this.effects=this.effects.filter(e=>e.age<.65);
-  if(this.state!=='playing')return;this.time+=dt;
+  if(this.state==='replay'){this.respawnTime-=dt;if(this.respawnTime<=0){if(this.lives>0)this.retry();else this.state='dead';}return;}
+  if(this.state!=='playing')return;this.time+=dt;this.player.invulnerable=Math.max(0,(this.player.invulnerable||0)-dt);
   for(const t of this.tracks)t.life-=dt;this.tracks=this.tracks.filter(t=>t.life>0).slice(-1600);
   for(const t of this.tanks){t.cool=Math.max(0,t.cool-dt);t.mineCool=Math.max(0,t.mineCool-dt);t.hold=Math.max(0,t.hold-dt);}
   const p=this.player;let dx=input.x||0,dy=input.y||0;const norm=Math.hypot(dx,dy);if(norm>1){dx/=norm;dy/=norm;}
@@ -190,10 +209,10 @@ export class TankGame{
    for(let j=0;j<4&&remaining>0&&s.alive;j++){
     const dx=s.vx/speed,dy=s.vy/speed,hit=wallHit(s.x,s.y,dx,dy,this.walls,remaining);
     s.x+=dx*hit.distance;s.y+=dy*hit.distance;remaining-=hit.distance;
-    if(!hit.hit)break;this.spark(s.x,s.y);if(s.bounces--<=0){s.alive=false;break;}if(hit.nx)s.vx=-s.vx;if(hit.ny)s.vy=-s.vy;s.x+=s.vx/speed*.001;s.y+=s.vy/speed*.001;
+    if(!hit.hit)break;s.path?.push({x:s.x,y:s.y});this.spark(s.x,s.y);if(s.bounces--<=0){s.alive=false;break;}if(hit.nx)s.vx=-s.vx;if(hit.ny)s.vy=-s.vy;s.x+=s.vx/speed*.001;s.y+=s.vy/speed*.001;
    }
    if(!s.alive)continue;
-   for(const t of this.tanks)if(t.alive&&(t.id!==s.owner||s.age>.12)&&dist(t,s)<R+3){this.kill(t);s.alive=false;break;}
+   for(const t of this.tanks)if(t.alive&&(t.id!==s.owner||s.age>.12)&&dist(t,s)<R+3){this.kill(t,s);s.alive=false;break;}
    if(s.age>12)s.alive=false;
   }
   for(let i=0;i<this.shots.length;i++)for(let j=i+1;j<this.shots.length;j++){const a=this.shots[i],b=this.shots[j];if(a.alive&&b.alive&&dist(a,b)<10){a.alive=b.alive=false;this.spark(a.x,a.y);}}

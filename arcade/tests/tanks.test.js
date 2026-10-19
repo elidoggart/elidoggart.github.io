@@ -5,9 +5,9 @@ const advance=(g,seconds,input={})=>{for(let i=0;i<seconds*120;i++)g.step(1/120,
 test('all 100 missions spawn tanks clear of cover and each other',()=>{const g=new TankGame();for(let i=0;i<LEVELS.length;i++){g.level=i;g.load();for(const t of g.tanks)assert(g.free(t.x,t.y,R,t),`field ${i+1} tank ${t.id}`);}});
 test('WASD movement slides along cover and cannot cross arena boundary',()=>{const g=new TankGame();g.tanks=[g.player];g.walls=[{x:200,y:100,w:60,h:440}];g.start();g.tanks.push({id:9,alive:true,x:900,y:500,type:'sentry',cool:100,mineCool:0,aim:0});advance(g,2,{x:1});assert(g.player.x<=183);advance(g,4,{x:-1});assert(g.player.x>=29);});
 test('shell bounces once, then is removed at next wall',()=>{const g=new TankGame();g.walls=[];g.start();g.player.cool=0;g.player.aim=-Math.PI/2;assert(g.shoot(g.player));const s=g.shots[0];g.tanks.slice(1).forEach(t=>t.cool=100);advance(g,1.1);assert(s.vy>0);assert.equal(s.bounces,0);advance(g,2.2);assert(!g.shots.includes(s));});
-test('mine arms, destroys nearby tanks and marked cover, and costs a life',()=>{const g=new TankGame();g.start();g.walls=[{x:180,y:300,w:25,h:40,soft:true}];assert(g.mine());advance(g,1);assert.equal(g.state,'playing');assert(g.mines[0].warning>0);advance(g,.65);assert.equal(g.state,'dead');assert.equal(g.lives,2);assert.equal(g.walls.length,0);});
+test('mine arms, destroys nearby tanks and marked cover, and costs a life',()=>{const g=new TankGame();g.start();g.walls=[{x:180,y:300,w:25,h:40,soft:true}];assert(g.mine());advance(g,1);assert.equal(g.state,'playing');assert(g.mines[0].warning>0);advance(g,.65);assert.equal(g.state,'replay');assert.equal(g.lives,2);assert.equal(g.walls.length,0);});
 test('mines can be escaped and maximum two are active',()=>{const g=new TankGame();g.start();g.tanks.slice(1).forEach(t=>t.cool=100);g.mine();advance(g,.7,{x:1});assert(g.mine());advance(g,.7,{y:-1});assert(!g.mine());assert.equal(g.state,'playing');});
-test('clearing a field advances, retry resets partial score, last field wins',()=>{const g=new TankGame();g.start();g.kill(g.tanks[1]);g.kill(g.player);assert.equal(g.score,200);g.retry();assert.equal(g.score,0);for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'clear');g.next();assert.equal(g.level,1);assert.equal(g.state,'playing');g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'won');});
+test('clearing a field advances, respawn preserves partial score, last field wins',()=>{const g=new TankGame();g.start();g.kill(g.tanks[1]);g.kill(g.player);assert.equal(g.score,200);g.retry();assert.equal(g.score,200);assert(!g.tanks[1].alive);for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'clear');g.next();assert.equal(g.level,1);assert.equal(g.state,'playing');g.level=99;g.load();g.start();for(const t of g.tanks.slice(1))g.kill(t);g.step(1/120);assert.equal(g.state,'won');});
 test('paused simulation does not advance',()=>{const g=new TankGame();const x=g.player.x;g.state='paused';advance(g,2,{x:1,fire:true});assert.equal(g.player.x,x);assert.equal(g.time,0);assert.equal(g.shots.length,0);});
 test('tracks pivot before driving and reverse without spinning around',()=>{const g=new TankGame(),p=g.player,y=p.y;g.move(p,0,-1,1/120);assert.equal(p.y,y);assert(p.angle<0);for(let i=0;i<30;i++)g.move(p,0,-1,1/120);assert(p.y<y);p.angle=0;const x=p.x;g.move(p,-1,0,1/120);assert(Math.abs(p.angle)<1e-8);assert(p.x<x);});
 test('a shot briefly stops movement; five live shells exhaust the magazine',()=>{const g=new TankGame(),p=g.player;g.start();const x=p.x;g.step(1/120,{x:1,fire:true,aim:0});assert.equal(p.x,x);assert.equal(g.shots.length,1);g.walls=[];g.shots=[];for(let i=0;i<5;i++){p.cool=0;assert(g.shoot(p));}p.cool=0;assert(!g.shoot(p));g.shots.pop();assert(g.shoot(p));});
@@ -104,3 +104,27 @@ test('mission one can be cleared by one genuine bottom-boundary ricochet',()=>{
  assert.equal(shell.bounces,0);assert.equal(target.alive,false);assert.equal(g.state,'clear');
  assert(g.levels[0].playHeight<H);assert.equal(g.levels[99].playHeight,H);
 });
+
+test('death records a ricochet path and automatically returns with progress intact',()=>{
+ const g=new TankGame(1);g.level=2;g.load();g.start();g.enemy=()=>{};
+ const victim=g.tanks[1],attacker=g.tanks[2];g.kill(victim);const score=g.score;
+ g.walls=[];const path=[{x:attacker.x,y:attacker.y},{x:16,y:100}];
+ g.kill(g.player,{owner:attacker.id,x:g.player.x,y:g.player.y,path});
+ assert.equal(g.state,'replay');assert.equal(g.death.attacker.id,attacker.id);assert.equal(g.death.path.length,3);
+ advance(g,2);assert.equal(g.state,'replay');advance(g,.61);assert.equal(g.state,'playing');
+ assert.equal(g.lives,2);assert.equal(g.score,score);assert(!g.tanks[1].alive);assert(g.tanks[2].alive);assert.equal(g.walls.length,0);
+ assert(g.player.invulnerable>0);g.kill(g.player);assert(g.player.alive);
+});
+test('last life shows the hit before the run-over screen',()=>{const g=new TankGame(2);g.start();g.lives=1;g.kill(g.player);assert.equal(g.state,'replay');advance(g,2.7);assert.equal(g.state,'dead');assert.equal(g.lives,0);});
+test('enemy holds fire when an ally crosses a previously clear shot',()=>{
+ const g=new TankGame(2);g.walls=[];g.pits=[];const t=g.tanks[1];Object.assign(t,{x:600,y:300,aim:Math.PI,cool:0});Object.assign(g.player,{x:100,y:300});
+ assert(g.safeShot(t,t.aim));g.tanks.push({...t,id:9,x:350});assert(!g.safeShot(t,t.aim));assert(!g.shoot(t));
+ g.tanks[2].y=400;assert(g.shoot(t));
+});
+test('mine layers avoid allies and escape their own bombs',()=>{
+ const g=new TankGame(2);g.walls=[];g.pits=[];g.start();g.player.x=850;g.player.y=600;
+ const t=g.tanks[1];Object.assign(t,{type:'miner',x:400,y:300,angle:0,cool:100,mineCool:0});
+ const ally={...t,id:9,x:450,type:'sentry'};g.tanks.push(ally);assert(!g.mine(t));ally.alive=false;
+ assert(g.mine(t));const m=g.mines[0];advance(g,2);assert(t.alive);assert(Math.hypot(t.x-m.x,t.y-m.y)>95);
+});
+test('sniper shells keep the shell silhouette while rocket tanks launch rockets',()=>{const g=new TankGame(2);g.walls=[];const t=g.tanks[1];Object.assign(t,{x:600,y:300,aim:Math.PI,cool:0,type:'sniper'});Object.assign(g.player,{x:100,y:300});assert(g.shoot(t));assert(!g.shots[0].rocket);g.shots=[];t.cool=0;t.type='rocket';assert(g.shoot(t));assert(g.shots[0].rocket);});

@@ -7,7 +7,7 @@ import {readTankScores,saveTankScore} from '../tanks-scores.js';
 test('every enemy type has distinct points and destruction cannot pay twice',()=>{
  assert.deepEqual(Object.keys(TANK_POINTS).sort(),Object.keys(TYPES).sort());
  assert.equal(new Set(Object.values(TANK_POINTS)).size,9);
- for(const [type,points] of Object.entries(TANK_POINTS)){const g=new TankGame(42);g.start();const enemy=g.tanks[1];enemy.type=type;g.kill(enemy);g.kill(enemy);assert.equal(g.score,points);g.kill(g.player);assert.equal(g.score,points);g.retry();assert.equal(g.score,0);}
+ for(const [type,points] of Object.entries(TANK_POINTS)){const g=new TankGame(42);g.start();const enemy=g.tanks[1];enemy.type=type;g.kill(enemy);g.kill(enemy);assert.equal(g.score,points);g.kill(g.player);assert.equal(g.score,points);g.retry();assert.equal(g.score,points);assert(!g.tanks[1].alive);}
 });
 test('representative tank and space runs land near ten thousand',()=>{
  const points=levels=>LEVELS.slice(0,levels).flatMap(l=>l.enemies).reduce((sum,e)=>sum+TANK_POINTS[e[2]],0);
