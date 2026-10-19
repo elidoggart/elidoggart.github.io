@@ -1,6 +1,6 @@
 // Instrument activation facts: https://nintendo.fandom.com/wiki/Tanks!#Audio
-// Traditional public-domain melody: The British Grenadiers. New synthesized arrangement.
-// Melody reference: John Chambers, British_Grenadiers_16G (see README).
+// Original jaunty fife march, with adaptive percussion and accompaniment.
+// The legacy piccolo bus name is retained for instrument-layer compatibility.
 const RANK={sentry:1,patrol:2,rocket:3,hunter:4,miner:5,warrior:6,sniper:7,stealth:8,elite:9};
 const TABLE={
  1:[[1,'snare']],
@@ -22,29 +22,30 @@ export function musicLayers(tanks){
  return ['piccolo',...parts.split(' ')];
 }
 const PARTS=['piccolo','snare','metronome','timpaniA','cymbals','timpaniB','bassDrum','tuba','bells','synth'];
-const EIGHTH=60/112/2;
-// Sixteen bars in G, with the pickup placed at the end for seamless repeats.
-// Each pair is MIDI pitch and duration in eighth notes. Zero slots sustain.
+export const TEMPO=140;
+const EIGHTH=60/TEMPO/2;
+// Sixteen bars in G: a short, bouncy call followed by an answering phrase.
+// Each pair is MIDI pitch and duration in eighth notes; null slots sustain.
 const BARS=[
- [[79,2],[74,2],[79,2],[81,2]],
- [[83,2],[84,1],[83,1],[81,2],[83,1],[84,1]],
- [[86,2],[79,2],[83,1],[81,1],[79,1],[78,1]],
- [[79,6],[74,2]],
- [[79,2],[74,2],[79,2],[81,2]],
- [[83,2],[84,1],[83,1],[81,2],[83,1],[84,1]],
- [[86,2],[79,2],[83,1],[81,1],[79,1],[78,1]],
- [[79,6],[83,1],[84,1]],
- [[86,3],[88,1],[86,2],[84,2]],
- [[83,2],[84,2],[86,2],[86,2]],
- [[88,2],[88,2],[86,1],[84,1],[83,1],[81,1]],
- [[79,4],[78,3],[74,1]],
- [[79,2],[78,1],[79,1],[81,2],[79,1],[81,1]],
- [[83,2],[81,1],[83,1],[84,2],[83,1],[84,1]],
- [[86,2],[79,2],[83,1],[81,1],[79,1],[78,1]],
- [[79,6],[74,2]]
+ [[79,1],[83,1],[86,2],[83,1],[81,1],[79,2]],
+ [[81,1],[83,1],[84,2],[83,1],[81,1],[78,2]],
+ [[79,1],[81,1],[83,1],[86,1],[88,2],[86,2]],
+ [[83,1],[81,1],[79,2],[78,1],[76,1],[74,2]],
+ [[79,1],[83,1],[86,2],[88,1],[86,1],[83,2]],
+ [[84,1],[88,1],[86,1],[84,1],[83,2],[81,2]],
+ [[79,1],[83,1],[81,1],[78,1],[79,2],[83,1],[81,1]],
+ [[79,3],[74,1],[79,2],[83,1],[86,1]],
+ [[88,2],[86,1],[83,1],[86,2],[83,1],[81,1]],
+ [[84,1],[83,1],[81,2],[78,1],[81,1],[86,2]],
+ [[83,1],[86,1],[88,2],[91,1],[88,1],[86,2]],
+ [[84,1],[83,1],[81,1],[79,1],[78,2],[74,2]],
+ [[79,1],[83,1],[86,1],[83,1],[88,2],[86,2]],
+ [[84,1],[88,1],[86,1],[84,1],[83,1],[81,1],[78,2]],
+ [[79,1],[81,1],[83,2],[81,1],[78,1],[74,2]],
+ [[79,3],[83,1],[79,2],[74,1],[78,1]]
 ];
 export const MELODY=BARS.flatMap(bar=>bar.flatMap(([pitch,length])=>[[pitch,length],...Array.from({length:length-1},()=>null)]));
-const ROOTS=[55,55,55,50,55,50,55,50,55,55,55,50,55,50,55,55,55,55,55,55,48,48,55,50,55,50,55,48,55,50,55,55];
+const ROOTS=[55,55,50,50,55,48,50,50,55,55,48,50,55,50,55,55,48,55,50,50,55,48,50,50,55,48,48,50,55,50,55,50];
 export class TankMusic{
  constructor(){this.volume=.65;this.enabled=false;this.context=null;this.active=false;this.step=0;this.next=0;this.state='';this.level=-1;this.count=0;this.lives=0;this.voices=new Set();this.cache=new Map();this.layers=[];}
  setVolume(value){this.volume=value;if(this.context)this.master.gain.setTargetAtTime(value,this.context.currentTime,.03);}
@@ -110,6 +111,14 @@ export class TankMusic{
    else if(voice==='bassDrum'){v=Math.sin(tau*(52*t+1.5*(1-Math.exp(-t*35))))*Math.exp(-t*13);env=Math.min(1,t/.003);}
    else if(voice==='timpani'){v=(Math.sin(phase)+.3*Math.sin(phase*1.48)+.16*Math.sin(phase*2.1))*Math.exp(-t*7);env=attack;}
    else if(voice==='bells'){v=(Math.sin(phase)*Math.exp(-t*3)+.35*Math.sin(phase*2.76)*Math.exp(-t*7)+.15*Math.sin(phase*5.4)*Math.exp(-t*14));}
+   else if(voice==='fife'){
+    // Breath, a quick tongued attack and upper harmonics make the flute audible
+    // without the old octave-doubled sine-wave whistle.
+    const flutter=.018*Math.sin(tau*5.6*t)*Math.min(1,t/.12);
+    const p=phase+flutter;
+    v=(Math.sin(p)+.30*Math.sin(2*p)+.13*Math.sin(3*p)+.045*Math.sin(4*p))*.65+noise*.025;
+    env=Math.min(1,t/.006)*Math.min(1,(duration-t)/.025)*(.88+.12*Math.exp(-t*32));
+   }
    else if(voice==='tuba'){v=(Math.sin(phase)+.32*Math.sin(phase*2)+.14*Math.sin(phase*3))*.7;}
    else if(voice==='trumpet'){v=(Math.sin(phase)+.55*Math.sin(phase*2)+.3*Math.sin(phase*3)+.12*Math.sin(phase*4))*.5;env*=.8+.2*Math.exp(-t*12);}
    else if(voice==='synth'){v=(Math.sin(phase)+.3*Math.sin(phase*2+.5*Math.sin(tau*4*t)))*.7;}
@@ -127,8 +136,17 @@ export class TankMusic{
  beat(step,time){
   const i=step%MELODY.length,beat=i%8,root=ROOTS[Math.floor(i/4)],melody=MELODY[i];
   // All parts share a clock, even while muted, so changes never restart the melody.
-  if(melody){const [pitch,length]=melody,duration=length*EIGHTH*.88;this.note('piccolo','piccolo',pitch,time,duration,.09);this.note('piccolo','piccolo',pitch-12,time,duration,.045);}
-  if(beat===2||beat===6||beat===7)this.note('snare','snare',0,time,.16,beat===7?.08:.15);
+  if(melody){
+   const [pitch,length]=melody,duration=length*EIGHTH*.76;
+   this.note('piccolo','fife',pitch,time,duration,beat===0?.16:.135);
+   // Tiny grace notes give each four-bar phrase a playful lift.
+   if(i%32===0)this.note('piccolo','fife',pitch+2,time-.025,.028,.065);
+  }
+  if(beat===2||beat===6)this.note('snare','snare',0,time,.12,.17);
+  if(beat===3||beat===7){
+   this.note('snare','snare',0,time,.08,.065);
+   if(beat===7)this.note('snare','snare',0,time+EIGHTH/2,.07,.085);
+  }
   if(beat%2===0)this.note('metronome','metronome',0,time,.06,.10);
   if(beat===0||beat===4)this.note('cymbals','cymbals',0,time,.32,.10);
   if(beat===0||beat===4)this.note('bassDrum','bassDrum',0,time,.35,.22);
@@ -146,7 +164,7 @@ export class TankMusic{
   if(kind==='announce'){[72,76,79].forEach((n,i)=>{play('trumpet',n,i*.15,.23);play('trumpet',n-7,i*.15,.23,.07);});return;}
   if(kind==='kill'||kind==='life'){(kind==='kill'?[79,84]:[72,76,79,84]).forEach((n,i)=>play('trumpet',n,i*.09,.13,.10));return;}
   const notes=kind==='lost'?[79,75,72]:[76,79,84];
-  notes.forEach((n,i)=>{play('piccolo',n,i*.2,.28,.1);play('piccolo',n-12,i*.2,.28,.06);});
+  notes.forEach((n,i)=>{play('fife',n,i*.2,.28,.1);play('fife',n-12,i*.2,.28,.06);});
   if(kind==='lost')play('bells',48,.4,.9,.15);
   if(kind==='finale'){play('tuba',36,0,.7,.15);play('cymbals',0,.4,.5,.13);play('bassDrum',0,.4,.4,.2);play('snare',0,.2,.16,.14);}
  }

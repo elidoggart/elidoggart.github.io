@@ -20,9 +20,19 @@ test('destroying strongest enemy changes arrangement; corpses and player do not 
  tanks[2].alive=false;assert.deepEqual(musicLayers(tanks),['piccolo','snare']);
  tanks[3].alive=false;assert.deepEqual(musicLayers(tanks),[]);
 });
-test('public-domain march has sixteen complete bars and sustained notes',async()=>{
+test('original fife march has sixteen complete bars and sustained notes',async()=>{
  const {MELODY}=await import('../tanks-music.js');
  assert.equal(MELODY.length,128);
  assert.equal(MELODY.filter(Boolean).reduce((n,[,duration])=>n+duration,0),128);
- assert.deepEqual(MELODY.slice(0,8),[[79,2],null,[74,2],null,[79,2],null,[81,2],null]);
+ assert.deepEqual(MELODY.slice(0,8),[[79,1],[83,1],[86,2],null,[83,1],[81,1],[79,2],null]);
+});
+
+test('fife carries the melody from the first level at a lively tempo',async()=>{
+ const {TankMusic,TEMPO}=await import('../tanks-music.js');
+ assert.equal(TEMPO,140);
+ const music=new TankMusic(),notes=[];
+ music.note=(...args)=>notes.push(args);
+ music.beat(0,1);
+ assert(notes.some(([part,voice])=>part==='piccolo'&&voice==='fife'));
+ assert(!notes.some(([,voice])=>voice==='piccolo'));
 });
