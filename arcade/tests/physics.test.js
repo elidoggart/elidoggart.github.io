@@ -108,3 +108,38 @@ test('a moving asteroid cannot sweep through a stationary alien',()=>{
 test('active aliens remain outside every planet and asteroid across a moving simulation',()=>{
  for(const mode of ['easy','medium','hard']){const m=new Mission(12,mode);m.start();for(let i=0;i<2400;i++){m.step(1/120);for(const e of m.enemies)for(const o of [...m.planets,...m.rocks])assert.ok(Math.hypot(e.x-o.x,e.y-o.y)>=e.r+o.r-.01,mode+' obstacle overlap');}}
 });
+
+function combatFixture(mode,type='shield'){
+ const m=new Mission(12,mode);m.start();m.rocks=[];m.enemies=[];m.gravity=()=>({x:0,y:0});
+ const p=m.planets.find(p=>p.id==='rust');Object.assign(p,{x:4000,y:0,vx:0,vy:0});
+ m.spawnEnemy(p,0);const e=m.enemies[0];Object.assign(e,{x:4000+p.r+200,y:0,vx:0,vy:0,type,cooldown:0});
+ Object.assign(m.ship,{docked:null,x:e.x,y:250,vx:110,vy:0,invulnerable:0});
+ return {m,e};
+}
+test('Hard aliens fire faster three-shot fans and lead a moving target',()=>{
+ const medium=combatFixture('medium'),hard=combatFixture('hard');
+ medium.m.updateEnemies(0);hard.m.updateEnemies(0);
+ assert.equal(medium.m.shots.length,1);assert.equal(hard.m.shots.length,3);
+ assert(hard.e.cooldown<medium.e.cooldown*.5);
+ const center=hard.m.shots[1],normal=medium.m.shots[0];
+ assert(Math.hypot(center.vx,center.vy)>Math.hypot(normal.vx,normal.vy)*1.8);
+ assert(center.vx>80,'lead aims ahead of lateral movement');assert(Math.abs(normal.vx)<1e-6);
+ const s=hard.m.ship,t=(s.y-center.y)/center.vy;
+ assert(Math.abs(center.x+center.vx*t-(s.x+s.vx*t))<6,'center shot intercepts constant-velocity flight');
+ assert.notEqual(hard.m.shots[0].vx,hard.m.shots[2].vx);
+});
+test('Hard pursuit accelerates faster and all alien classes use volleys',()=>{
+ for(const type of ['fast','smart','shield']){
+  const normal=combatFixture('medium',type),hard=combatFixture('hard',type);
+  normal.m.updateEnemies(.1);hard.m.updateEnemies(.1);
+  assert(Math.hypot(hard.e.vx,hard.e.vy)>Math.hypot(normal.e.vx,normal.e.vy)*1.5);
+  assert.equal(hard.m.shots.length,3);
+ }
+});
+test('Hard volleys still respect docked and home safe zones',()=>{
+ for(const home of [false,true]){
+  const {m,e}=combatFixture('hard');
+  if(home){Object.assign(m.home,{x:e.x,y:250});}else m.ship.docked='home';
+  m.updateEnemies(0);assert.equal(m.shots.length,0);
+ }
+});
