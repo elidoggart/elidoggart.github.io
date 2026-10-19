@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {musicLayers,TankMusic,PARTS} from '../tanks-music.js';
 const tank=(type,id=1)=>({id,type,alive:true});
-const signatures={sentry:['snare','bassDrum'],patrol:['metronome','harmony'],rocket:['timpaniA','horns'],hunter:['counterFife','cymbals'],miner:['bells','triangle'],warrior:['timpaniB','horns','rolls'],sniper:['clarinet','harmony'],stealth:['synth','counterFife','triangle'],elite:['horns','clarinet','bells','cymbals','rolls','harmony']};
+const signatures={sentry:['snare','bassDrum'],patrol:['metronome','harmony'],rocket:['pluckedBass','horns'],hunter:['counterFife','cymbals'],miner:['bells','triangle'],warrior:['lowStrings','horns','rolls'],sniper:['clarinet','harmony'],stealth:['synth','counterFife','triangle'],elite:['horns','clarinet','bells','cymbals','rolls','harmony']};
 for(const [type,parts] of Object.entries(signatures))for(let count=1;count<=8;count++)test(`${type}, ${count} tanks retain their instrument layers`,()=>{
  const layers=musicLayers(Array.from({length:count},(_,i)=>tank(type,i+1)));
  for(const part of ['piccolo','snare','bassDrum','tuba',...parts])assert(layers.includes(part));
@@ -53,4 +53,16 @@ test('starting a mission starts the melody immediately without a snare count-in'
   assert.equal(music.next,10.04);assert.equal(music.step,0);
   assert.deepEqual(cues,[]);
  }finally{music.stop();}
+});
+
+test('bass replacements use different registers and articulations without timpani',()=>{
+ const music=new TankMusic(),notes=[];music.note=(...args)=>notes.push(args);
+ for(let i=0;i<8;i++)music.beat(i,1+i*.15);
+ assert(!PARTS.some(p=>p.toLowerCase().includes('timpani')));
+ assert(!notes.some(([,voice])=>voice==='timpani'));
+ const plucks=notes.filter(([p])=>p==='pluckedBass'),strings=notes.filter(([p])=>p==='lowStrings');
+ assert.equal(plucks.length,4);assert.equal(strings.length,2);
+ assert(strings.every(n=>n[4]>plucks[0][4]*3));
+ assert(plucks.every(n=>n[2]<48));
+ assert.equal(new Set(plucks.map(n=>n[2])).size,2);
 });
