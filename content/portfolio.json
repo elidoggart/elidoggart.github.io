@@ -2387,6 +2387,90 @@
             ]
           },
           {
+            "id": "camper-van",
+            "title": "Camper Van Build",
+            "intro": "Designed and fabricated a camper build for a Ram ProMaster including an off grid electrical system, plumbing, innovative bed and floor design.",
+            "divider": "",
+            "role": "Home",
+            "date": "2025–Present",
+            "image": [],
+            "placeholder": "",
+            "roles": [
+              {
+                "id": "camper-van",
+                "label": "",
+                "role": "",
+                "date": "",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "title": "Camper Van Build",
+                    "level": 4,
+                    "chapter": false,
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "text": "It is modular and easily adaptable due to use of extruded aluminum profiles.",
+                        "style": "body"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "mqp",
+            "title": "Capstone Project",
+            "intro": "Worked as designer and fabricator on team to produce, and optimize an active suspension system for a longboard.",
+            "divider": "",
+            "role": "WPI",
+            "date": "March–December 2022",
+            "image": [],
+            "placeholder": "",
+            "roles": [
+              {
+                "id": "mqp",
+                "label": "",
+                "role": "",
+                "date": "",
+                "blocks": [
+                  {
+                    "type": "section",
+                    "title": "Active-suspension longboard",
+                    "level": 4,
+                    "chapter": false,
+                    "blocks": [
+                      {
+                        "type": "resources",
+                        "blocks": [
+                          {
+                            "type": "heading",
+                            "title": "Project report",
+                            "level": 5
+                          },
+                          {
+                            "type": "citation",
+                            "title": "Torsion Suspension with Activated Damper",
+                            "suffix": " · December 2022."
+                          },
+                          {
+                            "type": "resource",
+                            "resource": "resource-7"
+                          },
+                          {
+                            "type": "resource",
+                            "resource": "resource-8"
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          {
             "id": "otis-interlock-alignment",
             "title": "Vane-referenced elevator interlock alignment",
             "intro": "Designed and built a mechanical alignment guide that uses the elevator door vane itself to position the interlock, eliminating the need for a separate measurement or laser-sighting system.",
@@ -2422,7 +2506,7 @@
                       {
                         "type": "text",
                         "style": "body",
-                        "text": "In a WPI course, Otis presented our team with an elevator door interlock alignment problem. The goal was to position the interlock relative to the door vane without requiring a technician to ride on top of the elevator car during alignment. Otis had suggested measurement-based or laser-sighting approaches."
+                        "text": "In a WPI course, Otis presented our team with an elevator door interlock alignment problem. The goal was to position the interlock relative to the door vane without requiring a technician to ride on top of the elevator car during alignment in order to reduce risk to the technician and time needed for the repair. The vane must align with the interlock for the door to open, realignment is a common repair need."
                       }
                     ]
                   },
@@ -2436,12 +2520,7 @@
                       {
                         "type": "text",
                         "style": "body",
-                        "text": "Our four-person team designed and built a guide that references the vane directly. The component the interlock must align with also establishes its position. This removes the need to measure that relationship separately or transfer it from a laser reference."
-                      },
-                      {
-                        "type": "text",
-                        "style": "body",
-                        "text": "I am particularly proud of this solution because the simplicity comes from the mechanical geometry: using the vane itself makes alignment part of the mechanism."
+                        "text": "Our four-person team designed and built a guide that references the vane directly to the interlock and holds it in place. This means vane-interlock alignment does not require measurement and can be done from the inside of the car."
                       },
                       {
                         "type": "figure",
@@ -2515,90 +2594,6 @@
                         "type": "text",
                         "style": "body",
                         "text": "Avoiding car-top access was the central practical benefit: it removes a time-consuming step from the alignment procedure and reduces the technician’s exposure to work on top of the car. The project focused on developing and demonstrating the mechanism; quantitative alignment accuracy and service-time savings were outside the course scope."
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "id": "mqp",
-            "title": "Capstone Project",
-            "intro": "Worked as designer and fabricator on team to produce, and optimize an active suspension system for a longboard.",
-            "divider": "",
-            "role": "WPI",
-            "date": "March–December 2022",
-            "image": [],
-            "placeholder": "",
-            "roles": [
-              {
-                "id": "mqp",
-                "label": "",
-                "role": "",
-                "date": "",
-                "blocks": [
-                  {
-                    "type": "section",
-                    "title": "Active-suspension longboard",
-                    "level": 4,
-                    "chapter": false,
-                    "blocks": [
-                      {
-                        "type": "resources",
-                        "blocks": [
-                          {
-                            "type": "heading",
-                            "title": "Project report",
-                            "level": 5
-                          },
-                          {
-                            "type": "citation",
-                            "title": "Torsion Suspension with Activated Damper",
-                            "suffix": " · December 2022."
-                          },
-                          {
-                            "type": "resource",
-                            "resource": "resource-7"
-                          },
-                          {
-                            "type": "resource",
-                            "resource": "resource-8"
-                          }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "id": "camper-van",
-            "title": "Camper Van Build",
-            "intro": "Designed and fabricated a camper build for a Ram ProMaster including an off grid electrical system, plumbing, innovative bed and floor design.",
-            "divider": "",
-            "role": "Home",
-            "date": "2025–Present",
-            "image": [],
-            "placeholder": "",
-            "roles": [
-              {
-                "id": "camper-van",
-                "label": "",
-                "role": "",
-                "date": "",
-                "blocks": [
-                  {
-                    "type": "section",
-                    "title": "Camper Van Build",
-                    "level": 4,
-                    "chapter": false,
-                    "blocks": [
-                      {
-                        "type": "text",
-                        "text": "It is modular and easily adaptable due to use of extruded aluminum profiles.",
-                        "style": "body"
                       }
                     ]
                   }
