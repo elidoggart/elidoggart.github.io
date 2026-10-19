@@ -2582,20 +2582,6 @@
                         ]
                       }
                     ]
-                  },
-                  {
-                    "type": "section",
-                    "title": "Why it matters",
-                    "level": 4,
-                    "chapter": false,
-                    "layout": "stacked",
-                    "blocks": [
-                      {
-                        "type": "text",
-                        "style": "body",
-                        "text": "Avoiding car-top access was the central practical benefit: it removes a time-consuming step from the alignment procedure and reduces the technician’s exposure to work on top of the car. The project focused on developing and demonstrating the mechanism; quantitative alignment accuracy and service-time savings were outside the course scope."
-                      }
-                    ]
                   }
                 ]
               }
