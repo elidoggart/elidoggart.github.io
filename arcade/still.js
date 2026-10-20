@@ -1,9 +1,9 @@
-import {StillGame,ROOMS,MODES,ITEM_NAMES,WEAPONS,isFirearm} from './still-engine.js?v=extraction-2';
-import {StillRenderer} from './still-render.js?v=extraction-2';
-import {StillMusic} from './still-music.js?v=extraction-2';
+import {StillGame,ROOMS,MODES,ITEM_NAMES,WEAPONS,isFirearm} from './still-engine.js?v=combat-puzzle-3';
+import {StillRenderer} from './still-render.js?v=combat-puzzle-3';
+import {StillMusic} from './still-music.js?v=combat-puzzle-3';
 import {SoundEffects,bindSounds} from './sound-effects.js';
 import {bindAudioControl} from './audio-controls.js';
-import {readStillScores,saveStillScore} from './still-scores.js?v=extraction-2';
+import {readStillScores,saveStillScore} from './still-scores.js?v=combat-puzzle-3';
 const $=id=>document.getElementById(id),canvas=$('field'),game=new StillGame(),renderer=new StillRenderer(canvas),music=new StillMusic(),effects=new SoundEffects();
 bindSounds($('effects-button'),effects);bindAudioControl($('music'),music);let storage;try{storage=localStorage}catch{}
 let saved=false,shown='',last=performance.now(),lookX=0,lookY=0,fire=false,queued={},drag=null,touchMove={x:0,z:0},touchLook={x:0,y:0},wasLocked=false;const keys=new Set(),coarse=matchMedia('(pointer:coarse)').matches;

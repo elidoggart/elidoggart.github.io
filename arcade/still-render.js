@@ -1,6 +1,6 @@
-import {StillDepth} from './still-depth.js?v=extraction-2';
-import {WEAPONS,isFirearm,isMelee,ROOMS,roomBounds,stageConnection,transformPoint,enemyRoster} from './still-engine.js?v=extraction-2';
-import {drawArchitecture,drawExit,drawBoundary,terminal} from './still-scenes.js?v=extraction-2';
+import {StillDepth} from './still-depth.js?v=combat-puzzle-3';
+import {WEAPONS,isFirearm,isMelee,ROOMS,roomBounds,stageConnection,transformPoint,enemyRoster} from './still-engine.js?v=combat-puzzle-3';
+import {drawArchitecture,drawExit,drawBoundary,terminal} from './still-scenes.js?v=combat-puzzle-3';
 // Gait follows distance travelled; idle breathing and recoil follow simulation time.
 export function enemyPose(e,time=0){const gait=e.gait||0,bob=Math.sin(e.phase*2)*.026*gait+Math.sin(time*1.8+e.id)*.008;return {gait,bob,sway:Math.sin(e.phase)*.025*gait,recoil:e.recoil||0,legs:[-1,1].map(side=>{const step=Math.sin(e.phase+(side<0?Math.PI:0));return {side,foot:step*.32*gait,knee:step*.14*gait+.1*gait,lift:Math.max(0,step)*.14*gait};})};}
 const INK='#232421',RED='#c73136',LINE='#e5e5de';

@@ -4,9 +4,11 @@
 
 Still fills the available playfield and keeps story text and enemy counts out of the HUD. The opening desk computer reads “GET OUT OF THERE / EXTRACTION ON ROOF.” The exit frame and arrow turn red only after every guard and reinforcement is defeated.
 
-Easy uses fewer guards, slow pistol rounds, and long attack warnings without reinforcement waves. Medium uses the full mixed-weapon encounters. Hard adds flank guards, faster attacks, and visible chest plates that absorb one body hit; headshots, rifle rounds, and close-range disarms bypass them. Guards are placed at the approach, cover lanes, and exits. Roof reinforcements arrive through the roof-access corridor; helicopter guards are already inside.
+Easy uses fewer guards, slower rounds, extra ammunition, and long attack warnings without reinforcement waves. Medium uses the full mixed-weapon encounters. Hard adds flank guards, faster attacks, and visible chest plates that absorb one body hit; headshots, rifle rounds, and close-range disarms bypass them. Guards are placed at the approach, cover lanes, and exits. Roof reinforcements arrive through the roof-access corridor; helicopter guards are already inside.
 
 Adjacent rooms share a rendered doorway and coordinate transform, preserving camera position, heading, weapon, ammunition, and animation during crossings. The sideways helicopter connects to the roof by a level side ramp. Jumping is removed. The cabin leads through a bulkhead into a cockpit with seats, yokes, a throttle pedestal, instruments, overhead controls, and a faceted windscreen. The changed encounters use a new local leaderboard; older records remain stored separately.
+
+Combat encounters are authored in `still-encounters.js`: lane-holding guards, advancing flankers, specific weapon drops, and sparse fallback objects replace generic weapon cycling and loot on every desk. Most earned guns have one round or a short burst; Easy adds a round. Cubicle reinforcements respond to the first firearm pickup, reception to the second pickup, and roof pursuit to the first takedown. Clearing the initial group also triggers any remaining wave. No sequence lock or quest items are required. The office wall signs are removed; the opening computer remains.
 
 `node --test arcade/tests/still.test.js` covers combat, armor, spawn placement, collision, continuity, and completion. `npm exec playwright test tests/browser/still.spec.mjs` checks the complete walking route, pixel continuity at each doorway, room rendering, desktop/mobile layouts, and results.
 

@@ -29,6 +29,28 @@ test('mobile finish presents every stage and total without horizontal overflow, 
  await page.locator('#action').click();await expect(page.locator('body')).toHaveAttribute('data-state','playing');await expect(page.locator('#field')).toHaveAttribute('data-level','1');expect(await page.evaluate(()=>officeTest.game.splits.length)).toBe(0);
 });
 
+test('opening combat chains a throwable, a timed pistol pickup and an incoming wave',async({page})=>{
+ await openGame(page);await page.locator('#field').focus();
+ await page.keyboard.press('KeyE');
+ await expect.poll(()=>page.evaluate(()=>officeTest.game.player.held)).toBe('bottle');
+ await page.evaluate(()=>{const g=officeTest.game,e=g.enemies[0];g.player.yaw=Math.atan2(e.x-g.player.x,e.z-g.player.z);});
+ await expect.poll(()=>page.evaluate(()=>officeTest.game.player.cool)).toBe(0);
+ await page.keyboard.press('KeyQ');
+ await expect.poll(()=>page.evaluate(()=>officeTest.game.enemies[0].alive)).toBe(false);
+ expect(await page.evaluate(()=>officeTest.game.wave)).toBe(0);
+ await page.evaluate(()=>officeTest.game.player.yaw=0);
+ await page.keyboard.down('KeyD');await page.waitForTimeout(500);await page.keyboard.up('KeyD');
+ await page.keyboard.down('KeyW');await page.waitForTimeout(320);await page.keyboard.up('KeyW');
+ await page.evaluate(()=>{const g=officeTest.game,item=g.items.find(i=>i.id==='enemy-0');g.player.yaw=Math.atan2(item.x-g.player.x,item.z-g.player.z);});
+ await page.keyboard.press('KeyE');
+ await expect.poll(()=>page.evaluate(()=>officeTest.game.player.held)).toBe('gun');
+ expect(await page.evaluate(()=>officeTest.game.player.ammo)).toBe(1);
+ await expect.poll(()=>page.evaluate(()=>officeTest.game.wave)).toBe(1);
+ expect(await page.evaluate(()=>officeTest.game.enemies[1].alive)).toBe(true);
+ expect(await page.evaluate(()=>officeTest.game.exitUnlocked)).toBe(false);
+ await expect(page.locator('#ammo')).toContainText('1/3');
+});
+
 test('distinct rooms, terminal and cockpit render without runtime errors',async({page})=>{
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await openGame(page);
  await page.evaluate(()=>officeTest.game.step=()=>{});
