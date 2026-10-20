@@ -1,5 +1,7 @@
+import {drawImplicit} from './equation-implicit-plot.js?v=implicit-1';
 const ink='#232421',red='#c73136',blue='#232421';
 export function draw(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.55}={}){
+ if(round.implicit||guess?.implicit)return drawImplicit(canvas,round,{guess,difference,angle,tilt});
  const rect=canvas.getBoundingClientRect(),w=rect.width,h=rect.height;if(!w||!h)return;const ratio=Math.min(devicePixelRatio||1,2);canvas.width=w*ratio;canvas.height=h*ratio;const c=canvas.getContext('2d');c.scale(ratio,ratio);c.clearRect(0,0,w,h);c.font='10px Arial';c.lineJoin='round';c.lineCap='round';
  const [lo,hi]=round.domain,[bottom,top]=round.range,span=top-bottom;
  function line(points,color,width=1,dash=[]){c.beginPath();let pen=false;for(const p of points){if(!p||!p.every(Number.isFinite)){pen=false;continue;}if(!pen){c.moveTo(...p);pen=true;}else c.lineTo(...p);}c.strokeStyle=color;c.lineWidth=width;c.setLineDash(dash);c.stroke();c.setLineDash([]);}
