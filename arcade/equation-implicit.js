@@ -1,4 +1,4 @@
-import {compile} from './equation-math.js?v=implicit-1';
+import {compile} from './equation-math.js?v=variety-1';
 export const implicitFamilyCount={easy:2,medium:3,hard:5};
 export function compileImplicit(source,dim){
  const sides=source.split('=');if(sides.length>2||sides.some(s=>!s.trim()))throw Error('Use one complete equation, e.g. x^2 + y^2 = 4.');
