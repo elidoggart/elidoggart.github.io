@@ -87,7 +87,7 @@ export function algebraicComponents(source,dimensions=2){
    scale(a,prefix,argument?'Input':'Amplitude');
    if(degree===1){if(nonzero(constant))add(prefix+'offset',argument?'Horizontal / phase shift':'Vertical shift');}
    else{const h=-b/(degree*a);if(nonzero(h))add(prefix+'horizontal','Horizontal shift');const value=[...p].reduce((s,[k,v])=>s+v*h**Number(k.split(',')[0]),0);if(nonzero(value))add(prefix+'offset',argument?'Input offset':'Vertical shift');if(degree===3&&nonzero((p.get('1,0')||0)-b*b/(3*a)))add(prefix+'power1','Linear term');}
-  }else{for(const [key,v]of terms){add(prefix+'term'+key,key==='1,1'?'Bilinear term':key==='2,0'?'x² term':key==='0,2'?'y² term':`Polynomial term (${key})`);scale(v,prefix+key,argument?'Input':'Amplitude');}if(nonzero(constant))add(prefix+'offset',argument?'Input offset':'Vertical shift');}
+  }else{for(const [key,v]of terms){if(!argument||!['1,0','0,1'].includes(key))add(prefix+'term'+key,key==='1,1'?'Bilinear term':key==='2,0'?'x² term':key==='0,2'?'y² term':`Polynomial term (${key})`);scale(v,prefix+key,argument?'Input':'Amplitude');}if(nonzero(constant))add(prefix+'offset',argument?'Input offset':'Vertical shift');}
  }
  function walk(n,prefix='',argument=false){
   const p=polynomial(n);if(p){poly(p,prefix,argument);return;}
