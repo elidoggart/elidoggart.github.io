@@ -1,5 +1,15 @@
 # FARSTAR
 
+## Still: office extraction
+
+Still fills the available playfield and keeps story text and enemy counts out of the HUD. The opening desk computer reads “GET OUT OF THERE / EXTRACTION ON ROOF.” The exit frame and arrow turn red only after every guard and reinforcement is defeated.
+
+Easy uses fewer guards, slow pistol rounds, and long attack warnings without reinforcement waves. Medium uses the full mixed-weapon encounters. Hard adds flank guards, faster attacks, and visible chest plates that absorb one body hit; headshots, rifle rounds, and close-range disarms bypass them. Guards are placed at the approach, cover lanes, and exits. Roof reinforcements arrive through the roof-access corridor; helicopter guards are already inside.
+
+Adjacent rooms share a rendered doorway and coordinate transform, preserving camera position, heading, weapon, ammunition, and animation during crossings. The sideways helicopter connects to the roof by a level side ramp. Jumping is removed. The cabin leads through a bulkhead into a cockpit with seats, yokes, a throttle pedestal, instruments, overhead controls, and a faceted windscreen. The changed encounters use a new local leaderboard; older records remain stored separately.
+
+`node --test arcade/tests/still.test.js` covers combat, armor, spawn placement, collision, continuity, and completion. `npm exec playwright test tests/browser/still.spec.mjs` checks the complete walking route, pixel continuity at each doorway, room rendering, desktop/mobile layouts, and results.
+
 Portfolio arcade, loaded only after the hidden sequence: Up Up Down Down Left Right Left Right. The portfolio key listener loads no game code, audio, or worker before navigation.
 
 Run `npm run dev`, then open http://127.0.0.1:4192. The root page is the arcade game selector; Space flight opens at `/space.html`. The selector loads no game engine or physics worker. Future games can be added as separate pages and linked from the menu. No dependencies or installation required. Run `npm test` for deterministic simulation checks.

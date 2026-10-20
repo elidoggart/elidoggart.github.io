@@ -1,11 +1,12 @@
-import {StillDepth} from './still-depth.js?v=office-escape-1';
-import {WEAPONS,isFirearm,isMelee} from './still-engine.js?v=office-escape-1';
+import {StillDepth} from './still-depth.js?v=extraction-2';
+import {WEAPONS,isFirearm,isMelee,ROOMS,roomBounds,stageConnection,transformPoint,enemyRoster} from './still-engine.js?v=extraction-2';
+import {drawArchitecture,drawExit,drawBoundary,terminal} from './still-scenes.js?v=extraction-2';
 // Gait follows distance travelled; idle breathing and recoil follow simulation time.
 export function enemyPose(e,time=0){const gait=e.gait||0,bob=Math.sin(e.phase*2)*.026*gait+Math.sin(time*1.8+e.id)*.008;return {gait,bob,sway:Math.sin(e.phase)*.025*gait,recoil:e.recoil||0,legs:[-1,1].map(side=>{const step=Math.sin(e.phase+(side<0?Math.PI:0));return {side,foot:step*.32*gait,knee:step*.14*gait+.1*gait,lift:Math.max(0,step)*.14*gait};})};}
 const INK='#232421',RED='#c73136',LINE='#e5e5de';
 export class StillRenderer{
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.faces=[];this.lines=[];try{this.depth=new StillDepth(document.createElement('canvas'));}catch{this.depth=null;}}
- camera(v){const p=this.view||this.game.player,dx=v[0]-p.x,dz=v[2]-p.z,dy=v[1]-p.y,s=Math.sin(p.yaw),c=Math.cos(p.yaw),f=dx*s+dz*c,cp=Math.cos(p.pitch),sp=Math.sin(p.pitch);return [dx*c-dz*s,dy*cp-f*sp,f*cp+dy*sp];}
+ camera(v){if(this.sceneTransform){const q=transformPoint({x:v[0],z:v[2]},this.sceneTransform);v=[q.x,v[1],q.z];}const p=this.view||this.game.player,dx=v[0]-p.x,dz=v[2]-p.z,dy=v[1]-p.y,s=Math.sin(p.yaw),c=Math.cos(p.yaw),f=dx*s+dz*c,cp=Math.cos(p.pitch),sp=Math.sin(p.pitch);return [dx*c-dz*s,dy*cp-f*sp,f*cp+dy*sp];}
  project(v){return [this.w/2+v[0]/v[2]*this.f,this.h*.47-v[1]/v[2]*this.f]}
  clip(points){const out=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],inside=a[2]>.08,next=b[2]>.08;if(inside)out.push(a);if(inside!==next){const t=(.08-a[2])/(b[2]-a[2]);out.push(a.map((v,k)=>v+(b[k]-v)*t));}}return out;}
  face(points,color=INK,fill='white',width=1.1){const camera=points.map(v=>this.camera(v)),clipped=this.clip(camera);if(clipped.length<3)return;this.faces.push({camera:clipped,points:clipped.map(v=>this.project(v)),depth:camera.reduce((a,b)=>a+b[2],0)/camera.length,color,fill,width});}
@@ -16,6 +17,7 @@ export class StillRenderer{
  limb(a,b,size,end=size*.7,color=RED){const d=b.map((v,i)=>v-a[i]),n=Math.hypot(...d),v=d.map(x=>x/n),reference=Math.abs(v[1])>.9?[1,0,0]:[0,1,0],cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],u=cross(v,reference),un=Math.hypot(...u),axis=u.map(x=>x/un),other=cross(v,axis),ring=(p,r)=>Array.from({length:6},(_,i)=>p.map((x,j)=>x+r*(axis[j]*Math.cos(i*Math.PI/3)+other[j]*Math.sin(i*Math.PI/3)))),A=ring(a,size),B=ring(b,end);for(let i=0;i<6;i++)this.face([A[i],A[(i+1)%6],B[(i+1)%6],B[i]],color,'white',.85);this.face(B,color);}
  enemy(e){if(e.entryDelay>0)return;const pose=enemyPose(e,this.game.simTime),angle=e.angle,s=Math.sin(angle),c=Math.cos(angle),point=(x,y,z)=>[e.x+x*c+z*s,y,e.z-x*s+z*c],ring=(x,y,z,rx,rz)=>[...point(x,y+pose.bob,z),rx,rz];
  this.mesh([ring(0,.75,0,.2,.13),ring(pose.sway,.94,.02,.15,.11),ring(pose.sway,1.16,.03,.25,.15),ring(pose.sway,1.35,.05,.28,.14),ring(pose.sway,1.43,.05,.12,.09)],RED,angle);
+ if(e.armor>0){const chest=point(0,.92,.04);this.box(...chest,.53,.5,.35,INK,angle,false,'#59655f');for(const side of [-1,1]){const strap=point(side*.19,1.38,.06);this.box(...strap,.08,.12,.28,INK,angle,false,INK);}}
  this.mesh([ring(pose.sway,1.48,.07,.085,.08),ring(pose.sway,1.57,.08,.13,.12),ring(pose.sway,1.73,.05,.145,.135),ring(pose.sway,1.83,.03,.10,.1),ring(pose.sway,1.86,.03,.025,.03)],RED,angle);
  for(const leg of pose.legs){const {side,foot,knee,lift}=leg;this.limb(point(side*.13,.8+pose.bob,0),point(side*.16,.43+lift*.3,knee),.135,.09);this.limb(point(side*.16,.43+lift*.3,knee),point(side*.17,.1+lift,foot),.085,.05);this.mesh([[...point(side*.17,.035+lift,foot+.06),.075,.15],[...point(side*.17,.11+lift,foot),.065,.09]],RED,angle);}
  const rush=e.type==='rush',attack=rush?Math.max(0,1-Math.hypot(e.x-this.game.player.x,e.z-this.game.player.z)/2):0;
@@ -40,7 +42,7 @@ export class StillRenderer{
 
  item(item,highlight=false){const {x,y,z,kind}=item,color=highlight?RED:INK;if(isMelee(kind)){this.meleeModel(kind,x,y+.12,z,color,item.angle||0);}else if(isFirearm(kind)){this.firearm(kind,x,y+.22,z,color,item.angle||0);}else if(kind==='bottle'){this.mesh([[x,y,z,.09,.09],[x,y+.24,z,.09,.09],[x,y+.31,z,.035,.035],[x,y+.4,z,.035,.035]],color);}else if(kind==='mug'){this.mesh([[x,y,z,.09,.09],[x,y+.18,z,.11,.11]],color);this.line([x+.1,y+.16,z],[x+.18,y+.14,z],color);this.line([x+.18,y+.14,z],[x+.18,y+.04,z],color);this.line([x+.18,y+.04,z],[x+.1,y+.03,z],color);}else{this.box(x,y,z,.12,.06,.3,color);this.box(x,y+.07,z,.11,.04,.32,color,.1);}
  if(highlight){const h=y+.54;this.line([x-.12,h+.1,z],[x,h,z],RED,1.5);this.line([x,h,z],[x+.12,h+.1,z],RED,1.5);}}
- furniture(b){const {x,z,w,d,h,kind}=b;if(kind==='cubicle'){this.box(x,0,z+d/2,w,h,.07,LINE);for(const side of [-1,1]){this.box(x+side*w/2,0,z,.07,h,d,LINE);this.box(x+side*w/2,h,z,.08,.04,d);}this.box(x,.8,z+.4,w,.09,1);this.box(x,.89,z+.5,.04,.2,.06);this.box(x,1.09,z+.5,.65,.4,.05);this.box(x,.9,z+.12,.5,.03,.2);this.chair(x,z-.45);return;}if(['desk','cart','cafe'].includes(kind)){this.box(x,h-.09,z,w,.09,d);for(const sx of [-1,1])for(const sz of [-1,1])this.box(x+sx*(w/2-.09),0,z+sz*(d/2-.09),.055,h-.09,.055);if(kind==='desk'){this.box(x+w*.2,h,z+d*.22,.65,.04,.32);this.box(x+w*.2,h+.02,z+d*.28,.045,.19,.05);this.box(x+w*.2,h+.2,z+d*.28,.7,.44,.055);this.box(x+w*.2,h+.015,z-.15,.6,.025,.23);this.box(x,0,z+d*.47,w,.65,.04,LINE);this.chair(x,z+d*.5+.45);}if(kind==='cafe'){this.chair(x-w*.3,z+d/2+.45);this.chair(x+w*.3,z+d/2+.45);this.box(x,h,z,.16,.23,.12,LINE);}}
+ furniture(b){const {x,z,w,d,h,kind}=b;if(kind==='terminal'){terminal(this,b);return;}if(kind==='seat')return;if(kind==='cubicle'){this.box(x,0,z+d/2,w,h,.07,LINE);for(const side of [-1,1]){this.box(x+side*w/2,0,z,.07,h,d,LINE);this.box(x+side*w/2,h,z,.08,.04,d);}this.box(x,.8,z+.4,w,.09,1);this.box(x,.89,z+.5,.04,.2,.06);this.box(x,1.09,z+.5,.65,.4,.05);this.box(x,.9,z+.12,.5,.03,.2);this.chair(x,z-.45);return;}if(['desk','cart','cafe'].includes(kind)){this.box(x,h-.09,z,w,.09,d);for(const sx of [-1,1])for(const sz of [-1,1])this.box(x+sx*(w/2-.09),0,z+sz*(d/2-.09),.055,h-.09,.055);if(kind==='desk'){this.box(x+w*.2,h,z+d*.22,.65,.04,.32);this.box(x+w*.2,h+.02,z+d*.28,.045,.19,.05);this.box(x+w*.2,h+.2,z+d*.28,.7,.44,.055);this.box(x+w*.2,h+.015,z-.15,.6,.025,.23);this.box(x,0,z+d*.47,w,.65,.04,LINE);this.chair(x,z+d*.5+.45);}if(kind==='cafe'){this.chair(x-w*.3,z+d/2+.45);this.chair(x+w*.3,z+d/2+.45);this.box(x,h,z,.16,.23,.12,LINE);}}
  else if(kind==='partition'){this.box(x,0,z,w,h,d,LINE);for(const side of [-1,1]){this.box(x+side*(w/2-.035),0,z,.07,h,d,INK);this.box(x,1.15,z+side*d/2,w,.045,.035,INK);}this.box(x,h-.07,z,w,.07,d);}
  else if(kind==='bench'){this.box(x,.32,z,w,.2,d);this.box(x+w*.35,.5,z,.2,.65,d);for(const side of [-1,1])this.box(x,.05,z+side*(d/2-.2),w*.7,.27,.08);}
  else if(kind==='column'){this.box(x,0,z,w,h,d);this.box(x,0,z,w+.15,.12,d+.15);}
@@ -48,63 +50,18 @@ export class StillRenderer{
  }
  chair(x,z){this.box(x,.45,z,.52,.075,.5);this.box(x,.5,z+.23,.52,.52,.06);this.box(x,.08,z,.06,.38,.06);this.line([x-.32,.08,z],[x+.32,.08,z],INK);this.line([x,.08,z-.3],[x,.08,z+.3],INK);}
  label(text,x,y,z,height=.18,color=INK){const a=this.camera([x,y,z]);if(a[2]<.1)return;const q=this.project(a),up=this.project(this.camera([x,y+height,z]));this.faces.push({text,points:[q],depth:a[2]-.005,color,font:Math.abs(up[1]-q[1])});}
- architecture(r){const n=r.size/2;
- this.exit(r);
- if(r.theme==='roof'){this.skyline(n);this.helicopter(0,n+5,.15);return;}
- if(r.theme==='helicopter'){
-  // Ribbed cargo fuselage, benches, overhead beams, cockpit glazing.
-  for(let z=-n;z<=n;z+=2){this.box(-3.05,0,z,.1,3.1,.1);this.box(3.05,0,z,.1,3.1,.1);this.box(0,3.1,z,6.2,.12,.1);}
-  for(const x of [-2.98,2.98])for(let z=-5;z<6;z+=3){this.box(x,1.55,z,.04,.6,1.1,LINE);this.box(x*.82,.4,z,.6,.12,1.6);}
-  this.box(0,.7,n+1.1,1.4,.25,.55);for(const x of [-.4,.4])this.box(x,1,n+1.2,.45,.3,.06,RED);
-  this.box(0,1.5,n+2,2,1.2,.04,LINE);return;
- }
- if(r.theme==='break'){this.box(-n+.6,0,-1,.9,2.3,1.4);this.line([-n+1.06,1.3,-1.7],[-n+1.06,1.3,-.3]);this.box(-n+.7,1.15,2,1,.7,.9);}
- if(r.theme==='reception'){this.box(0,1.9,-n+.1,5,.55,.04,LINE);for(const x of [-7,7]){this.box(x,.4,-1,1.4,.25,3);this.box(x,.65,-1,.12,.65,3);}}
-
-
- // Doors, glazing, shopfronts and ceiling fixtures give each arena a real interior.
- for(let x=-n+2;x<n;x+=4){if([...(r.doors||[]),...(r.exit?[r.exit]:[])].some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.1))continue;this.box(x,1.0,n-.13,2.5,1.7,.035,LINE);for(const dx of [-1.25,0,1.25])this.line([x+dx,1,n-.16],[x+dx,2.7,n-.16],INK,.8);this.line([x-1.25,1.85,n-.16],[x+1.25,1.85,n-.16],LINE);}
- for(let z=-n+3;z<n;z+=5)for(const x of [-n*.45,n*.45])this.box(x,3.3,z,1.5,.045,.45,LINE);
- // Closed leaf volumes avoid the old crossed, paper-thin triangles.
- for(const x of [-n+.8,n-.8]){const z=n-1;this.mesh([[x,0,z,.19,.19],[x,.4,z,.26,.26],[x,.44,z,.26,.26]],INK);
-  for(let i=0;i<5;i++){const a=i*2.4,X=x+Math.sin(a)*.22,Z=z+Math.cos(a)*.22,h=.85+(i%3)*.16;
-   this.limb([x,.4,z],[X,h-.12,Z],.012,.009,INK);
-   this.mesh([[X,h-.3,Z,.015,.015],[X,h-.12,Z,.14,.065],[X+Math.sin(a)*.07,h+.13,Z+Math.cos(a)*.07,.012,.008]],INK,a);
-  }
- }
- if(r.theme==='mall'){for(const x of [-n+3,n-3]){if([...(r.doors||[]),...(r.exit?[r.exit]:[])].some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.6))continue;this.box(x,0,n-.5,3.5,2.8,.12);this.box(x,2.8,n-.58,3.7,.35,.13,RED);this.box(x,1,n-.7,2.6,.05,.5);this.box(x,1.7,n-.7,2.6,.05,.5);for(const dx of [-.8,0,.8]){this.box(x+dx,1.05,n-.7,.3,.4,.25,LINE);this.box(x+dx,1.75,n-.7,.25,.3,.2,LINE);}}}
- }
- skyline(n){for(let i=0;i<18;i++){const a=i*Math.PI/9,d=n+17+(i%3)*4;this.box(Math.sin(a)*d,-9,Math.cos(a)*d,3+(i%3),8+(i%5)*2.5,4,LINE);}}
- helicopter(x,z,y=0){
-  // Tandem rotor transport: rounded cargo body, raised aft pylon, two landing gears.
-  const ring=(Z,w,h)=>[[x-w,y+.3,z+Z],[x-w,y+h*.72,z+Z],[x-w*.6,y+h,z+Z],[x+w*.6,y+h,z+Z],[x+w,y+h*.72,z+Z],[x+w,y+.3,z+Z]];
-  const sections=[[-3.3,.7,1.8],[-2.4,1.4,2.5],[1.9,1.4,2.5],[3.6,.7,2.2]].map(([Z,w,h])=>ring(Z,w,h));
-  for(let j=0;j<sections.length-1;j++)for(let i=0;i<6;i++)this.face([sections[j][i],sections[j][(i+1)%6],sections[j+1][(i+1)%6],sections[j+1][i]],INK,'white');
-  for(const end of [-1,1]){const Z=z+end*2.6,H=y+(end>0?3.5:3);this.box(x,y+2.2,Z,.6,H-y-2.2,.9);this.box(x,H,Z,.1,.35,.1);const a=this.game.simTime*13;for(const arm of [0,Math.PI/2]){this.box(x,H+.3,Z,7.5,.035,.13,INK,a+arm);}for(const side of [-1,1]){this.limb([x+side,y+.55,Z],[x+side*1.65,y-.15,Z],.05,.04,INK);this.box(x+side*1.65,y-.4,Z,.18,.35,.5);}}
-  this.box(x,y+1,z+3.61,1.1,.65,.025,LINE);
-  for(const side of [-1,1])this.box(x+side*.95,y+.2,z-3.1,.12,1.7,.12,RED);
-  this.box(x,y+1.9,z-3.1,2,.12,.12,RED);
- }
- exit(r){const e=r.exit;if(!e)return;const n=r.size/2,z=e.z,open=this.game.exitUnlocked;
-  for(const x of [-.84,.84])this.box(x,0,z,.14,2.6,.18,RED,0,false,RED);this.box(0,2.55,z,1.82,.14,.18,RED,0,false,RED);
-  // A physical down arrow above the lintel remains readable in the depth renderer.
-  this.line([0,3.35,z-.13],[0,2.95,z-.13],RED,3);this.line([-.2,3.13,z-.13],[0,2.94,z-.13],RED,3);this.line([.2,3.13,z-.13],[0,2.94,z-.13],RED,3);
-  if(!open){this.box(0,0,z,1.55,2.5,.08,LINE);this.line([-.5,1,z-.06],[.5,1.8,z-.06],RED,1.4);this.line([.5,1,z-.06],[-.5,1.8,z-.06],RED,1.4);}
-  if(e.kind==='elevator'){for(const side of [-1,1]){this.box(side*1.1,0,z+1,.12,3,2.2);this.box(side*.9,0,z+.15,.18,2.5,.12,INK);}this.box(0,0,z+2,2.2,3,.12);this.box(0,.01,z+1,2.2,.03,2);this.box(1.05,1.2,z-.15,.16,.35,.06);this.box(1.05,1.3,z-.19,.07,.07,.03,RED);}
-  if(e.kind==='jump'){this.box(0,.01,z-.8,1.6,.025,1.5,LINE);for(const x of [-.9,.9])this.line([x,.9,z-1.5],[x,.9,z],RED,2);this.line([0,.04,z-2.8],[0,.04,z-.5],RED,2);this.line([-.35,.04,z-1],[0,.04,z-.5],RED,2);this.line([.35,.04,z-1],[0,.04,z-.5],RED,2);}
- }
- boundary(r){const n=r.size/2,cutaway=this.game.state==='dead';
-  for(const side of ['north','south','east','west']){
-   const horizontal=side==='north'||side==='south',sign=side==='north'||side==='east'?1:-1;
-   const box=(offset,along,y,h,depth=.2,dist=n+.1)=>horizontal?this.box(offset,y,sign*dist,along,h,depth):this.box(sign*dist,y,offset,depth,h,along);
-   let start=-n;const doors=[...(r.doors||[]),...(r.exit?[{...r.exit,exit:true}]:[])].filter(d=>d.side===side).sort((a,b)=>a.offset-b.offset);
-   for(const d of doors){const left=d.offset-.8,right=d.offset+.8;if(left>start)box((start+left)/2,left-start,0,cutaway?.35:r.theme==='roof'?.85:3.4);if(r.theme!=='roof')box(d.offset,1.6,2.7,.7);start=right;if(d.exit&&r.exit.kind==='jump')continue;
-    // Jambs and a lintel frame an open, roofless passage extending outside the room.
-    for(const edge of [left,right])box(edge,.08,0,cutaway?.35:2.55,2.6,n+1.3);
-    box(d.offset,1.6,0,.03,2.6,n+1.3);box(d.offset,1.6,0,cutaway?.35:2.55,.12,n+2.6);
-   }
-   if(start<n)box((start+n)/2,n-start,0,cutaway?.35:r.theme==='roof'?.85:3.4);
-  }
+ architecture(r){drawArchitecture(this,r);}
+ skyline(n){for(let i=0;i<18;i++){const a=i*Math.PI/9,d=n+17+(i%3)*4;if(Math.cos(a)<-.7)continue;this.box(Math.sin(a)*d,-9,Math.cos(a)*d,3+(i%3),8+(i%5)*2.5,4,LINE);}}
+ exit(r){drawExit(this,r);}
+ boundary(r){drawBoundary(this,r);}
+ scene(r,{transform=null,open=false,items=[],enemies=[],highlight=false}={}){
+  this.sceneTransform=transform;this.sceneOpen=open;this.sceneActive=highlight;const bounds=roomBounds(r);this.face([[-bounds.x,-.015,-bounds.z],[bounds.x,-.015,-bounds.z],[bounds.x,-.015,bounds.z],[-bounds.x,-.015,bounds.z]],LINE,r.theme==='break'?'#f1f3ee':r.theme==='roof'?'#eef0ec':r.theme==='helicopter'?'#e9ede9':'white',.5);const spacing=r.theme==='break'?1.5:r.theme==='helicopter'?2:4;
+  for(let x=-bounds.x;x<=bounds.x;x+=spacing)this.line([x,0,-bounds.z],[x,0,bounds.z],LINE,.65);
+  for(let z=-bounds.z;z<=bounds.z;z+=spacing)this.line([-bounds.x,0,z],[bounds.x,0,z],LINE,.65);
+  this.boundary(r);this.architecture(r);for(const b of r.cover)this.furniture(b);
+  const nearby=highlight?this.game.nearbyItem():null;for(const item of items)this.item(item,item===nearby);
+  for(const e of enemies)if(e.alive)this.enemy(e);
+  this.sceneTransform=null;
  }
  deathView(game){if(game.state!=='dead'||!game.death)return null;const d=game.death,t=Math.min(1,d.age/1.35),e=t*t*(3-2*t),p=d.camera,span=Math.hypot(d.origin.x-p.x,d.origin.z-p.z),height=Math.max(10,span*this.w/this.h*.8+8);
   return {...p,x:p.x+(d.origin.x-p.x)*.5*e,z:p.z+(d.origin.z-p.z)*.5*e,y:p.y+(height-p.y)*e,pitch:p.pitch+(-Math.PI/2-p.pitch)*e};
@@ -117,11 +74,12 @@ export class StillRenderer{
   // The black head marker locates the player beneath the rising camera.
   const head=this.project(this.camera([d.camera.x,1.6,d.camera.z]));ctx.fillStyle=INK;ctx.beginPath();ctx.arc(...head,4,0,Math.PI*2);ctx.fill();ctx.restore();
  }
- draw(game){this.game=game;const ctx=this.ctx,rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);this.w=Math.max(1,rect.width);this.h=Math.max(1,rect.height);this.view=this.deathView(game);const pw=Math.round(this.w*dpr),ph=Math.round(this.h*dpr);if(this.canvas.width!==pw||this.canvas.height!==ph){this.canvas.width=pw;this.canvas.height=ph}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,this.w,this.h);ctx.fillStyle='white';ctx.fillRect(0,0,this.w,this.h);this.f=this.w*.75;this.faces=[];
- const r=game.room,N=r.size/2;for(let x=-N;x<=N;x+=4)this.line([x,0,-N],[x,0,N],LINE,.65);for(let z=-N;z<=N;z+=4)this.line([-N,0,z],[N,0,z],LINE,.65);
- this.boundary(r);
- this.architecture(r);for(const b of r.cover)this.furniture(b);const nearby=game.nearbyItem();for(const item of game.items)this.item(item,item===nearby);
- for(const e of game.enemies)if(e.alive)this.enemy(e);
+ draw(game){this.game=game;const ctx=this.ctx,rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);this.w=Math.max(1,rect.width);this.h=Math.max(1,rect.height);this.view=this.deathView(game);const pw=Math.round(this.w*dpr),ph=Math.round(this.h*dpr);if(this.canvas.width!==pw||this.canvas.height!==ph){this.canvas.width=pw;this.canvas.height=ph}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,this.w,this.h);ctx.fillStyle='white';ctx.fillRect(0,0,this.w,this.h);this.f=Math.min(this.w*.75,this.h*1.08);this.faces=[];
+ const r=game.room,link=stageConnection(game.level);
+ // Both sides of a doorway use the same transform before and after crossing it.
+ if(link){const next=ROOMS[game.level+1],enemies=enemyRoster(next,game.mode).map((e,id)=>({...e,id,alive:true,armor:e.type==='gun'?game.settings.armor:0,phase:0,angle:Math.atan2(next.start[0]-e.x,next.start[1]-e.z)}));this.scene(next,{transform:link,items:next.items,enemies});}
+ if(game.previousRoom){const previous=game.previousRoom,origin=transformPoint({x:0,z:0},previous.link,true);this.scene(previous.room,{transform:{...origin,yaw:-previous.link.yaw},open:true,items:previous.items});}
+ this.scene(r,{open:game.exitUnlocked,items:game.items,enemies:game.enemies,highlight:true});
  for(const s of game.shards){const size=s.size,a=s.angle,c=Math.cos(a)*size,n=Math.sin(a)*size;this.face([[s.x-c,s.y,s.z-n],[s.x+c,s.y,s.z+n],[s.x,s.y+size*1.8,s.z-size]],RED,s.age<.7?'#f9e8e8':'white',1);}
  for(const b of game.bullets){const v=Math.hypot(b.vx,b.vy,b.vz),tail=.9,color=b.owner==='enemy'?RED:INK;if(b.type==='throw')this.item({x:b.x,y:b.y-.08,z:b.z,kind:b.item});else{this.line([b.x-b.vx/v*tail,b.y-b.vy/v*tail,b.z-b.vz/v*tail],[b.x,b.y,b.z],color,b.owner==='enemy'?2.3:1.5);this.box(b.x,b.y-.025,b.z,.055,.055,.055,color,0,false,color)}}
  if(this.depth){this.depth.draw(this.faces,this.w,this.h,this.f,dpr);ctx.drawImage(this.depth.canvas,0,0,this.w,this.h);}else{
