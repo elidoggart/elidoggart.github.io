@@ -43,3 +43,9 @@ button,.button,.quiet{font-family:ui-monospace,SFMono-Regular,Consolas,monospace
 
 #guesses .graph-pair{width:min(100%,max(120px,calc((100cqh - 100px)*2)))}
 @media(max-height:550px) and (min-width:701px){#guesses .graph-pair{width:min(100%,max(96px,calc((100cqh - 80px)*2)))}.component-credit{font-size:9px;line-height:11px;margin-top:3px}}
+
+.hint-formula{font-size:15px}@media(max-width:700px){.hint-formula{font-size:12px}}
+
+#view-reset{white-space:nowrap}
+
+.bonus-summary{grid-column:1/-1}.round-summary.bonus-summary .graph-pair{grid-template-columns:repeat(2,minmax(0,1fr));max-width:600px}.bonus-summary .summary-equation{min-height:0}
