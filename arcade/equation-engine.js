@@ -1,4 +1,4 @@
-import {makeImplicitRound,implicitFamilyCount,evaluateImplicit} from './equation-implicit.js?v=implicit-1';
+import {makeImplicitRound,implicitFamilyCount,evaluateImplicit,compileImplicit} from './equation-implicit.js?v=implicit-1';
 export {compileImplicit,implicitCredit} from './equation-implicit.js?v=implicit-1';
 export const familyCounts={easy:4,medium:6,hard:6};
 export {implicitFamilyCount as bonusFamilyCounts} from './equation-implicit.js?v=implicit-1';
@@ -7,6 +7,14 @@ export const isExactFit=result=>result.error<1e-10;
 export const bonusUnlocked=results=>results.length===3&&results.every(r=>r.exact);
 import {compile} from './equation-math.js?v=implicit-1';
 export {compile} from './equation-math.js?v=implicit-1';
+export function compileGuess(source,round){
+ if(!round.implicit){
+  const explicit=source.match(round.dim===3?/^\s*z\s*=\s*(.+)$/i:/^\s*y\s*=\s*(.+)$/i);
+  if(explicit){try{return compile(explicit[1],round.dim);}catch{/* A dependent variable on both sides needs implicit plotting. */}}
+  if(!source.includes('='))return compile(source,round.dim);
+ }
+ return compileImplicit(source,round.dim);
+}
 export function makeRound(difficulty,rng=Math.random,familyIndex){
  const pick=a=>a[Math.floor(rng()*a.length)], a=pick([1,2,3]), b=pick([-2,-1,1,2]), k=pick([0.5,1,2]);
  const families={easy:[`${a}x + ${b}`,`${k}(x - ${b})^2 - ${a}`,`${a}abs(x - ${b}) - ${a}`,`${a}sin(x) + ${b}`],medium:[`${a}sin(${k}x + ${b})`,`${k}(x - ${b})^3 - ${a}x`,`${a}exp(-${k}(x - ${b})^2)`,`${a}cos(x) + ${k}x`,`${a}/(1 + (x - ${b})^2)`,`${k}x^2 + ${a}sin(2x)`],hard:[`${k}(x^2 + y^2) - ${a}`,`${k}(x^2 - y^2) + ${b}`,`${a}sin(x)cos(y)`,`${a}exp(-${k}(x^2 + y^2))`,`${k}x*y + ${b}`,`${a}sin(${k}sqrt(x^2 + y^2))`]};
