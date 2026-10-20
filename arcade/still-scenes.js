@@ -1,4 +1,4 @@
-import {roomBounds} from './still-engine.js?v=extraction-2';
+import {roomBounds} from './still-engine.js?v=combat-puzzle-3';
 const INK='#232421',LINE='#d9dedb',RED='#c73136';
 // Small world-space lettering: the same depth buffer as walls and furniture.
 const GLYPHS={
@@ -57,7 +57,6 @@ export function drawExit(v,r){
   for(const side of [-1,1])v.box(x+side*1.05,0,z+.9,.1,3,1.9,INK,0,false,'#e4e7e5');
   v.box(x,2.95,z+1.2,2.2,.08,2.6,LINE);
   v.box(x+1.14,1.1,z-.1,.2,.42,.04,INK);v.box(x+1.14,1.27,z-.13,.07,.07,.02,color);
-  lettering(v,'ROOF ACCESS',x,2.85,z-.12,1.45);
  }
 }
 export function drawBoundary(v,r){
@@ -98,7 +97,6 @@ export function drawArchitecture(v,r){
   }
   v.box(-5,1.8,n-.13,2,.9,.035,LINE);
   for(const x of [-5.6,-5,-4.4])v.box(x,2,n-.16,.35,.42,.025,LINE);
-  lettering(v,'OPERATIONS',4,2.8,n-.16,2.5);
  }else if(r.theme==='break'){
   // Full-height refrigerator, countertop, sink, microwave and wall cupboards.
   v.box(-n+.65,0,-1,1.1,2.35,1.5,INK,0,false,'#edf1ef');v.box(-n+1.22,.85,-1,.04,.9,.05,INK);
@@ -106,11 +104,9 @@ export function drawArchitecture(v,r){
   v.box(-n+.7,1,2.3,.65,.03,.9,INK,0,false,'#c4cdca');
   v.limb([-n+.8,1,2.6],[-n+.8,1.35,2.6],.025,.025,INK);v.limb([-n+.8,1.35,2.6],[-n+.55,1.35,2.6],.025,.025,INK);
   v.box(-n+.7,1,4.3,.8,.5,1,INK);v.box(-n+.27,1.08,4.3,.03,.3,.7,LINE,0,false,'#354540');
-  v.box(4,1.7,n-.12,3.1,.7,.08,LINE);lettering(v,'TAKE A BREAK',4,2.05,n-.18,2.6);
  }else if(r.theme==='reception'){
   v.box(0,.006,0,4,.008,12,LINE,0,false,'#edf0ed');
   for(const x of [-7.5,7.5]){v.box(x,.35,-2,1.3,.25,3,INK);v.box(x+Math.sign(x)*.5,.6,-2,.15,.7,3,INK);}
-  v.box(0,2.1,-n+.15,5.8,.9,.04,LINE);lettering(v,'NORTH TOWER',0,2.45,-n+.19,4.8);
   for(const x of [-7,7])v.box(x,0,7,1,.6,1,LINE,0,false,'#e2e7df');
  }
 }

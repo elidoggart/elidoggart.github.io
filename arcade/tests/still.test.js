@@ -48,7 +48,7 @@ test('every enemy entry has a traversable route from the player',()=>{for(let le
 test('final encounter must exhaust every wave before winning and retry restores waves',()=>{const g=new StillGame();g.start();g.level=ROOMS.length-1;g.loadRoom();const count=g.pendingWaves.length;g.enemies.forEach(e=>g.kill(e,'melee'));g.step(.01);g.die();g.retry();assert.equal(g.pendingWaves.length,count);for(let i=0;i<=count;i++){g.enemies.forEach(e=>g.kill(e,'melee'));g.step(.01);assert.equal(g.state,'playing');assert.equal(g.exitUnlocked,i===count)}run(g,1);assert.equal(g.state,'playing');leave(g);assert.equal(g.state,'won')});
 
 
-test('all four weapons are earned, and drops preserve their identity and limited ammunition',()=>{const seen=new Set();for(let level=0;level<ROOMS.length;level++){const g=new StillGame();g.level=level;g.loadRoom();assert(!g.items.some(i=>isFirearm(i.kind)));for(const e of g.enemies.filter(e=>e.type==='gun')){g.kill(e);const item=g.items.find(i=>i.id==='enemy-'+e.id);seen.add(item.kind);assert.equal(item.kind,e.weapon);assert.equal(item.ammo,WEAPONS[item.kind].ammo);assert.equal(item.reserve,0)}}assert.deepEqual([...seen].sort(),Object.keys(WEAPONS).sort())});
+test('all four weapons are earned, and drops preserve their identity and limited ammunition',()=>{const seen=new Set();for(let level=0;level<ROOMS.length;level++){const g=new StillGame();g.level=level;g.loadRoom();assert(!g.items.some(i=>isFirearm(i.kind)));for(const e of g.enemies.filter(e=>e.type==='gun')){g.kill(e);const item=g.items.find(i=>i.id==='enemy-'+e.id);seen.add(item.kind);assert.equal(item.kind,e.weapon);assert.equal(item.ammo,e.dropAmmo??WEAPONS[item.kind].ammo);assert.equal(item.reserve,0)}}assert.deepEqual([...seen].sort(),Object.keys(WEAPONS).sort())});
 test('shotgun makes a symmetric five-pellet fan from one shell; SMG trades accuracy for rate',()=>{const g=empty();g.player.held='shotgun';g.player.ammo=2;g.fire();assert.equal(g.player.ammo,1);assert.equal(g.bullets.length,5);assert.equal(g.bullets[2].vx,0);assert(Math.abs(g.bullets[0].vx+g.bullets[4].vx)<1e-10);assert.equal(g.totalShots,1);assert(!g.fire());const smg=empty();smg.player.held='smg';smg.player.ammo=6;smg.fire();assert(smg.player.cool<WEAPONS.gun.cool);assert.notEqual(smg.bullets[0].vx,0)});
 test('rifle pierces two aligned enemies but stops at the second or solid cover',()=>{const g=empty();g.player.held='rifle';g.player.ammo=2;g.enemies=[0,1,2].map((id)=>({...g.enemies[0],id,x:0,z:-4+id*.8,fire:100}));g.fire();run(g,.2,{x:.01});assert.equal(g.kills,2);assert(g.enemies[2].alive);const wall=empty();wall.player.held='rifle';wall.player.x=-5;wall.player.pitch=-.15;wall.enemies[0].x=-5;wall.enemies[0].z=3;wall.fire();run(wall,.8);assert.equal(wall.kills,0)});
 test('every firearm reloads to its own capacity and can be thrown and recovered without creating ammo',()=>{for(const kind of Object.keys(WEAPONS)){const g=empty();g.player.held=kind;g.player.ammo=0;g.player.reserve=20;g.reload();run(g,4);assert.equal(g.player.ammo,WEAPONS[kind].capacity);assert.equal(g.player.reserve,20-WEAPONS[kind].capacity);g.player.pitch=-.4;g.fire(true);run(g,5,{x:.01});const drop=g.items.find(i=>i.id.startsWith('thrown-'));assert(drop);assert.equal(drop.kind,kind);assert.equal(drop.ammo,WEAPONS[kind].capacity);assert.equal(drop.reserve,20-WEAPONS[kind].capacity)}});
@@ -92,7 +92,7 @@ test('difficulty changes guard counts, reinforcement pressure, warning time and 
   const count=g=>g.enemies.length+g.pendingWaves.flat().length;
   assert(count(games[0])<count(games[1]));assert(count(games[1])<count(games[2]));
   assert.equal(games[0].pendingWaves.length,0);
-  assert(games[0].enemies.every(e=>e.weapon==='gun'||e.type==='rush'));
+  assert.deepEqual(games[0].enemies.map(e=>e.weapon),games[1].enemies.slice(0,2).map(e=>e.weapon));
   assert(games[2].enemies.filter(e=>e.type==='gun').every(e=>e.armor===1));
   for(const g of games)for(const e of [...g.enemies,...g.pendingWaves.flat()])assert(!g.blocked(e.x,e.z),`${g.mode} ${g.room.name} guard ${e.x},${e.z}`);
  }
@@ -133,4 +133,57 @@ test('roof reinforcements use the roof-access corridor and helicopter guards beg
  for(const e of roof.waves.flat()){assert.equal(e.door.side,roof.entrance.side);assert.equal(e.door.offset,roof.entrance.offset);}
  assert.equal(cabin.waves.length,0);
  for(const e of cabin.enemies){assert(Math.abs(e.x)<cabin.halfWidth);assert(Math.abs(e.z)<cabin.size/2);}
+});
+
+test('the opening bottle earns a one-shot pistol; catching it brings pressure before the room is cleared',()=>{
+ const g=new StillGame();g.start();
+ g.interact();assert.equal(g.player.held,'bottle');run(g,.2);
+ const first=g.enemies[0];g.player.yaw=Math.atan2(first.x-g.player.x,first.z-g.player.z);
+ assert(g.fire(true));run(g,4);assert(!first.alive);
+ assert.equal(g.wave,0);assert(g.enemies.some(e=>e.alive));
+ Object.assign(g.player,{x:1.6,z:-4.6});
+ const drop=g.items.find(i=>i.id==='enemy-0');
+ g.player.yaw=Math.atan2(drop.x-g.player.x,drop.z-g.player.z);
+ g.interact();assert.equal(g.player.held,'gun');assert.equal(g.player.ammo,1);
+ g.step(.01);assert.equal(g.wave,1);assert(g.enemies.some(e=>e.enter>0));assert(!g.exitUnlocked);
+ run(g,.2);assert(g.fire());assert.equal(g.player.ammo,0);
+ run(g,.4);assert(g.fire(true));assert.equal(g.player.held,null);
+});
+
+test('reception rewards earning the rifle and lining up the far pair with its single round',()=>{
+ const g=new StillGame();g.start();g.level=2;g.loadRoom();
+ g.interact();assert.equal(g.player.held,'stapler');run(g,.2);
+ const first=g.enemies[0];g.player.yaw=Math.atan2(first.x-g.player.x,first.z-g.player.z);
+ assert(g.fire(true));run(g,4);assert(!first.alive);
+ Object.assign(g.player,{x:2,z:-5});
+ const drop=g.items.find(i=>i.id==='enemy-0');g.player.yaw=Math.atan2(drop.x-g.player.x,drop.z-g.player.z);
+ g.interact();assert.equal(g.player.held,'rifle');assert.equal(g.player.ammo,1);
+ run(g,.2);Object.assign(g.player,{x:5.8,z:0,yaw:0,pitch:0});
+ assert(g.fire());run(g,.8);
+ assert(!g.enemies[1].alive);assert(!g.enemies[2].alive);assert.equal(g.player.ammo,0);
+ assert.equal(g.wave,1);assert(!g.exitUnlocked);
+});
+
+test('holding guards defend their lane while flankers close in; no enemy has an enforced kill order',()=>{
+ const g=new StillGame('hard');g.start();
+ const holder=g.enemies[1],flanker=g.enemies.at(-1),before={x:holder.x,z:holder.z},distance=Math.hypot(flanker.x-g.player.x,flanker.z-g.player.z);
+ // Advance enough world time to observe tactics, before the first shot.
+ g.actionTime=.5;run(g,.4);
+ assert.deepEqual({x:holder.x,z:holder.z},before);
+ assert(Math.hypot(flanker.x-g.player.x,flanker.z-g.player.z)<distance);
+ assert(g.enemies[0].alive);g.hitEnemy(holder,'shot',true,'gun');assert(!holder.alive);
+ assert(g.enemies[0].alive);
+});
+
+test('roof pursuit starts on the first takedown and retries restore triggers, ammo and patrols',()=>{
+ const g=new StillGame();g.start();g.level=3;g.loadRoom();
+ g.kill(g.enemies[0],'melee');g.step(.01);
+ assert.equal(g.wave,1);assert(g.enemies[1].alive);assert(g.enemies.some(e=>e.enter>0));
+ g.roomGunPickups=2;g.die();g.retry();
+ assert.equal(g.roomGunPickups,0);assert.equal(g.wave,0);assert.equal(g.pendingWaves.length,1);
+ g.step(.01);assert.equal(g.wave,0);
+ g.kill(g.enemies[0],'melee');g.step(.01);assert.equal(g.wave,1);
+ const easy=new StillGame('easy');easy.start();easy.kill(easy.enemies[0],'melee');
+ assert.equal(easy.items.find(i=>i.id==='enemy-0').ammo,2);
+ easy.step(.01);assert.equal(easy.wave,0);
 });
