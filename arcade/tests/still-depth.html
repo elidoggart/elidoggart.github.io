@@ -1,0 +1,19 @@
+<!doctype html><meta charset="utf-8"><title>Depth buffer regression checks</title><style>body{font:16px monospace}canvas{width:320px;height:240px;border:1px solid #aaa;margin:10px}pre{white-space:pre-wrap}</style><h1>Visibility regression cases</h1><div id="scenes"></div><pre id="result">Running…</pre><script type="module">
+import {StillDepth} from '../still-depth.js?v=depth-flight-1';
+const quad=(x0,x1,z,color='white')=>({camera:[[x0,-1,z],[x1,-1,z],[x1,1,z],[x0,1,z]],fill:color,color:'#232421',width:1});
+const line=(x,z)=>({camera:[[x,-.7,z],[x,.7,z]],color:'#c73136',width:4});
+const canvas=document.createElement('canvas');document.querySelector('#scenes').append(canvas);const renderer=new StillDepth(canvas),gl=renderer.gl,w=320,h=240,f=240,checks=[];
+const red=p=>p[0]>150&&p[1]<100&&p[2]<100,white=p=>p[0]>240&&p[1]>240&&p[2]>240;
+const pixel=(x,y=.47*h)=>{const p=new Uint8Array(4);gl.readPixels(Math.round(x),h-1-Math.round(y),1,1,gl.RGBA,gl.UNSIGNED_BYTE,p);return [...p]};
+const test=(name,faces,samples)=>{renderer.draw(faces,w,h,f,1);const a=samples.map(s=>pixel(s.x,s.y));renderer.draw([...faces].reverse(),w,h,f,1);const b=samples.map(s=>pixel(s.x,s.y));checks.push({name,pass:samples.every((s,i)=>s.check(a[i])&&s.check(b[i])),forward:a,reversed:b});};
+test('Wall hides enemy behind it',[quad(-1,1,3),line(0,5)],[{x:160,check:white}]);
+test('Enemy in front remains visible',[quad(-1,1,3),line(0,2)],[{x:160,check:red}]);
+test('Doorway reveals only its opening',[quad(-2,-.5,3),quad(.5,2,3),line(0,5),line(1.3,5)],[{x:160,check:red},{x:160+1.3/5*f,check:white}]);
+test('Intersecting surfaces are resolved per pixel',[quad(-3,3,4),{camera:[[-1,-1,2],[1,-1,6],[1,1,6],[-1,1,2]],fill:'#c73136',color:'#c73136',width:1}],[{x:112,check:red},{x:190,check:white}]);
+test('Low cover hides feet but leaves the head visible',[{camera:[[-1,-1,3],[1,-1,3],[1,0,3],[-1,0,3]],fill:'white',color:'#232421',width:1},line(0,5)],[{x:160,y:90,check:red},{x:160,y:135,check:white}]);
+test('Near-plane clipping does not reveal an enemy through a wall',[{camera:[[-1,-1,.02],[1,-1,3],[1,1,3],[-1,1,.02]],fill:'white',color:'#232421',width:1},line(0,5)],[{x:160,check:white}]);
+// Render a full room through the production renderer and measure warmed frames.
+const {StillGame}=await import('../still-engine.js?v=depth-flight-1');const {StillRenderer}=await import('../still-render.js?v=depth-flight-1');
+const roomCanvas=document.createElement('canvas');document.querySelector('#scenes').append(roomCanvas);const r=new StillRenderer(roomCanvas),g=new StillGame();g.start();g.state='paused';const times=[];let i=0;
+function frame(){g.player.yaw=i*.05;const start=performance.now();r.draw(g);times.push(performance.now()-start);if(++i<90)requestAnimationFrame(frame);else{const warm=times.slice(15).sort((a,b)=>a-b);document.querySelector('#result').textContent=JSON.stringify({checks,allPassed:checks.every(c=>c.pass),productionDepthActive:!!r.depth,medianMs:warm[Math.floor(warm.length*.5)],p95Ms:warm[Math.floor(warm.length*.95)]},null,2)}}requestAnimationFrame(frame);
+</script>

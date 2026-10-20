@@ -103,9 +103,9 @@ export class StillGame{
   this.emit(throwing?'throw':'shot',{weapon:item});return true;
  }
  melee(){if(this.state!=='playing'||this.player.cool>0||this.player.reload>0)return;const p=this.player;this.actionTime=.22;p.cool=.2;p.kick=1;let target=null,best=1.25;for(const e of this.enemies){const dist=Math.hypot(e.x-p.x,e.z-p.z),facing=(Math.sin(p.yaw)*(e.x-p.x)+Math.cos(p.yaw)*(e.z-p.z))/dist;if(e.alive&&dist<best&&facing>.55&&this.visible(p,{x:e.x,y:1.1,z:e.z})){target=e;best=dist}}if(target)this.kill(target,'melee');else this.emit('miss');}
- kill(e,kind='shot',head=false){if(!e.alive)return;e.alive=false;this.kills++;if(kind!=='melee'){this.totalHits++;this.levelHits++;}if(e.type==='gun'){const kind=e.weapon||'gun',w=WEAPONS[kind];this.items.push({id:'enemy-'+e.id,kind,x:e.x,z:e.z,y:.06,ammo:w.ammo,reserve:w.reserve});}this.emit('shatter',{x:e.x,z:e.z});for(let i=0;i<10;i++){const a=i*2.399+e.id;this.shards.push({x:e.x+Math.cos(a)*.25,y:.25+(i%6)*.27,z:e.z+Math.sin(a)*.25,vx:Math.cos(a)*(1+(i%4)*.4),vy:1.2+(i%5)*.3,vz:Math.sin(a)*(1+(i%4)*.4),size:.035+(i%3)*.018,age:0,angle:a});}}
+ kill(e,kind='shot',head=false){if(!e.alive)return;e.alive=false;this.kills++;if(kind!=='melee'){this.totalHits++;this.levelHits++;}if(e.type==='gun'){const kind=e.weapon||'gun',w=WEAPONS[kind];const dx=this.player.x-e.x,dz=this.player.z-e.z,d=Math.hypot(dx,dz),travel=Math.max(0,d-.85),duration=1.1;this.items.push({id:'enemy-'+e.id,kind,x:e.x,z:e.z,y:1.12,ammo:w.ammo,reserve:w.reserve,flight:true,vx:d?dx/d*travel/duration:0,vz:d?dz/d*travel/duration:0,vy:(.06-1.12+4*duration*duration)/duration,angle:e.angle||0,spin:(e.id%2?1:-1)*6});}this.emit('shatter',{x:e.x,z:e.z});for(let i=0;i<10;i++){const a=i*2.399+e.id;this.shards.push({x:e.x+Math.cos(a)*.25,y:.25+(i%6)*.27,z:e.z+Math.sin(a)*.25,vx:Math.cos(a)*(1+(i%4)*.4),vy:1.2+(i%5)*.3,vz:Math.sin(a)*(1+(i%4)*.4),size:.035+(i%3)*.018,age:0,angle:a});}}
  die(attack=null){if(this.state!=='playing')return;const p=this.player;this.death={age:0,kind:attack?.kind||'shot',origin:{...(attack?.origin||p)},impact:{...(attack?.impact||p)},camera:{...p},attacker:attack?.attacker};this.lives--;this.state='dead';this.emit('death');this.note('A FRACTION TOO LATE');}
- step(dt,input={}){if(this.state==='dead'){if(this.death)this.death.age+=clamp(dt,0,.05);return;}if(this.state==='clearing'){this.clearTime-=Math.min(dt,.05);this.animateShards(Math.min(dt,.05));if(this.clearTime<=0){this.state=this.level===ROOMS.length-1?'won':'clear';this.emit('clear')}return;}if(this.state!=='playing')return;const realDelta=Math.max(0,dt);dt=clamp(dt,0,.05);const p=this.player;p.yaw+=(input.turn||0)*dt*1.7+(input.lookX||0);p.pitch=clamp(p.pitch+(input.lookY||0),-.48,.48);const mx=clamp(input.x||0,-1,1),mz=clamp(input.z||0,-1,1),moving=Math.hypot(mx,mz),aim=Math.abs(input.lookX||0)+Math.abs(input.lookY||0)+Math.abs(input.turn||0)*dt;
+ step(dt,input={}){if(this.state==='dead'){if(this.death)this.death.age+=clamp(dt,0,.05);return;}if(this.state==='clearing'){this.clearTime-=Math.min(dt,.05);this.animateShards(Math.min(dt,.05));this.animateItems(Math.min(dt,.05));if(this.clearTime<=0){this.state=this.level===ROOMS.length-1?'won':'clear';this.emit('clear')}return;}if(this.state!=='playing')return;const realDelta=Math.max(0,dt);dt=clamp(dt,0,.05);const p=this.player;p.yaw+=(input.turn||0)*dt*1.7+(input.lookX||0);p.pitch=clamp(p.pitch+(input.lookY||0),-.48,.48);const mx=clamp(input.x||0,-1,1),mz=clamp(input.z||0,-1,1),moving=Math.hypot(mx,mz),aim=Math.abs(input.lookX||0)+Math.abs(input.lookY||0)+Math.abs(input.turn||0)*dt;
  if(input.reload)this.reload();if(input.melee)this.interact();if(input.throw)this.fire(true);if(input.fire)this.fire();
  this.timeScale=moving>.03?Math.min(1,moving):this.actionTime>0?1:p.reload>0?.65:aim>.0001?clamp(aim/dt* .16,.08,.5):.025;const delta=dt*this.timeScale;this.actionTime=Math.max(0,this.actionTime-dt);this.simTime+=delta;this.totalTime+=delta;this.roomTime+=delta;this.totalRealTime+=realDelta;this.roomRealTime+=realDelta;this.bannerTime=Math.max(0,this.bannerTime-dt);p.cool=Math.max(0,p.cool-delta);p.kick=Math.max(0,p.kick-dt*5);if(p.reload>0){p.reload=Math.max(0,p.reload-delta);if(!p.reload){const rounds=Math.min(WEAPONS[p.held].capacity-p.ammo,p.reserve);p.ammo+=rounds;p.reserve-=rounds;this.emit('loaded')}}
  if(moving){const n=Math.max(1,moving),speed=3.7*delta;this.move(p,(Math.sin(p.yaw)*mz+Math.cos(p.yaw)*mx)/n*speed,(Math.cos(p.yaw)*mz-Math.sin(p.yaw)*mx)/n*speed);}
@@ -119,7 +119,7 @@ export class StillGame{
  for(const candidate of hits.sort((a,b)=>a.t-b.t)){if(b.pierce>0){this.kill(candidate.e,b.type,candidate.head);b.pierce--;}else{hit=candidate.t;victim=candidate.e;head=candidate.head;break;}}
  }else{const t=segmentBox(old,next,{x:p.x,z:p.z,w:.42,d:.42,h:1.8});if(t!==null&&(hit===null||t<hit)){hit=t;victim=p;}const d=Math.hypot(next.x-p.x,next.z-p.z);b.closest=Math.min(d,b.closest);if(victim!==p&&hit===null&&!b.near&&b.closest<.85&&d>b.closest+.15){b.near=true;this.dodges++;this.emit('dodge');}}
  Object.assign(b,next);if(hit!==null){b.dead=true;if(victim===p){const impact={x:old.x+(next.x-old.x)*hit,y:old.y+(next.y-old.y)*hit,z:old.z+(next.z-old.z)*hit};this.die({kind:'shot',origin:b.origin||b.path[0]||old,impact,attacker:b.attacker});return;}else if(victim)this.kill(victim,b.type,head);else this.emit('impact');}if(b.age>9||b.y<0||b.y>4.5)b.dead=true;if(b.dead&&b.type==='throw'&&isFirearm(b.item)){this.items.push({id:'thrown-'+b.id,kind:b.item,x:old.x,z:old.z,y:.06,ammo:b.ammo,reserve:b.reserve});}}
- this.bullets=this.bullets.filter(b=>!b.dead);this.animateShards(delta);
+ this.bullets=this.bullets.filter(b=>!b.dead);this.animateShards(delta);this.animateItems(delta);
  if(this.state==='playing'&&this.enemies.every(e=>!e.alive)&&this.pendingWaves.length){this.reinforce();}
  else if(this.state==='playing'&&this.enemies.every(e=>!e.alive)){this.clearBonus=this.roomValue;this.addScore(this.clearBonus);this.state='clearing';this.clearTime=.8;}
  }
@@ -131,6 +131,17 @@ export class StillGame{
   }
   this.emit('arrival');
  }
+ animateItems(delta){for(const item of this.items){if(!item.flight)continue;
+  const old={x:item.x,y:item.y,z:item.z},next={x:item.x+item.vx*delta,y:item.y+item.vy*delta-4*delta*delta,z:item.z+item.vz*delta};
+  let hit=null,box=null;for(const solid of this.room.solids){const t=segmentBox(old,next,solid,.09);if(t!==null&&(hit===null||t<hit)){hit=t;box=solid;}}
+  const edge=this.wallHit(old,next);if(edge!==null&&(hit===null||edge<hit)){hit=edge;box=null;}
+  item.vy-=8*delta;item.angle+=item.spin*delta;
+  if(hit!==null){const t=Math.max(0,hit-.002);item.x=old.x+(next.x-old.x)*t;item.z=old.z+(next.z-old.z)*t;item.y=old.y+(next.y-old.y)*t;item.vx=item.vz=0;
+   if(box&&item.vy<0&&Math.abs((old.y+(next.y-old.y)*hit)-((box.y||0)+box.h+.09))<.025){item.y=(box.y||0)+box.h+.09;item.flight=false;}
+  }else Object.assign(item,next);
+  if(item.y<=.06){item.y=.06;item.flight=false;}
+  if(!item.flight){item.vx=item.vy=item.vz=0;item.spin=0;}
+ }}
  animateShards(delta){for(const s of this.shards){s.age+=delta;s.x+=s.vx*delta;s.z+=s.vz*delta;s.y+=s.vy*delta;s.vy-=5*delta;s.angle+=delta*2;if(s.y<.06){s.y=.06;s.vy=0;s.vx*=.9;s.vz*=.9}}this.shards=this.shards.filter(s=>s.age<4);}
 
 }
