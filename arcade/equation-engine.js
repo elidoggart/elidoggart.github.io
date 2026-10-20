@@ -23,5 +23,18 @@ export function makeRound(difficulty,rng=Math.random,familyIndex){
  return {expression,fn,dim,domain,range:[Math.floor(lo-pad),Math.ceil(hi+pad)],points,family};
 }
 export function evaluate(round,fn){let squared=0;for(const p of round.points){const v=fn(p.x,p.y);if(!Number.isFinite(v)||Math.abs(v)>1e12)throw Error('Your equation must be finite throughout the shown area.');squared+=(v-p.z)**2;}const rmse=Math.sqrt(squared/round.points.length),error=rmse/(round.range[1]-round.range[0]);return{rmse,error,closeness:100*Math.exp(-6*error)};}
-export function scoreRound(error,guesses,seconds){return Math.round(10000*Math.exp(-6*error)*Math.max(.6,1-.08*(guesses-1))*(.65+.35*Math.exp(-Math.max(0,seconds)/180)));}
+export function scoreRound(error,guesses,seconds,structural=Math.exp(-6*error)){return Math.round(10000*combinedAccuracy(error,structural)*Math.max(.6,1-.08*(guesses-1))*(.65+.35*Math.exp(-Math.max(0,seconds)/180)));}
 export function readScores(storage){try{return JSON.parse(storage.getItem('equation-scores-v1')||'[]').filter(s=>/^[A-Z]{3}$/.test(s.initials)&&['easy','medium','hard'].includes(s.difficulty)&&Number.isInteger(s.score)&&s.score>=0&&s.score<=30000).sort((a,b)=>b.score-a.score).slice(0,30);}catch{return[];}}
+// Recognize broad mathematical families, independently of fitted coefficients.
+export function structure(source,dimensions=2){
+ const fn=compile(source,dimensions),text=source.toLowerCase(),families=new Set();
+ for(const [pattern,family]of [[/\b(?:sin|cos)\s*\(/,'sinusoidal'],[/\btan\s*\(/,'tangent'],[/\babs\s*\(/,'absolute'],[/\bexp\s*\(|\be\s*\^/,'exponential'],[/\b(?:ln|log|log10)\s*\(/,'logarithmic'],[/\bsqrt\s*\(/,'root']])if(pattern.test(text))families.add(family);
+ if(!families.size){
+  // Finite differences identify equivalent expanded/factored polynomials, including surfaces.
+  let degree=0;for(const [offset,step]of [[.137,.173],[-.683,.219]]){let values=Array.from({length:8},(_,i)=>fn(offset+i*step,dimensions===3?offset*.7+i*step*.61:0));const scale=Math.max(1,...values.map(Math.abs));if(values.some(v=>!Number.isFinite(v))){degree=8;break;}let order=0;while(values.length>1&&values.some(v=>Math.abs(v)>scale*1e-8)){values=values.slice(1).map((v,i)=>v-values[i]);order++;}degree=Math.max(degree,values.some(v=>Math.abs(v)>scale*1e-8)?8:order-1);}
+  families.add(degree<=0?'constant':degree===1?'linear':degree===2?'quadratic':degree===3?'cubic':degree<=6?'polynomial':text.includes('/')?'rational':'other');
+ }
+ return [...families];
+}
+export function structureMatch(target,guess){const a=new Set(target),b=new Set(guess),matched=[...a].filter(t=>b.has(t)).length;return a.size+b.size?2*matched/(a.size+b.size):0;}
+export function combinedAccuracy(error,structural){return .8*Math.exp(-6*error)+.2*structural;}
