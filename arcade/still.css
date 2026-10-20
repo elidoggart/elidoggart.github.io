@@ -7,3 +7,19 @@
 
 .clock-readout{position:absolute;right:18px;top:18px;display:grid;gap:6px;text-align:right;pointer-events:none;font-size:10px;letter-spacing:.08em;color:#77786f;font-variant-numeric:tabular-nums}.clock-readout span:last-child{color:#c73136}#interact-hint{position:absolute;bottom:90px;left:0;right:0;text-align:center;font-size:10px;letter-spacing:.14em;color:#c73136;pointer-events:none}body:not([data-state="playing"]) #interact-hint{display:none}@media(max-width:600px){.clock-readout{right:10px;top:12px;font-size:8px;letter-spacing:0}.room-readout{max-width:42%}#interact-hint{bottom:77px;font-size:9px}}
 .room-readout{right:auto;display:grid;gap:0}.room-readout span{width:max-content}#interact-hint{bottom:112px;background:#ffffffed;width:max-content;max-width:94%;margin:auto;padding:5px 9px}body[data-state="ready"] .clock-readout{visibility:hidden}@media(max-width:600px){#interact-hint{bottom:92px;font-size:8px}.clock-readout{background:#ffffffdf;padding:4px}#event{top:62px}}
+
+/* Keep the shared arcade frame and leave the playfield quiet. */
+.clock-readout,#room-name,#time-help{display:none}
+.room-readout{top:16px;left:18px;letter-spacing:1px;font-size:9px}
+.room-readout span{background:none;padding:0}
+#remaining{color:var(--muted)}
+#event{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+#time-readout{bottom:15px;background:none;min-width:76px;padding:0}
+#time-label{font-size:8px;letter-spacing:2px;color:var(--muted)}
+#time-readout>div{margin:6px 0 0;height:1px}#time-fill{height:1px}
+#interact-hint{bottom:48px;font:9px ui-monospace,monospace;letter-spacing:1px;background:none;padding:0;color:var(--ink)}
+#interact-hint:empty{display:none}
+@media(max-width:600px){.room-readout{top:12px;left:12px}#interact-hint{bottom:45px}#time-readout{bottom:14px}}
+
+/* Gameplay information belongs in the shared frame, never over the scene. */
+.room-readout,.clock-readout,#interact-hint,#time-readout{display:none}

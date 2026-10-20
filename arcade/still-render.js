@@ -10,9 +10,9 @@ export class StillRenderer{
  // Rings create tapered, faceted anatomy rather than rectangular body parts.
  mesh(rings,color=RED,angle=0){const c=Math.cos(angle),s=Math.sin(angle),vertices=rings.map(([x,y,z,rx,rz])=>Array.from({length:8},(_,i)=>{const a=i*Math.PI/4,u=Math.cos(a)*rx,v=Math.sin(a)*rz;return [x+u*c+v*s,y,z-u*s+v*c]}));for(let j=0;j<vertices.length-1;j++)for(let i=0;i<8;i++)this.face([vertices[j][i],vertices[j][(i+1)%8],vertices[j+1][(i+1)%8],vertices[j+1][i]],color,'white',.85);this.face(vertices[0],color);this.face(vertices.at(-1),color);}
  limb(a,b,size,end=size*.7,color=RED){const d=b.map((v,i)=>v-a[i]),n=Math.hypot(...d),v=d.map(x=>x/n),reference=Math.abs(v[1])>.9?[1,0,0]:[0,1,0],cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],u=cross(v,reference),un=Math.hypot(...u),axis=u.map(x=>x/un),other=cross(v,axis),ring=(p,r)=>Array.from({length:6},(_,i)=>p.map((x,j)=>x+r*(axis[j]*Math.cos(i*Math.PI/3)+other[j]*Math.sin(i*Math.PI/3)))),A=ring(a,size),B=ring(b,end);for(let i=0;i<6;i++)this.face([A[i],A[(i+1)%6],B[(i+1)%6],B[i]],color,'white',.85);this.face(B,color);}
- enemy(e){const p=this.game.player,dist=Math.hypot(e.x-p.x,e.z-p.z),stride=dist>(e.type==='rush'?1:6.5)?Math.sin(e.phase)*.23:0,angle=e.angle,s=Math.sin(angle),c=Math.cos(angle),point=(x,y,z)=>[e.x+x*c+z*s,y,e.z-x*s+z*c],ring=(x,y,z,rx,rz)=>[...point(x,y,z),rx,rz];
+ enemy(e){if(e.enter>0){const pulse=.35+e.enter;this.line([e.x-pulse,.04,e.z],[e.x+pulse,.04,e.z],RED,2);this.line([e.x,.04,e.z-pulse],[e.x,.04,e.z+pulse],RED,2);return;}const p=this.game.player,dist=Math.hypot(e.x-p.x,e.z-p.z),stride=dist>(e.type==='rush'?1:6.5)?Math.sin(e.phase)*.23:0,angle=e.angle,s=Math.sin(angle),c=Math.cos(angle),point=(x,y,z)=>[e.x+x*c+z*s,y,e.z-x*s+z*c],ring=(x,y,z,rx,rz)=>[...point(x,y,z),rx,rz];
  this.mesh([ring(0,.75,0,.2,.13),ring(0,.94,0,.15,.11),ring(0,1.16,0,.25,.15),ring(0,1.35,.02,.28,.14),ring(0,1.43,.02,.12,.09)],RED,angle);
- this.mesh([ring(0,1.4,.02,.075,.07),ring(0,1.51,.02,.075,.07)],RED,angle);
+
  this.mesh([ring(0,1.48,.04,.085,.08),ring(0,1.57,.05,.13,.12),ring(0,1.73,.02,.145,.135),ring(0,1.83,.0,.10,.1),ring(0,1.86,0,.025,.03)],RED,angle);
  for(const side of [-1,1]){const hip=point(side*.13,.8,0),knee=point(side*.16,.44,stride*side),ankle=point(side*.17,.10,-stride*side);this.limb(hip,knee,.135,.09);this.limb(knee,ankle,.085,.05);this.mesh([ring(side*.17,.035,-stride*side+.06,.075,.15),ring(side*.17,.11,-stride*side,.065,.09)],RED,angle);}
  for(const side of [-1,1]){const shoulder=point(side*.29,1.33,.02),elbow=point(side*(e.type==='rush'?.34:.27),1.08,e.type==='rush'?stride*side:.25),hand=point(e.type==='rush'?side*.26:.14+side*.045,1.22,e.type==='rush'?.27:.59);this.limb(shoulder,elbow,.095,.065);this.limb(elbow,hand,.075,.045);this.limb(hand,hand.map((v,i)=>v+(i===1?.08:0)),.06,.055);}
@@ -28,16 +28,16 @@ export class StillRenderer{
  chair(x,z){this.box(x,.45,z,.52,.075,.5);this.box(x,.5,z+.23,.52,.52,.06);this.box(x,.08,z,.06,.38,.06);this.line([x-.32,.08,z],[x+.32,.08,z],INK);this.line([x,.08,z-.3],[x,.08,z+.3],INK);}
  label(text,x,y,z,height=.18,color=INK){const a=this.camera([x,y,z]);if(a[2]<.1)return;const q=this.project(a),up=this.project(this.camera([x,y+height,z]));this.faces.push({text,points:[q],depth:a[2]-.005,color,font:Math.abs(up[1]-q[1])});}
  architecture(r){const n=r.size/2;
- this.label(r.theme==='mall'?'NORTH ARCADE':'OFFICE / '+r.name.toUpperCase(),0,2.98,n-.22,.18);
+
  // Doors, glazing, shopfronts and ceiling fixtures give each arena a real interior.
  for(let x=-n+2;x<n;x+=4){this.box(x,1.0,n-.13,2.5,1.7,.035,LINE);for(const dx of [-1.25,0,1.25])this.line([x+dx,1,n-.16],[x+dx,2.7,n-.16],INK,.8);this.line([x-1.25,1.85,n-.16],[x+1.25,1.85,n-.16],LINE);}
  for(const side of [-1,1]){const z=2;this.box(side*(n-.14),0,z,.035,2.65,1.65);this.box(side*(n-.2),1.1,z-.48,.08,.035,.22);this.line([side*(n-.17),2.95,z-.7],[side*(n-.17),2.95,z+.7],RED,2);}
  for(let z=-n+3;z<n;z+=5)for(const x of [-n*.45,n*.45])this.box(x,3.3,z,1.5,.045,.45,LINE);
  for(const x of [-n+.8,n-.8]){const z=n-1;this.mesh([[x,0,z,.21,.21],[x,.45,z,.3,.3]],INK);for(let i=0;i<5;i++){const a=i*2.4,X=x+Math.sin(a)*.4,Z=z+Math.cos(a)*.4;this.line([x,.45,z],[X,1.35+(i%2)*.2,Z],INK);this.face([[X,1.35,Z],[X+Math.cos(a)*.18,1.0,Z-Math.sin(a)*.18],[x,.7,z]],INK,'white',.8);}}
- if(r.theme==='mall'){for(const x of [-n+3,n-3]){this.box(x,0,n-.5,3.5,2.8,.12);this.box(x,2.8,n-.58,3.7,.35,.13,RED);this.label(x<0?'CAFE / 01':'STORE / 02',x,2.91,n-.66,.16,RED);this.box(x,1,n-.7,2.6,.05,.5);this.box(x,1.7,n-.7,2.6,.05,.5);for(const dx of [-.8,0,.8]){this.box(x+dx,1.05,n-.7,.3,.4,.25,LINE);this.box(x+dx,1.75,n-.7,.25,.3,.2,LINE);}}}
+ if(r.theme==='mall'){for(const x of [-n+3,n-3]){this.box(x,0,n-.5,3.5,2.8,.12);this.box(x,2.8,n-.58,3.7,.35,.13,RED);this.box(x,1,n-.7,2.6,.05,.5);this.box(x,1.7,n-.7,2.6,.05,.5);for(const dx of [-.8,0,.8]){this.box(x+dx,1.05,n-.7,.3,.4,.25,LINE);this.box(x+dx,1.75,n-.7,.25,.3,.2,LINE);}}}
  }
  draw(game){this.game=game;const ctx=this.ctx,rect=this.canvas.getBoundingClientRect(),dpr=Math.min(devicePixelRatio||1,2);this.w=Math.max(1,rect.width);this.h=Math.max(1,rect.height);const pw=Math.round(this.w*dpr),ph=Math.round(this.h*dpr);if(this.canvas.width!==pw||this.canvas.height!==ph){this.canvas.width=pw;this.canvas.height=ph}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,this.w,this.h);ctx.fillStyle='white';ctx.fillRect(0,0,this.w,this.h);this.f=this.w*.75;this.faces=[];
- const r=game.room,N=r.size/2;for(let x=-N;x<=N;x+=2)this.line([x,0,-N],[x,0,N],LINE,.65);for(let z=-N;z<=N;z+=2)this.line([-N,0,z],[N,0,z],LINE,.65);
+ const r=game.room,N=r.size/2;for(let x=-N;x<=N;x+=4)this.line([x,0,-N],[x,0,N],LINE,.65);for(let z=-N;z<=N;z+=4)this.line([-N,0,z],[N,0,z],LINE,.65);
  this.box(0,0,N+.1,r.size+.4,3.4,.2);this.box(0,0,-N-.1,r.size+.4,3.4,.2);this.box(-N-.1,0,0,.2,3.4,r.size);this.box(N+.1,0,0,.2,3.4,r.size);
  for(const z of [-N+.01,N-.01]){this.line([-N,.16,z],[N,.16,z],LINE);this.line([-N,2.8,z],[N,2.8,z],LINE);for(let x=-N+3;x<N;x+=4){this.line([x,0,z],[x,2.8,z],LINE);}}
  this.architecture(r);for(const b of r.cover)this.furniture(b);const nearby=game.nearbyItem();for(const item of game.items)this.item(item,item===nearby);
