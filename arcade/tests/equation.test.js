@@ -36,3 +36,32 @@ test('all generated families have complete self-credit and text plus symbolic hi
   assert.equal(credit.points,2000,`${mode} ${r.expression}`);assert.ok(credit.entries.length);assert.equal(credit.entries.reduce((s,c)=>s+c.points,0),2000);assert.ok(equationHintForRound(r).length>3);assert.ok(hintForRound(r).length>5);
  }
 });
+
+test('implicit conics and quadrics are recoverable across all new families',async()=>{
+ const {compileImplicit,implicitCredit,familyCounts,bonusFamilyCounts,hintForRound,equationHintForRound}=await import('../equation-engine.js');
+ for(const [mode,start]of [['easy',4],['medium',6],['hard',6]])for(let family=start;family<familyCounts[mode]+bonusFamilyCounts[mode];family++){
+  const r=makeRound(mode,()=>.3,family);assert.equal(r.implicit,true);assert.ok(r.geometry.segments.length>20);assert.ok(hintForRound(r).length>3);assert.ok(equationHintForRound(r).includes('='));
+  const fn=compileImplicit(r.expression,r.dim),fit=evaluate(r,fn);assert.ok(fit.error<1e-10,`${mode}: ${r.expression}`);assert.equal(implicitCredit(r,fn,fit.error).points,2000);
+ }
+});
+test('implicit scoring is invariant to residual sign and scale and rewards closer shapes',async()=>{
+ const {compileImplicit,implicitCredit}=await import('../equation-engine.js');
+ const r=makeRound('easy',()=>.3,4),[left,right]=r.expression.split('=');
+ for(const source of [`2(${left})=2(${right})`,`-(${left})=-(${right})`])assert.ok(evaluate(r,compileImplicit(source,2)).error<1e-10);
+ const exact=compileImplicit(r.expression,2),near=compileImplicit('(x+.5)^2+(y-.5)^2=5',2),far=compileImplicit('(x-2)^2+(y-2)^2=1',2);
+ assert.ok(evaluate(r,near).error<evaluate(r,far).error);assert.equal(implicitCredit(r,exact,0).points,2000);assert.throws(()=>evaluate(r,compileImplicit('x^2+y^2=-1',2)),/No curve/);
+ assert.throws(()=>compileImplicit('x==2',2));assert.throws(()=>compileImplicit('x+z=2',2));assert.equal(compileImplicit('x^2+y^2+z^2=9',3)(1,2,2),0);
+});
+test('implicit components recognize geometry and independent translations',async()=>{
+ const {compileImplicit}=await import('../equation-engine.js'),{implicitComponents}=await import('../equation-implicit.js');const ids=(s,d=2)=>implicitComponents(compileImplicit(s,d),d).map(c=>c.id);
+ assert.deepEqual(ids('x^2+y^2=4'),['elliptic','equal-radii','radius']);assert.deepEqual(ids('(x-1)^2+(y+2)^2=4'),['elliptic','equal-radii','radius','shift0','shift1']);
+ assert.ok(ids('(x+y)^2/9+(x-y)^2=1').includes('rotation'));assert.ok(ids('x^2+y^2=z^2',3).includes('cone'));assert.ok(ids('x^2+y^2-z^2=1',3).includes('hyperbolic'));assert.ok(ids('x^2+y^2=4',3).includes('cylinder'));
+});
+
+
+test('only exact completion of all three main equations unlocks one shape bonus',async()=>{
+ const {bonusUnlocked,isExactFit,makeBonusRound}=await import('../equation-engine.js');
+ assert.equal(bonusUnlocked([{exact:true},{exact:true}]),false);assert.equal(bonusUnlocked([{exact:true},{exact:true},{exact:false}]),false);assert.equal(bonusUnlocked([{exact:true},{exact:true},{exact:true}]),true);assert.equal(bonusUnlocked(Array(4).fill({exact:true})),false);assert.equal(isExactFit({error:.00001}),false);assert.equal(isExactFit({error:1e-14}),true);
+ for(const mode of ['easy','medium','hard'])for(const seed of [0,.3,.7,.999]){assert.ok(!makeRound(mode,()=>seed).implicit);assert.ok(makeBonusRound(mode,()=>seed).implicit);}
+ assert.equal(readScores({getItem:()=>JSON.stringify([{initials:'ABC',difficulty:'easy',score:40000}])})[0].score,40000);
+});
