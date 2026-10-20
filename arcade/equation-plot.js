@@ -1,4 +1,5 @@
-import {drawImplicit} from './equation-implicit-plot.js?v=implicit-1';
+import {axisTicks,tickLabel,drawAxes3D} from './equation-axes.js?v=ticks-1';
+import {drawImplicit} from './equation-implicit-plot.js?v=ticks-1';
 const ink='#232421',red='#c73136',blue='#232421';
 export function draw(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.55}={}){
  if(round.implicit||guess?.implicit)return drawImplicit(canvas,round,{guess,difference,angle,tilt});
@@ -10,10 +11,10 @@ export function draw(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.
  const compact=w<180;const pad=compact?{l:22,r:5,t:12,b:18}:difference?{l:33,r:12,t:14,b:20}:{l:45,r:18,t:22,b:34},left=pad.l,right=w-pad.r,up=pad.t,down=h-pad.b;
  let min=bottom,max=top;if(difference){let peak=span*.02;for(const p of round.points)peak=Math.max(peak,Math.abs(guess(p.x,0)-p.z));max=peak*1.12;min=-max;}
  const X=x=>left+(x-lo)/(hi-lo)*(right-left),Y=y=>down-(y-min)/(max-min)*(down-up);
- const nice=n=>Number(n.toPrecision(3)).toString();
- const ticks=compact?2:4;if(compact)c.font='8px Arial';for(let i=0;i<=ticks;i++){const x=lo+(hi-lo)*i/ticks,y=min+(max-min)*i/ticks;if(!difference){line([[left,Y(y)],[right,Y(y)]],'#eeeee9');label(nice(y),3,Y(y)+3);}line([[X(x),up],[X(x),down]],'#eeeee9');label(nice(x),X(x)-6,h-5);}
- const zero=Math.max(up,Math.min(down,Y(0)));line([[left,zero],[right,zero]],'#bdbeb5');if(!difference&&lo<=0&&hi>=0)line([[X(0),up],[X(0),down]],'#bdbeb5');
- if(difference){label('+'+nice(max),1,up+5);label('0',18,zero+3);label(nice(min),1,down);}
+ if(compact)c.font='8px Arial';
+ for(const x of axisTicks(lo,hi,right-left)){line([[X(x),up],[X(x),down]],'#eeeee9');label(tickLabel(x),X(x)-c.measureText(tickLabel(x)).width/2,h-5);}
+ for(const y of axisTicks(min,max,down-up)){line([[left,Y(y)],[right,Y(y)]],'#eeeee9');label(tickLabel(y),3,Y(y)+3);}
+ const zero=Math.max(up,Math.min(down,Y(0)));if(min<=0&&max>=0)line([[left,Y(0)],[right,Y(0)]],'#bdbeb5');if(lo<=0&&hi>=0)line([[X(0),up],[X(0),down]],'#bdbeb5');
  c.save();c.beginPath();c.rect(left,up,right-left,down-up);c.clip();
  const curve=fn=>{const p=[];let last=null;for(let i=0;i<=800;i++){const x=lo+(hi-lo)*i/800,y=fn(x),v=Y(y);if(!Number.isFinite(y)||Math.abs(v)>1e7){p.push(null);last=null;}else{if(last!==null&&Math.abs(v-last)>h*3)p.push(null);p.push([X(x),v]);last=v;}}return p;};
  // Fill narrow strips so crossings never create a self-intersecting polygon.
@@ -22,12 +23,10 @@ export function draw(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.
  }else{
  let low=bottom,high=top;if(difference){let peak=span*.02;for(const p of round.points)peak=Math.max(peak,Math.abs(guess(p.x,p.y)-p.z));low=-peak;high=peak;}
  const scale=Math.min(w*.30,h*.30),project=(x,y,z)=>{const nx=(x-lo)/(hi-lo)*2-1,ny=(y-lo)/(hi-lo)*2-1,nz=(z-low)/(high-low)*2-1;return[w/2+scale*(nx*Math.cos(angle)-ny*Math.sin(angle)),h*.51+scale*((nx*Math.sin(angle)+ny*Math.cos(angle))*Math.sin(tilt)-nz*Math.cos(tilt))];};
- const base=difference?0:low;for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4;line([project(v,lo,base),project(v,hi,base)],'#e5e5de');line([project(lo,v,base),project(hi,v,base)],'#e5e5de');}
- line([project(lo,lo,low),project(hi,lo,low)],'#a9aaa0');line([project(lo,lo,low),project(lo,hi,low)],'#a9aaa0');line([project(lo,lo,low),project(lo,lo,high)],'#a9aaa0');
- if(!difference){for(const [s,p] of [[`x ${hi}`,project(hi,lo,low)],[`y ${hi}`,project(lo,hi,low)],[`z ${Number(high.toFixed(1))}`,project(lo,lo,high)],[`${lo}, ${lo}, ${Number(low.toFixed(1))}`,project(lo,lo,low)]])label(s,p[0]+5,p[1]-4);}
+ drawAxes3D(c,[[lo,hi],[lo,hi],[low,high]],p=>project(...p),w,difference?0:low);
  c.save();c.beginPath();c.rect(0,0,w,h);c.clip();
  function surface(fn,color,dash=[]){const n=difference?14:24;for(let axis=0;axis<2;axis++)for(let j=0;j<=n;j++){const points=[];for(let i=0;i<=48;i++){const a=lo+(hi-lo)*i/48,b=lo+(hi-lo)*j/n,x=axis?a:b,y=axis?b:a,z=fn(x,y);points.push(Number.isFinite(z)&&z>=low-span*.5&&z<=high+span*.5?project(x,y,z):null);}line(points,color,difference?.7:.65,dash);}}
  if(guess&&!difference){c.fillStyle='rgba(199,49,54,.06)';for(let j=0;j<=12;j++)for(let i=0;i<32;i++){const x=lo+(hi-lo)*i/32,next=lo+(hi-lo)*(i+1)/32,y=lo+(hi-lo)*j/12;const values=[round.fn(x,y),guess(x,y),guess(next,y),round.fn(next,y)];if(values.some(z=>!Number.isFinite(z)||z<low-span*.5||z>high+span*.5))continue;const points=[project(x,y,values[0]),project(x,y,values[1]),project(next,y,values[2]),project(next,y,values[3])];c.beginPath();points.forEach((p,k)=>k?c.lineTo(...p):c.moveTo(...p));c.closePath();c.fill();}}
- if(difference)surface((x,y)=>guess(x,y)-round.fn(x,y),red);else{surface(round.fn,ink);if(guess)surface(guess,blue,[1,4]);}c.restore();if(difference)label('Δ ±'+Number(high.toPrecision(3)),6,12,red);
+ if(difference)surface((x,y)=>guess(x,y)-round.fn(x,y),red);else{surface(round.fn,ink);if(guess)surface(guess,blue,[1,4]);}c.restore();if(difference)label('Δ',6,12,red);
  }
 }

@@ -1,3 +1,4 @@
+import {axisTicks,tickLabel,drawAxes3D} from './equation-axes.js?v=ticks-1';
 import {geometry,nearest} from './equation-implicit.js?v=implicit-1';
 export function drawImplicit(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.55}={}){
  const {width:w,height:h}=canvas.getBoundingClientRect();if(!w||!h)return;const ratio=Math.min(devicePixelRatio||1,2);canvas.width=w*ratio;canvas.height=h*ratio;const c=canvas.getContext('2d');c.scale(ratio,ratio);c.font=(w<180?'8':'10')+'px Arial';c.lineJoin='round';c.lineCap='round';
@@ -7,7 +8,8 @@ export function drawImplicit(canvas,round,{guess=null,difference=false,angle=-.6
  if(round.dim===2){
   const compact=w<180,pad=compact?{l:22,r:6,t:12,b:18}:{l:38,r:14,t:20,b:28},left=pad.l,up=pad.t,size=Math.min(w-pad.l-pad.r,h-pad.t-pad.b),right=left+size,down=up+size;
   const X=x=>left+(x-box[0][0])/(box[0][1]-box[0][0])*(right-left),Y=y=>down-(y-box[1][0])/(box[1][1]-box[1][0])*(down-up),project=p=>[X(p[0]),Y(p[1])];
-  for(let i=0;i<=4;i++){const x=box[0][0]+(box[0][1]-box[0][0])*i/4,y=box[1][0]+(box[1][1]-box[1][0])*i/4;line([[[X(x),up],[X(x),down]],[[left,Y(y)],[right,Y(y)]]],'#eeeee9');if(!compact||i%2===0){text(Number(x.toPrecision(3)),X(x)-5,h-4);text(Number(y.toPrecision(3)),2,Y(y)+3);}}
+  for(const x of axisTicks(...box[0],size)){line([[[X(x),up],[X(x),down]]],'#eeeee9');const label=tickLabel(x);text(label,X(x)-c.measureText(label).width/2,h-4);}
+  for(const y of axisTicks(...box[1],size)){line([[[left,Y(y)],[right,Y(y)]]],'#eeeee9');text(tickLabel(y),2,Y(y)+3);}
   line([[[X(0),up],[X(0),down]],[[left,Y(0)],[right,Y(0)]]],'#bdbeb5');
   if(other){
    // Choose residual orientation by agreement: F=0 and -F=0 are identical.
@@ -18,8 +20,7 @@ export function drawImplicit(canvas,round,{guess=null,difference=false,angle=-.6
   text('x',right-3,Y(0)-5);text('y',X(0)+6,up);
  }else{
   const scale=Math.min(w,h)*.29,project=p=>{const [x,y,z]=p.map((v,i)=>(v-box[i][0])/(box[i][1]-box[i][0])*2-1);return[w/2+scale*(x*Math.cos(angle)-y*Math.sin(angle)),h*.51+scale*((x*Math.sin(angle)+y*Math.cos(angle))*Math.sin(tilt)-z*Math.cos(tilt))];},low=box.map(b=>b[0]);
-  const grid=[];for(let i=0;i<=4;i++){const x=box[0][0]+(box[0][1]-box[0][0])*i/4,y=box[1][0]+(box[1][1]-box[1][0])*i/4;grid.push([project([x,box[1][0],low[2]]),project([x,box[1][1],low[2]])],[project([box[0][0],y,low[2]]),project([box[0][1],y,low[2]])]);}line(grid,'#eeeee9');
-  const axes=[];for(let a=0;a<3;a++){const end=[...low];end[a]=box[a][1];axes.push([project(low),project(end)]);if(w>=180)text(`${'xyz'[a]} ${box[a][1]}`,...project(end));}line(axes,'#bdbeb5');if(w>180)text(low.join(', '),project(low)[0]+3,project(low)[1]+12);
+  drawAxes3D(c,box,project,w);
   if(other&&(other.error??Infinity)>1e-10){
    other.bridges??=target.segments.filter((_,i)=>i%5===0).map(([a,b])=>[a,b,nearest(other.tree,b).point,nearest(other.tree,a).point]);
    c.fillStyle=difference?'rgba(199,49,54,.12)':'rgba(199,49,54,.045)';for(const bridge of other.bridges){c.beginPath();bridge.map(project).forEach((p,i)=>i?c.lineTo(...p):c.moveTo(...p));c.closePath();c.fill();}

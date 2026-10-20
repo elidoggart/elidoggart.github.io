@@ -1,5 +1,5 @@
 import {compileGuess,implicitCredit,familyCounts,makeBonusRound,isExactFit,bonusUnlocked,makeRound,evaluate,scoreRound,readScores,componentCredit,combinedAccuracy,hintForRound,equationHintForRound,applyHintPenalty} from './equation-engine.js?v=implicit-1';
-import {draw} from './equation-plot.js?v=implicit-1';
+import {draw} from './equation-plot.js?v=ticks-1';
 const $=s=>document.querySelector(s),params=new URLSearchParams(location.search),difficulty=['easy','medium','hard'].includes(params.get('difficulty'))?params.get('difficulty'):'easy';
 let round,index=0,guesses=[],results=[],start=0,ended=false,selected=-1,angle=-.65,tilt=.55,saved=false,hintUsed=false,bonus=false;
 const familyCount=familyCounts[difficulty],families=Array.from({length:familyCount},(_,i)=>i);for(let i=families.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[families[i],families[j]]=[families[j],families[i]];}
