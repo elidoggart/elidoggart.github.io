@@ -1,5 +1,9 @@
 # FARSTAR
 
+## Arcade card artwork
+
+The menu loads four static SVGs from `art/`. Regenerate them with `node scripts/generate-arcade-art.mjs`. The ship's path uses the real gravity predictor; the tank bank shot uses the actual collision tracer and tank drawing functions; Still uses the game's faceted character mesh; Equation uses its plotting function, including comparison and difference graphs. The generator checks that the reflected shell reaches the enemy. No game engines are loaded on the menu.
+
 ## Still: office extraction
 
 Still fills the available playfield and keeps story text and enemy counts out of the HUD. The opening desk computer reads “GET OUT OF THERE / EXTRACTION ON ROOF.” The exit frame and arrow turn red only after every guard and reinforcement is defeated.

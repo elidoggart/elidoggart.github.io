@@ -7,7 +7,7 @@ body{margin:0;background:#fff;color:#232421;font-family:Arial,Helvetica,sans-ser
 
 .arcade{min-height:100vh;min-height:100dvh;padding:100px 24px;display:flex;flex-wrap:wrap;align-content:center;align-items:center;justify-content:center;gap:32px}
 .game-icon{display:block;width:min(440px,100%);padding:24px 16px;color:inherit;border:1px solid #232421;transition:background .15s}
-.game-icon span,.game-icon svg{display:block;width:100%;height:auto}
+.game-icon span,.game-icon svg,.game-icon img{display:block;width:100%;height:auto}
 .game-icon:hover{background:#fafaf7}
 .game-icon:focus-visible{outline:2px solid #c73136;outline-offset:6px}
 @media(prefers-reduced-motion:reduce){.game-icon{transition:none}}
