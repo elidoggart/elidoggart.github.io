@@ -19,8 +19,8 @@ test('Equation: exact fits finish early, invalid guesses do not spend attempts, 
  const expression=await page.evaluate(async()=>{const {makeRound}=await import('/arcade/equation-engine.js');return makeRound('easy',()=>0,1).expression;});
  await page.locator('#equation').fill(expression);await page.locator('#submit').click();await expect(page.locator('#submit')).toBeDisabled();await expect(page.locator('.guess-card')).toHaveCount(1);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
-test('Equation launches from arcade and shows selected difference below comparison',async({page})=>{
- await page.goto('/arcade/');const card=page.getByRole('article',{name:'Equation launch options'});await card.focus();await card.getByRole('link',{name:'Medium',exact:true}).click();await expect(page).toHaveURL(/difficulty=medium.*play=1/);await expect(page.locator('#difficulty')).toHaveCount(0);await expect(page.locator('#selected-error')).toBeHidden();await page.locator('#equation').fill('x');await page.locator('#submit').click();await expect(page.locator('#selected-error')).toBeVisible();const a=await page.locator('#graph').boundingBox(),b=await page.locator('#error-graph').boundingBox();expect(b.y).toBeGreaterThan(a.y+a.height);await expect(page.getByText('Same domain. Every guess.')).toHaveCount(0);
+test('Equation launches from arcade and shows selected difference beside comparison',async({page})=>{
+ await page.goto('/arcade/');const card=page.getByRole('article',{name:'Equation launch options'});await card.focus();await card.getByRole('link',{name:'Medium',exact:true}).click();await expect(page).toHaveURL(/difficulty=medium.*play=1/);await expect(page.locator('#difficulty')).toHaveCount(0);await expect(page.locator('#selected-error')).toBeHidden();await page.locator('#equation').fill('x');await page.locator('#submit').click();await expect(page.locator('#selected-error')).toBeVisible();const a=await page.locator('#graph').boundingBox(),b=await page.locator('#error-graph').boundingBox();expect(b.x).toBeGreaterThanOrEqual(a.x+a.width);await expect(page.getByText('Same domain. Every guess.')).toHaveCount(0);
 });
 test('hints halve one round, guess graphs are paired and square, and total summarizes all rounds',async({page})=>{
  await page.addInitScript(()=>{Math.random=()=>0;performance.now=()=>1000;});await page.goto('/arcade/equation.html?difficulty=easy');
@@ -31,4 +31,15 @@ test('hints halve one round, guess graphs are paired and square, and total summa
  for(let i=0;i<2;i++){await page.locator('#equation').fill('0');await page.locator('#submit').click();await page.locator('#finish').click();await page.locator('#finish').click();}
  await expect(page.locator('.round-summary')).toHaveCount(3);await expect(page.locator('#session-summary')).toContainText('3 guesses');await expect(page.locator('#session-summary')).toContainText('1 hint');await expect(page.locator('.summary-penalty').first()).toHaveText('Hint used · 10,000 × ½ = 5,000');await expect(page.locator('.summary-penalty').nth(1)).toHaveText('No hint');await expect(page.locator('.round-summary canvas')).toHaveCount(6);await page.locator('.round-summary summary').first().click();await expect(page.locator('.round-summary ol').first()).toContainText('best');
  await page.setViewportSize({width:390,height:844});expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);const box=await page.locator('.round-summary .comparison').first().boundingBox();expect(Math.abs(box.width-box.height)).toBeLessThan(1);
+});
+
+for(const viewport of [{width:1440,height:900},{width:1280,height:720},{width:390,height:844},{width:375,height:667},{width:844,height:390}])test(`Equation stays fixed with scrolling history at ${viewport.width}x${viewport.height}`,async({page})=>{
+ await page.setViewportSize(viewport);await page.goto('/arcade/equation.html?difficulty=hard');
+ const before=await page.locator('.workspace').boundingBox();await page.locator('#show-hint').click();
+ for(let i=0;i<5;i++){await page.locator('#equation').fill(String(i));await page.locator('#submit').click();}
+ const after=await page.locator('.workspace').boundingBox();expect(after).toEqual(before);
+ for(const sel of ['#graph','#error-graph','#guess-form','#finish','#show-hint','#help-open','#round-result']){const b=await page.locator(sel).boundingBox();expect(b.y).toBeGreaterThanOrEqual(0);expect(b.y+b.height).toBeLessThanOrEqual(viewport.height);expect(b.width).toBeGreaterThan(0);}
+ expect(await page.evaluate(()=>document.documentElement.scrollHeight<=innerHeight)).toBe(true);expect(await page.evaluate(()=>scrollY)).toBe(0);
+ expect(await page.locator('#guesses').evaluate(el=>el.scrollHeight>el.clientHeight)).toBe(true);expect(await page.locator('#guesses').evaluate(el=>el.scrollTop)).toBeGreaterThan(0);
+ await page.locator('#guesses').evaluate(el=>el.scrollTop=0);await page.locator('.guess-card').first().click();expect(await page.evaluate(()=>scrollY)).toBe(0);await page.locator('#help-open').click();await expect(page.locator('#help')).toBeVisible();await page.locator('#help-close').click();await expect(page.locator('#help')).not.toBeVisible();
 });
