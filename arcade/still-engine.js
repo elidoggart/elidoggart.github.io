@@ -12,8 +12,10 @@ export const WEAPONS=Object.freeze({
  smg:{name:'SMG',capacity:9,ammo:6,reserve:0,cool:.12,reload:1.35,speed:26,spread:.025,pellets:1},
  rifle:{name:'RIFLE',capacity:3,ammo:2,reserve:0,cool:.75,reload:1.8,speed:42,spread:0,pellets:1,pierce:1}
 });
+export const MELEE=Object.freeze({knife:{name:'KNIFE',reach:1.65,cool:.24,arc:.8,targets:1},baton:{name:'BATON',reach:2.2,cool:.45,arc:.6,targets:1},axe:{name:'AXE',reach:1.9,cool:.75,arc:.4,targets:2}});
+export const isMelee=kind=>Object.hasOwn(MELEE,kind);
 export const isFirearm=kind=>Object.hasOwn(WEAPONS,kind);
-export const ITEM_NAMES={gun:'PISTOL',shotgun:'SHOTGUN',smg:'SMG',rifle:'RIFLE',bottle:'BOTTLE',mug:'MUG',stapler:'STAPLER'};
+export const ITEM_NAMES={gun:'PISTOL',shotgun:'SHOTGUN',smg:'SMG',rifle:'RIFLE',knife:'KNIFE',baton:'BATON',axe:'AXE',bottle:'BOTTLE',mug:'MUG',stapler:'STAPLER'};
 export const roomTimeScore=(world,real)=>Math.floor(10000/(1+(world+real*.15)/10));
 export const ROOMS=[
  // One close guard, then a second sightline. Your first gun belongs to someone else.
@@ -44,6 +46,8 @@ export const ROOMS=[
  room('Daybreak',28,[-10,-11,.2],[[-4,-5,2,13],[4,5,2,13],[-9,6,3,2,1],[9,-6,3,2,1]], [[-10,-7],[0,-10],[10,11]], [[-9.5,-9.5,'bottle']],[[[-10,11],[10,-11],[0,11,'rush']],[[0,-12],[-12,0],[12,0]],[[0,12],[-11,-11],[11,11],[0,0,'rush']]],'mall')
 ];
 ROOMS.forEach((r,level)=>{
+ let melee=0;for(const e of [...r.enemies,...r.waves.flat()])if(e.type==='rush')e.weapon=['baton','knife','axe'][(melee+++level)%3];
+ if(level===0)r.items.push({x:1.3,z:-3.8,kind:'baton',y:.08});
  let armed=0;for(const e of [...r.enemies,...r.waves.flat()])if(e.type==='gun')e.weapon=['gun','shotgun','smg','rifle'][(armed+++level)%4];
  // Entry points sit in real perimeter openings. Pick a clear approach to each authored wave.
  const n=r.size/2,candidates=[];
@@ -61,7 +65,7 @@ ROOMS.forEach((r,level)=>{
  }
 
  // Additional objects reward moving through the room; all firearms must be earned.
- r.cover.filter(b=>b.h<2).forEach((b,j)=>r.items.push({x:b.x-b.w*.25,z:b.z-b.d*.2,y:b.h+.03,kind:j%2?'bottle':'stapler'}));
+ r.cover.filter(b=>b.h<2).forEach((b,j)=>r.items.push({x:b.x-b.w*.25,z:b.z-b.d*.2,y:b.h+.03,kind:['knife','baton','axe'][(level+j)%3]}));
  r.solids=r.cover.flatMap(b=>{if(!['desk','cafe'].includes(b.kind))return [b];const parts=[{...b,y:b.h-.09,h:.09}];for(const sx of [-1,1])for(const sz of [-1,1])parts.push({x:b.x+sx*(b.w/2-.09),z:b.z+sz*(b.d/2-.09),w:.055,d:.055,h:b.h-.09});if(b.kind==='desk')parts.push({x:b.x+b.w*.2,z:b.z+b.d*.28,y:b.h+.2,w:.7,d:.055,h:.44});return parts;});
 });
 export const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -89,7 +93,7 @@ export class StillGame{
  reload(){const p=this.player,w=WEAPONS[p.held];if(this.state!=='playing'||p.reload||!w||p.ammo===w.capacity)return;if(!p.reserve){this.note('EMPTY');return;}p.reload=w.reload;this.emit('reload');}
  fire(throwing=false){
   const p=this.player,w=WEAPONS[p.held];if(this.state!=='playing'||p.cool>0||p.reload>0)return false;
-  if(!p.held){this.melee();return false;}throwing=throwing||!w;
+  if(!p.held){this.melee();return false;}if(isMelee(p.held)&&!throwing){this.melee();return true;}throwing=throwing||!w;
   if(!throwing&&p.ammo<=0){this.reload();return false;}
   const item=p.held,ammo=p.ammo,reserve=p.reserve;
   if(throwing){p.held=null;p.ammo=p.reserve=0;}else p.ammo--;
@@ -102,8 +106,11 @@ export class StillGame{
   }
   this.emit(throwing?'throw':'shot',{weapon:item});return true;
  }
- melee(){if(this.state!=='playing'||this.player.cool>0||this.player.reload>0)return;const p=this.player;this.actionTime=.22;p.cool=.2;p.kick=1;let target=null,best=1.25;for(const e of this.enemies){const dist=Math.hypot(e.x-p.x,e.z-p.z),facing=(Math.sin(p.yaw)*(e.x-p.x)+Math.cos(p.yaw)*(e.z-p.z))/dist;if(e.alive&&dist<best&&facing>.55&&this.visible(p,{x:e.x,y:1.1,z:e.z})){target=e;best=dist}}if(target)this.kill(target,'melee');else this.emit('miss');}
- kill(e,kind='shot',head=false){if(!e.alive)return;e.alive=false;this.kills++;if(kind!=='melee'){this.totalHits++;this.levelHits++;}if(e.type==='gun'){const kind=e.weapon||'gun',w=WEAPONS[kind];const dx=this.player.x-e.x,dz=this.player.z-e.z,d=Math.hypot(dx,dz),travel=Math.max(0,d-.85),duration=1.1;this.items.push({id:'enemy-'+e.id,kind,x:e.x,z:e.z,y:1.12,ammo:w.ammo,reserve:w.reserve,flight:true,vx:d?dx/d*travel/duration:0,vz:d?dz/d*travel/duration:0,vy:(.06-1.12+4*duration*duration)/duration,angle:e.angle||0,spin:(e.id%2?1:-1)*6});}this.emit('shatter',{x:e.x,z:e.z});for(let i=0;i<10;i++){const a=i*2.399+e.id;this.shards.push({x:e.x+Math.cos(a)*.25,y:.25+(i%6)*.27,z:e.z+Math.sin(a)*.25,vx:Math.cos(a)*(1+(i%4)*.4),vy:1.2+(i%5)*.3,vz:Math.sin(a)*(1+(i%4)*.4),size:.035+(i%3)*.018,age:0,angle:a});}}
+ melee(){if(this.state!=='playing'||this.player.cool>0||this.player.reload>0)return;const p=this.player,w=MELEE[p.held]||{reach:1.25,cool:.2,arc:.55,targets:1};this.actionTime=w.cool+.02;p.cool=w.cool;p.kick=1;
+  const targets=this.enemies.filter(e=>{const dx=e.x-p.x,dz=e.z-p.z,dist=Math.hypot(dx,dz),facing=(Math.sin(p.yaw)*dx+Math.cos(p.yaw)*dz)/Math.max(.001,dist);return e.alive&&dist<w.reach&&facing>w.arc&&this.visible(p,{x:e.x,y:1.1,z:e.z});}).sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z)).slice(0,w.targets);
+  for(const e of targets)this.kill(e,'melee');if(!targets.length)this.emit('miss');
+ }
+ kill(e,kind='shot',head=false){if(!e.alive)return;e.alive=false;this.kills++;if(kind!=='melee'){this.totalHits++;this.levelHits++;}if(e.type==='gun'||isMelee(e.weapon)){const kind=e.weapon||'gun',w=WEAPONS[kind]||{ammo:0,reserve:0};const dx=this.player.x-e.x,dz=this.player.z-e.z,d=Math.hypot(dx,dz),travel=Math.min(2.2,Math.max(0,d-.85)*.3),duration=1.6;this.items.push({id:'enemy-'+e.id,kind,x:e.x,z:e.z,y:1.12,ammo:w.ammo,reserve:w.reserve,flight:true,vx:d?dx/d*travel/duration:0,vz:d?dz/d*travel/duration:0,vy:(.06-1.12+1.5*duration*duration)/duration,angle:e.angle||0,spin:(e.id%2?1:-1)*3});}this.emit('shatter',{x:e.x,z:e.z});for(let i=0;i<10;i++){const a=i*2.399+e.id;this.shards.push({x:e.x+Math.cos(a)*.25,y:.25+(i%6)*.27,z:e.z+Math.sin(a)*.25,vx:Math.cos(a)*(1+(i%4)*.4),vy:1.2+(i%5)*.3,vz:Math.sin(a)*(1+(i%4)*.4),size:.035+(i%3)*.018,age:0,angle:a});}}
  die(attack=null){if(this.state!=='playing')return;const p=this.player;this.death={age:0,kind:attack?.kind||'shot',origin:{...(attack?.origin||p)},impact:{...(attack?.impact||p)},camera:{...p},attacker:attack?.attacker};this.lives--;this.state='dead';this.emit('death');this.note('A FRACTION TOO LATE');}
  step(dt,input={}){if(this.state==='dead'){if(this.death)this.death.age+=clamp(dt,0,.05);return;}if(this.state==='clearing'){this.clearTime-=Math.min(dt,.05);this.animateShards(Math.min(dt,.05));this.animateItems(Math.min(dt,.05));if(this.clearTime<=0){this.state=this.level===ROOMS.length-1?'won':'clear';this.emit('clear')}return;}if(this.state!=='playing')return;const realDelta=Math.max(0,dt);dt=clamp(dt,0,.05);const p=this.player;p.yaw+=(input.turn||0)*dt*1.7+(input.lookX||0);p.pitch=clamp(p.pitch+(input.lookY||0),-.48,.48);const mx=clamp(input.x||0,-1,1),mz=clamp(input.z||0,-1,1),moving=Math.hypot(mx,mz),aim=Math.abs(input.lookX||0)+Math.abs(input.lookY||0)+Math.abs(input.turn||0)*dt;
  if(input.reload)this.reload();if(input.melee)this.interact();if(input.throw)this.fire(true);if(input.fire)this.fire();
@@ -118,7 +125,7 @@ export class StillGame{
  if(b.owner==='player'){const hits=[];for(const e of this.enemies){if(!e.alive)continue;const h=segmentSphere(old,next,{x:e.x,y:1.64,z:e.z},b.type==='throw'?.42:.27),body=segmentBox(old,next,{x:e.x,z:e.z,w:.65,d:.5,h:1.43},b.type==='throw'?.15:0);const t=h===null?body:body===null?h:Math.min(h,body);if(t!==null&&(hit===null||t<hit))hits.push({e,t,head:h!==null&&(body===null||h<body)});}
  for(const candidate of hits.sort((a,b)=>a.t-b.t)){if(b.pierce>0){this.kill(candidate.e,b.type,candidate.head);b.pierce--;}else{hit=candidate.t;victim=candidate.e;head=candidate.head;break;}}
  }else{const t=segmentBox(old,next,{x:p.x,z:p.z,w:.42,d:.42,h:1.8});if(t!==null&&(hit===null||t<hit)){hit=t;victim=p;}const d=Math.hypot(next.x-p.x,next.z-p.z);b.closest=Math.min(d,b.closest);if(victim!==p&&hit===null&&!b.near&&b.closest<.85&&d>b.closest+.15){b.near=true;this.dodges++;this.emit('dodge');}}
- Object.assign(b,next);if(hit!==null){b.dead=true;if(victim===p){const impact={x:old.x+(next.x-old.x)*hit,y:old.y+(next.y-old.y)*hit,z:old.z+(next.z-old.z)*hit};this.die({kind:'shot',origin:b.origin||b.path[0]||old,impact,attacker:b.attacker});return;}else if(victim)this.kill(victim,b.type,head);else this.emit('impact');}if(b.age>9||b.y<0||b.y>4.5)b.dead=true;if(b.dead&&b.type==='throw'&&isFirearm(b.item)){this.items.push({id:'thrown-'+b.id,kind:b.item,x:old.x,z:old.z,y:.06,ammo:b.ammo,reserve:b.reserve});}}
+ Object.assign(b,next);if(hit!==null){b.dead=true;if(victim===p){const impact={x:old.x+(next.x-old.x)*hit,y:old.y+(next.y-old.y)*hit,z:old.z+(next.z-old.z)*hit};this.die({kind:'shot',origin:b.origin||b.path[0]||old,impact,attacker:b.attacker});return;}else if(victim)this.kill(victim,b.type,head);else this.emit('impact');}if(b.age>9||b.y<0||b.y>4.5)b.dead=true;if(b.dead&&b.type==='throw'&&(isFirearm(b.item)||isMelee(b.item))){this.items.push({id:'thrown-'+b.id,kind:b.item,x:old.x,z:old.z,y:.06,ammo:b.ammo,reserve:b.reserve});}}
  this.bullets=this.bullets.filter(b=>!b.dead);this.animateShards(delta);this.animateItems(delta);
  if(this.state==='playing'&&this.enemies.every(e=>!e.alive)&&this.pendingWaves.length){this.reinforce();}
  else if(this.state==='playing'&&this.enemies.every(e=>!e.alive)){this.clearBonus=this.roomValue;this.addScore(this.clearBonus);this.state='clearing';this.clearTime=.8;}
@@ -132,10 +139,10 @@ export class StillGame{
   this.emit('arrival');
  }
  animateItems(delta){for(const item of this.items){if(!item.flight)continue;
-  const old={x:item.x,y:item.y,z:item.z},next={x:item.x+item.vx*delta,y:item.y+item.vy*delta-4*delta*delta,z:item.z+item.vz*delta};
+  const old={x:item.x,y:item.y,z:item.z},next={x:item.x+item.vx*delta,y:item.y+item.vy*delta-1.5*delta*delta,z:item.z+item.vz*delta};
   let hit=null,box=null;for(const solid of this.room.solids){const t=segmentBox(old,next,solid,.09);if(t!==null&&(hit===null||t<hit)){hit=t;box=solid;}}
   const edge=this.wallHit(old,next);if(edge!==null&&(hit===null||edge<hit)){hit=edge;box=null;}
-  item.vy-=8*delta;item.angle+=item.spin*delta;
+  item.vy-=3*delta;item.angle+=item.spin*delta;
   if(hit!==null){const t=Math.max(0,hit-.002);item.x=old.x+(next.x-old.x)*t;item.z=old.z+(next.z-old.z)*t;item.y=old.y+(next.y-old.y)*t;item.vx=item.vz=0;
    if(box&&item.vy<0&&Math.abs((old.y+(next.y-old.y)*hit)-((box.y||0)+box.h+.09))<.025){item.y=(box.y||0)+box.h+.09;item.flight=false;}
   }else Object.assign(item,next);
