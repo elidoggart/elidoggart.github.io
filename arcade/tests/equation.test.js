@@ -65,3 +65,10 @@ test('only exact completion of all three main equations unlocks one shape bonus'
  for(const mode of ['easy','medium','hard'])for(const seed of [0,.3,.7,.999]){assert.ok(!makeRound(mode,()=>seed).implicit);assert.ok(makeBonusRound(mode,()=>seed).implicit);}
  assert.equal(readScores({getItem:()=>JSON.stringify([{initials:'ABC',difficulty:'easy',score:40000}])})[0].score,40000);
 });
+
+
+test('explicit equality guesses retain function-component credit',async()=>{
+ const {compileGuess,componentCredit}=await import('../equation-engine.js');
+ const r=makeRound('easy',()=>.3,3),fn=compileGuess('y = sin(x)-1',r);assert.ok(!fn.implicit);assert.equal(evaluate(r,fn).error,0);assert.equal(componentCredit(r.fn,fn).points,2000);
+ assert.ok(compileGuess('y=x^2+y^2',r).implicit);assert.ok(compileGuess('x^2+y^2=4',r).implicit);assert.ok(compileGuess('y=x^2',{dim:3}).implicit);assert.ok(!compileGuess('z=x^2+y^2',{dim:3}).implicit);
+});
