@@ -5,11 +5,11 @@ export function draw(canvas,round,{guess=null,difference=false,angle=-.65,tilt=.
  function line(points,color,width=1,dash=[]){c.beginPath();let pen=false;for(const p of points){if(!p||!p.every(Number.isFinite)){pen=false;continue;}if(!pen){c.moveTo(...p);pen=true;}else c.lineTo(...p);}c.strokeStyle=color;c.lineWidth=width;c.setLineDash(dash);c.stroke();c.setLineDash([]);}
  function label(s,x,y,color='#8c8d83'){c.fillStyle=color;c.fillText(s,x,y);}
  if(round.dim===2){
- const pad=difference?{l:33,r:12,t:14,b:20}:{l:45,r:18,t:22,b:34},left=pad.l,right=w-pad.r,up=pad.t,down=h-pad.b;
+ const compact=w<180;const pad=compact?{l:22,r:5,t:12,b:18}:difference?{l:33,r:12,t:14,b:20}:{l:45,r:18,t:22,b:34},left=pad.l,right=w-pad.r,up=pad.t,down=h-pad.b;
  let min=bottom,max=top;if(difference){let peak=span*.02;for(const p of round.points)peak=Math.max(peak,Math.abs(guess(p.x,0)-p.z));max=peak*1.12;min=-max;}
  const X=x=>left+(x-lo)/(hi-lo)*(right-left),Y=y=>down-(y-min)/(max-min)*(down-up);
  const nice=n=>Number(n.toPrecision(3)).toString();
- for(let i=0;i<=4;i++){const x=lo+(hi-lo)*i/4,y=min+(max-min)*i/4;if(!difference){line([[left,Y(y)],[right,Y(y)]],'#eeeee9');label(nice(y),3,Y(y)+3);}line([[X(x),up],[X(x),down]],'#eeeee9');label(nice(x),X(x)-6,h-5);}
+ const ticks=compact?2:4;if(compact)c.font='8px Arial';for(let i=0;i<=ticks;i++){const x=lo+(hi-lo)*i/ticks,y=min+(max-min)*i/ticks;if(!difference){line([[left,Y(y)],[right,Y(y)]],'#eeeee9');label(nice(y),3,Y(y)+3);}line([[X(x),up],[X(x),down]],'#eeeee9');label(nice(x),X(x)-6,h-5);}
  const zero=Math.max(up,Math.min(down,Y(0)));line([[left,zero],[right,zero]],'#bdbeb5');if(!difference&&lo<=0&&hi>=0)line([[X(0),up],[X(0),down]],'#bdbeb5');
  if(difference){label('+'+nice(max),1,up+5);label('0',18,zero+3);label(nice(min),1,down);}
  c.save();c.beginPath();c.rect(left,up,right-left,down-up);c.clip();
