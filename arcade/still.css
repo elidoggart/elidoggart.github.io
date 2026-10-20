@@ -23,3 +23,15 @@
 
 /* Gameplay information belongs in the shared frame, never over the scene. */
 .room-readout,.clock-readout,#interact-hint,#time-readout{display:none}
+
+/* Retry controls sit outside the arena so the complete fatal path stays visible. */
+#death-controls{flex-shrink:0;padding:12px 20px 0;max-height:35dvh;overflow:auto}
+#death-controls .panel{width:min(720px,100%);max-height:none;margin:auto;padding:0;border:0;background:none;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:8px 14px}
+#death-controls .panel #title{font-size:20px;letter-spacing:-.5px;margin:0}
+#death-controls .panel #message{font-size:11px;margin:0}
+#death-controls .panel button{width:auto;padding:10px 18px;margin:0;min-width:140px}
+#death-controls #how-to-play,#death-controls #eyebrow,#death-controls #highscores-button,#death-controls #exit-game{display:none}
+#death-controls #score-form{width:100%;max-width:300px;margin:0}
+#death-controls #score-status{width:100%;margin:0}
+body[data-state="dead"] .touch-controls{display:none}
+@media(max-width:600px){#death-controls{padding:10px 12px}#death-controls .panel{gap:7px}#death-controls .panel #title{font-size:18px}#death-controls .panel #message{width:100%;font-size:10px}#death-controls .panel button{padding:9px 12px;font-size:11px}}

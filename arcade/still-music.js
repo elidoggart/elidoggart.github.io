@@ -1,13 +1,15 @@
 // Original generative score: a quiet pulse at rest, bass/percussion/arpeggios in motion.
 export class StillMusic{
- constructor(){this.volume=.28;this.enabled=false;this.context=null;this.voices=new Set();this.active=false;this.motion=0;this.blend=0;this.step=0;this.next=0;}
+ constructor(){this.volume=.28;this.enabled=false;this.context=null;this.voices=new Set();this.pitchedVoices=new Set();this.pitch=-1200;this.active=false;this.motion=0;this.blend=0;this.step=0;this.next=0;}
  setVolume(v){this.volume=v;if(this.context)this.master.gain.setTargetAtTime(v,this.context.currentTime,.03)}
  async enable(){if(!this.context){const Audio=globalThis.AudioContext||globalThis.webkitAudioContext;if(!Audio)throw Error('Audio unavailable');const c=this.context=new Audio();this.master=c.createGain();this.master.gain.value=this.volume;const filter=c.createBiquadFilter();filter.type='lowpass';filter.frequency.value=10000;this.master.connect(filter).connect(c.destination);this.noise=c.createBuffer(1,c.sampleRate*.2,c.sampleRate);const a=this.noise.getChannelData(0);let seed=73;for(let i=0;i<a.length;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;a[i]=seed/2147483648-1}}
  await this.context.resume();this.enabled=true;this.next=this.context.currentTime+.03;if(!this.timer)this.timer=setInterval(()=>this.schedule(),40);}
- mute(){this.enabled=false;this.stopVoices()}stopVoices(){for(const n of this.voices){try{n.stop()}catch{}}this.voices.clear()}
+ mute(){this.enabled=false;this.stopVoices()}stopVoices(){for(const n of this.voices){try{n.stop()}catch{}}this.voices.clear();this.pitchedVoices.clear()}
  stop(){this.active=false;this.stopVoices();clearInterval(this.timer);this.timer=null;}
- update(game,blocked){const active=game.state==='playing'&&!blocked;if(!active&&this.active)this.stopVoices();if(active&&!this.active&&this.context)this.next=this.context.currentTime+.03;this.active=active;this.motion=game.timeScale;this.room=game.level;this.danger=game.bullets.filter(b=>b.owner==='enemy').length;}
- tone(freq,t,dur,gain,type='triangle',end=null){const c=this.context,n=type==='noise'?c.createBufferSource():c.createOscillator(),g=c.createGain();if(type==='noise')n.buffer=this.noise;else{n.type=type;n.frequency.setValueAtTime(freq,t);if(end)n.frequency.exponentialRampToValueAtTime(end,t+dur)}g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);n.connect(g).connect(this.master);n.start(t);n.stop(t+dur+.01);this.voices.add(n);n.onended=()=>{this.voices.delete(n);n.disconnect();g.disconnect()};}
+ update(game,blocked){const active=game.state==='playing'&&!blocked;if(!active&&this.active)this.stopVoices();if(active&&!this.active&&this.context)this.next=this.context.currentTime+.03;this.active=active;this.motion=game.timeScale;const pitch=(-12+24*Math.max(0,Math.min(1,(this.motion-.025)/.975)))*100;
+ if(pitch!==this.pitch){this.pitch=pitch;if(this.context)for(const n of this.pitchedVoices)n.detune.setTargetAtTime(pitch,this.context.currentTime,.16);}
+this.room=game.level;this.danger=game.bullets.filter(b=>b.owner==='enemy').length;}
+ tone(freq,t,dur,gain,type='triangle',end=null,pitched=true){const c=this.context,n=type==='noise'?c.createBufferSource():c.createOscillator(),g=c.createGain();if(type==='noise')n.buffer=this.noise;else{n.type=type;if(pitched){n.detune.setValueAtTime(this.pitch,c.currentTime);this.pitchedVoices.add(n);}n.frequency.setValueAtTime(freq,t);if(end)n.frequency.exponentialRampToValueAtTime(end,t+dur)}g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(Math.max(.0002,gain),t+.012);g.gain.exponentialRampToValueAtTime(.0001,t+dur);n.connect(g).connect(this.master);n.start(t);n.stop(t+dur+.01);this.voices.add(n);n.onended=()=>{this.voices.delete(n);this.pitchedVoices.delete(n);n.disconnect();g.disconnect()};}
  // Both instrument pairs share one musical clock, so the phrase survives speed changes.
  strings(freq,t,fast){
   const slow=1-fast;
@@ -17,7 +19,7 @@ export class StillMusic{
   }
  }
  percussion(t,fast){
-  if(fast<.999)this.tone(150,t,.23,.055*(1-fast),'sine',48);
+  if(fast<.999)this.tone(150,t,.23,.055*(1-fast),'sine',48,false);
   if(fast>.001)this.hat(t,.03+.04*(1-fast),.035*fast);
  }
  hat(t,dur,gain){
