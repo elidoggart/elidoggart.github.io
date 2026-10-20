@@ -11,3 +11,28 @@ test('structure recognizes equivalent polynomial forms and rewards curve-family 
 test('hints describe every generated family and halve only the current round score',async()=>{const {hintForRound,applyHintPenalty}=await import('../equation-engine.js');for(const [mode,n]of [['easy',4],['medium',6],['hard',6]])for(let family=0;family<n;family++){const r=makeRound(mode,()=>0,family);assert.ok(hintForRound(r).length>5);assert.notEqual(hintForRound(r),r.expression);}assert.equal(applyHintPenalty(10000,true),5000);assert.equal(applyHintPenalty(10000,false),10000);assert.equal(applyHintPenalty(0,true),0);});
 
 test('structure recognizes functions after implicit coefficients',()=>{assert.deepEqual(structure('2sin(x)'),['sinusoidal']);assert.deepEqual(structure('1cos(x)+0.5x'),['sinusoidal']);assert.deepEqual(structure('3exp(-x^2)'),['exponential']);});
+
+test('algebraic credit separates sinusoid, amplitude, frequency and shifts',async()=>{
+ const {componentCredit}=await import('../equation-engine.js');const target='2sin(3x+1)+4';
+ const guesses=['sin(x)','2sin(x)','2sin(3x)','2sin(3x+1)','2sin(3x+1)+4'];
+ const scores=guesses.map(g=>componentCredit(target,g).points);assert.deepEqual(scores,[400,800,1200,1600,2000]);
+ const credit=componentCredit(target,guesses[3]);assert.equal(credit.entries.reduce((s,c)=>s+c.points,0),credit.points);assert.ok(credit.entries.some(c=>c.label==='Vertical shift'&&!c.matched));
+ assert.equal(componentCredit('sin(x)','x^2').points,0);assert.equal(componentCredit('sin(x)','0sin(x)').points,0);
+ assert.ok(componentCredit('sin(x)','sin(x)+exp(x)').points<componentCredit('sin(x)','sin(x)').points);
+});
+test('algebraic credit recognizes mixed terms and equivalent polynomial forms',async()=>{
+ const {componentCredit,algebraicComponents}=await import('../equation-engine.js');
+ assert.equal(componentCredit('(x-2)^2+3','x^2-4x+7').points,2000);
+ assert.equal(componentCredit('sin(x)+x^2','sin(x)').points,1000);
+ assert.equal(componentCredit('sin(x)+x^2','x^2').points,1000);
+ assert.equal(componentCredit('sin(x)','cos(x-pi/2)',2,0).points,2000);
+ assert.ok(algebraicComponents('sin(x)cos(y)',3).filter(c=>c.label==='Sinusoidal term').length===2);
+ assert.equal(compile('log10(100)')(0),2);assert.equal(componentCredit('sin(x)+x^2','sin(x)+x-x').points,1000);assert.equal(componentCredit('sin(x)','sin(0)').points,0);
+});
+test('all generated families have complete self-credit and text plus symbolic hints',async()=>{
+ const {componentCredit,equationHintForRound,hintForRound}=await import('../equation-engine.js');
+ for(const [mode,n]of [['easy',4],['medium',6],['hard',6]])for(let f=0;f<n;f++)for(const seed of [0,.3,.7,.999]){
+  const r=makeRound(mode,()=>seed,f),credit=componentCredit(r.fn,r.fn,r.dim);
+  assert.equal(credit.points,2000,`${mode} ${r.expression}`);assert.ok(credit.entries.length);assert.equal(credit.entries.reduce((s,c)=>s+c.points,0),2000);assert.ok(equationHintForRound(r).length>3);assert.ok(hintForRound(r).length>5);
+ }
+});
