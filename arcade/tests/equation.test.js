@@ -27,7 +27,7 @@ test('algebraic credit recognizes mixed terms and equivalent polynomial forms',a
  assert.equal(componentCredit('sin(x)+x^2','x^2').points,1000);
  assert.equal(componentCredit('sin(x)','cos(x-pi/2)',2,0).points,2000);
  assert.ok(algebraicComponents('sin(x)cos(y)',3).filter(c=>c.label==='Sinusoidal term').length===2);
- assert.equal(compile('log10(100)')(0),2);assert.equal(componentCredit('sin(x)+x^2','sin(x)+x-x').points,1000);assert.equal(componentCredit('sin(x)','sin(0)').points,0);
+ assert.equal(componentCredit('sin(x)cos(y)','sin(x)',3).points,componentCredit('sin(x)cos(y)','sin(y)',3).points);assert.equal(compile('log10(100)')(0),2);assert.equal(componentCredit('sin(x)+x^2','sin(x)+x-x').points,1000);assert.equal(componentCredit('sin(x)','sin(0)').points,0);
 });
 test('all generated families have complete self-credit and text plus symbolic hints',async()=>{
  const {componentCredit,equationHintForRound,hintForRound}=await import('../equation-engine.js');
