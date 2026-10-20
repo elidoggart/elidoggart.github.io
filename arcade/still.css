@@ -35,3 +35,14 @@
 #death-controls #score-status{width:100%;margin:0}
 body[data-state="dead"] .touch-controls{display:none}
 @media(max-width:600px){#death-controls{padding:10px 12px}#death-controls .panel{gap:7px}#death-controls .panel #title{font-size:18px}#death-controls .panel #message{width:100%;font-size:10px}#death-controls .panel button{padding:9px 12px;font-size:11px}}
+
+/* Story and split clocks stay outside the combat view. */
+.chapter{width:min(1120px,100%);margin:0 auto;padding:4px 20px 10px;font:10px ui-monospace,monospace;line-height:1.6;flex-shrink:0;box-sizing:border-box}.chapter>div{display:flex;justify-content:space-between;gap:12px}.chapter strong{font-weight:500;letter-spacing:.08em}.chapter p{margin:3px 0 0;color:var(--muted)}#objective{color:var(--red);font-size:9px;letter-spacing:.04em}#run-clock{font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}.arena{width:min(100%,calc((100dvh - 240px)*var(--arena-scale)))}
+.results-mode{overflow:auto;align-items:flex-start!important;padding:20px 0;box-sizing:border-box}.results-mode .panel{width:min(620px,94%);max-height:none;padding:24px;box-sizing:border-box}.results-mode .panel #title{font-size:32px;margin:6px 0 12px}.results-mode #message{margin-bottom:14px}.results-mode #eyebrow{display:none}.results-kicker{font:9px ui-monospace,monospace;letter-spacing:.13em;color:var(--red);text-align:left;margin:0 0 8px!important}#run-results table{border-collapse:collapse;width:100%;font:12px ui-monospace,monospace;font-variant-numeric:tabular-nums;text-align:right}#run-results th{font-size:9px;font-weight:400;color:var(--muted)}#run-results td,#run-results th{padding:10px 5px;border-bottom:1px solid var(--line);white-space:nowrap}#run-results td:first-child,#run-results th:first-child{text-align:left}#run-results tfoot td{color:var(--red);font-weight:600}#run-results .timing-note{font-size:10px;text-align:left;line-height:1.5;margin:10px 0 16px}.results-mode #score-form{margin:12px 0}.results-mode #how-to-play{display:none}body[data-state="won"] .touch-controls{display:none}
+@media(max-width:600px){.chapter{padding:3px 12px 8px;font-size:9px}.chapter>div{flex-wrap:wrap;gap:2px}#objective{font-size:8px}.arena{width:100%}.results-mode .panel{padding:14px}.results-mode .panel #title{font-size:24px}#run-results table{font-size:10px}#run-results td,#run-results th{padding:9px 2px}.results-mode{padding:8px 0}.touch-controls{padding-bottom:8px}}
+.chapter p{font-size:inherit;line-height:1.6}
+body[data-state="won"] .chapter,body[data-state="won"] footer{display:none}
+body[data-state="won"] main{padding:0 12px 20px}
+body[data-state="won"] .arena{width:100%;height:100%;aspect-ratio:auto;border:0}
+body[data-state="won"] #overlay{background:white;backdrop-filter:none;align-content:start}
+body[data-state="won"] .results-mode .panel{margin:0 auto}

@@ -1,5 +1,5 @@
-import {ROOMS} from './still-engine.js?v=melee-drops-1';
-const KEY='still-campaign-highscores-v3';
+import {ROOMS} from './still-engine.js?v=office-escape-1';
+const KEY='still-office-escape-highscores-v4';
 export function validStillScores(value){return (Array.isArray(value)?value:[]).filter(s=>s&&/^[A-Z]{3}$/.test(s.initials)&&Number.isSafeInteger(s.score)&&s.score>=0&&s.score<1e9&&Number.isInteger(s.room)&&s.room>=1&&s.room<=ROOMS.length&&['easy','medium','hard'].includes(s.difficulty)&&typeof s.complete==='boolean').map(({initials,score,room,difficulty,complete})=>({initials,score,room,difficulty,complete})).sort((a,b)=>b.score-a.score||Number(b.complete)-Number(a.complete)||b.room-a.room).slice(0,10);}
 export function readStillScores(storage){try{return validStillScores(JSON.parse(storage.getItem(KEY)||'[]'))}catch{return []}}
 export function saveStillScore(storage,entry){if(validStillScores([entry]).length!==1)return {ok:false,scores:readStillScores(storage)};const scores=validStillScores([...readStillScores(storage),entry]);try{storage.setItem(KEY,JSON.stringify(scores));return {ok:true,scores}}catch{return {ok:false,scores}}}
