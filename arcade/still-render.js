@@ -1,5 +1,7 @@
-import {StillDepth} from './still-depth.js?v=melee-drops-1';
-import {WEAPONS,isFirearm,isMelee} from './still-engine.js?v=melee-drops-1';
+import {StillDepth} from './still-depth.js?v=office-escape-1';
+import {WEAPONS,isFirearm,isMelee} from './still-engine.js?v=office-escape-1';
+// Gait follows distance travelled; idle breathing and recoil follow simulation time.
+export function enemyPose(e,time=0){const gait=e.gait||0,bob=Math.sin(e.phase*2)*.026*gait+Math.sin(time*1.8+e.id)*.008;return {gait,bob,sway:Math.sin(e.phase)*.025*gait,recoil:e.recoil||0,legs:[-1,1].map(side=>{const step=Math.sin(e.phase+(side<0?Math.PI:0));return {side,foot:step*.32*gait,knee:step*.14*gait+.1*gait,lift:Math.max(0,step)*.14*gait};})};}
 const INK='#232421',RED='#c73136',LINE='#e5e5de';
 export class StillRenderer{
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.faces=[];this.lines=[];try{this.depth=new StillDepth(document.createElement('canvas'));}catch{this.depth=null;}}
@@ -12,14 +14,15 @@ export class StillRenderer{
  // Rings create tapered, faceted anatomy rather than rectangular body parts.
  mesh(rings,color=RED,angle=0){const c=Math.cos(angle),s=Math.sin(angle),vertices=rings.map(([x,y,z,rx,rz])=>Array.from({length:8},(_,i)=>{const a=i*Math.PI/4,u=Math.cos(a)*rx,v=Math.sin(a)*rz;return [x+u*c+v*s,y,z-u*s+v*c]}));for(let j=0;j<vertices.length-1;j++)for(let i=0;i<8;i++)this.face([vertices[j][i],vertices[j][(i+1)%8],vertices[j+1][(i+1)%8],vertices[j+1][i]],color,'white',.85);this.face(vertices[0],color);this.face(vertices.at(-1),color);}
  limb(a,b,size,end=size*.7,color=RED){const d=b.map((v,i)=>v-a[i]),n=Math.hypot(...d),v=d.map(x=>x/n),reference=Math.abs(v[1])>.9?[1,0,0]:[0,1,0],cross=(u,v)=>[u[1]*v[2]-u[2]*v[1],u[2]*v[0]-u[0]*v[2],u[0]*v[1]-u[1]*v[0]],u=cross(v,reference),un=Math.hypot(...u),axis=u.map(x=>x/un),other=cross(v,axis),ring=(p,r)=>Array.from({length:6},(_,i)=>p.map((x,j)=>x+r*(axis[j]*Math.cos(i*Math.PI/3)+other[j]*Math.sin(i*Math.PI/3)))),A=ring(a,size),B=ring(b,end);for(let i=0;i<6;i++)this.face([A[i],A[(i+1)%6],B[(i+1)%6],B[i]],color,'white',.85);this.face(B,color);}
- enemy(e){if(e.entryDelay>0)return;const p=this.game.player,dist=Math.hypot(e.x-p.x,e.z-p.z),stride=dist>(e.type==='rush'?1:6.5)?Math.sin(e.phase)*.23:0,angle=e.angle,s=Math.sin(angle),c=Math.cos(angle),point=(x,y,z)=>[e.x+x*c+z*s,y,e.z-x*s+z*c],ring=(x,y,z,rx,rz)=>[...point(x,y,z),rx,rz];
- this.mesh([ring(0,.75,0,.2,.13),ring(0,.94,0,.15,.11),ring(0,1.16,0,.25,.15),ring(0,1.35,.02,.28,.14),ring(0,1.43,.02,.12,.09)],RED,angle);
-
- this.mesh([ring(0,1.48,.04,.085,.08),ring(0,1.57,.05,.13,.12),ring(0,1.73,.02,.145,.135),ring(0,1.83,.0,.10,.1),ring(0,1.86,0,.025,.03)],RED,angle);
- for(const side of [-1,1]){const hip=point(side*.13,.8,0),knee=point(side*.16,.44,stride*side),ankle=point(side*.17,.10,-stride*side);this.limb(hip,knee,.135,.09);this.limb(knee,ankle,.085,.05);this.mesh([ring(side*.17,.035,-stride*side+.06,.075,.15),ring(side*.17,.11,-stride*side,.065,.09)],RED,angle);}
- for(const side of [-1,1]){const shoulder=point(side*.29,1.33,.02),elbow=point(side*(e.type==='rush'?.34:.27),1.08,e.type==='rush'?stride*side:.25),hand=point(e.type==='rush'?side*.26:.14+side*.045,1.22,e.type==='rush'?.27:.59);this.limb(shoulder,elbow,.095,.065);this.limb(elbow,hand,.075,.045);this.limb(hand,hand.map((v,i)=>v+(i===1?.08:0)),.06,.055);}
- if(isMelee(e.weapon)){const hand=point(.26,1.22,.32);this.meleeModel(e.weapon,...hand,INK,angle);}
- if(e.type==='gun'){const gun=point(.2,1.23,.68);this.firearm(e.weapon||'gun',...gun,INK,angle);if(e.windup>0&&e.target)this.line(gun,[e.target.x,1.28,e.target.z],'#df9696',.7,true);}}
+ enemy(e){if(e.entryDelay>0)return;const pose=enemyPose(e,this.game.simTime),angle=e.angle,s=Math.sin(angle),c=Math.cos(angle),point=(x,y,z)=>[e.x+x*c+z*s,y,e.z-x*s+z*c],ring=(x,y,z,rx,rz)=>[...point(x,y+pose.bob,z),rx,rz];
+ this.mesh([ring(0,.75,0,.2,.13),ring(pose.sway,.94,.02,.15,.11),ring(pose.sway,1.16,.03,.25,.15),ring(pose.sway,1.35,.05,.28,.14),ring(pose.sway,1.43,.05,.12,.09)],RED,angle);
+ this.mesh([ring(pose.sway,1.48,.07,.085,.08),ring(pose.sway,1.57,.08,.13,.12),ring(pose.sway,1.73,.05,.145,.135),ring(pose.sway,1.83,.03,.10,.1),ring(pose.sway,1.86,.03,.025,.03)],RED,angle);
+ for(const leg of pose.legs){const {side,foot,knee,lift}=leg;this.limb(point(side*.13,.8+pose.bob,0),point(side*.16,.43+lift*.3,knee),.135,.09);this.limb(point(side*.16,.43+lift*.3,knee),point(side*.17,.1+lift,foot),.085,.05);this.mesh([[...point(side*.17,.035+lift,foot+.06),.075,.15],[...point(side*.17,.11+lift,foot),.065,.09]],RED,angle);}
+ const rush=e.type==='rush',attack=rush?Math.max(0,1-Math.hypot(e.x-this.game.player.x,e.z-this.game.player.z)/2):0;
+ let grip;
+ for(const side of [-1,1]){const swing=-Math.sin(e.phase)*pose.gait*side*.28,shoulder=point(side*.29+pose.sway,1.33+pose.bob,.05),elbow=point(side*(rush?.34:.27),1.08+pose.bob+(rush?attack*.12:0),rush?swing:.25-pose.recoil*.06),hand=point(rush?side*.26:.14+side*.045,(rush?1.14+attack*.2:1.22)+pose.bob,rush?.22+swing+attack*.3:.59-pose.recoil*.13);this.limb(shoulder,elbow,.095,.065);this.limb(elbow,hand,.075,.045);this.limb(hand,hand.map((v,i)=>v+(i===1?.08:0)),.06,.055);if(side===1)grip=hand;}
+ if(isMelee(e.weapon))this.meleeModel(e.weapon,...grip,INK,angle);
+ if(e.type==='gun'){const gun=point(.2,1.23+pose.bob,.68-pose.recoil*.13);this.firearm(e.weapon||'gun',...gun,INK,angle);if(e.windup>0&&e.target)this.line(gun,[e.target.x,1.28,e.target.z],'#df9696',.7,true);}}
  firearm(kind,x,y,z,color=INK,angle=0){
   const long=kind==='shotgun'||kind==='rifle',d=long?.78:kind==='smg'?.44:.33;
   this.box(x,y,z,.115,.12,d,color,angle);this.box(x-Math.sin(angle)*.12,y-.13,z-Math.cos(angle)*.12,.09,.16,.1,color,angle);
@@ -37,7 +40,7 @@ export class StillRenderer{
 
  item(item,highlight=false){const {x,y,z,kind}=item,color=highlight?RED:INK;if(isMelee(kind)){this.meleeModel(kind,x,y+.12,z,color,item.angle||0);}else if(isFirearm(kind)){this.firearm(kind,x,y+.22,z,color,item.angle||0);}else if(kind==='bottle'){this.mesh([[x,y,z,.09,.09],[x,y+.24,z,.09,.09],[x,y+.31,z,.035,.035],[x,y+.4,z,.035,.035]],color);}else if(kind==='mug'){this.mesh([[x,y,z,.09,.09],[x,y+.18,z,.11,.11]],color);this.line([x+.1,y+.16,z],[x+.18,y+.14,z],color);this.line([x+.18,y+.14,z],[x+.18,y+.04,z],color);this.line([x+.18,y+.04,z],[x+.1,y+.03,z],color);}else{this.box(x,y,z,.12,.06,.3,color);this.box(x,y+.07,z,.11,.04,.32,color,.1);}
  if(highlight){const h=y+.54;this.line([x-.12,h+.1,z],[x,h,z],RED,1.5);this.line([x,h,z],[x+.12,h+.1,z],RED,1.5);}}
- furniture(b){const {x,z,w,d,h,kind}=b;if(['desk','cart','cafe'].includes(kind)){this.box(x,h-.09,z,w,.09,d);for(const sx of [-1,1])for(const sz of [-1,1])this.box(x+sx*(w/2-.09),0,z+sz*(d/2-.09),.055,h-.09,.055);if(kind==='desk'){this.box(x+w*.2,h,z+d*.22,.65,.04,.32);this.box(x+w*.2,h+.02,z+d*.28,.045,.19,.05);this.box(x+w*.2,h+.2,z+d*.28,.7,.44,.055);this.box(x+w*.2,h+.015,z-.15,.6,.025,.23);this.box(x,0,z+d*.47,w,.65,.04,LINE);this.chair(x,z+d*.5+.45);}if(kind==='cafe'){this.chair(x-w*.3,z+d/2+.45);this.chair(x+w*.3,z+d/2+.45);this.box(x,h,z,.16,.23,.12,LINE);}}
+ furniture(b){const {x,z,w,d,h,kind}=b;if(kind==='cubicle'){this.box(x,0,z+d/2,w,h,.07,LINE);for(const side of [-1,1]){this.box(x+side*w/2,0,z,.07,h,d,LINE);this.box(x+side*w/2,h,z,.08,.04,d);}this.box(x,.8,z+.4,w,.09,1);this.box(x,.89,z+.5,.04,.2,.06);this.box(x,1.09,z+.5,.65,.4,.05);this.box(x,.9,z+.12,.5,.03,.2);this.chair(x,z-.45);return;}if(['desk','cart','cafe'].includes(kind)){this.box(x,h-.09,z,w,.09,d);for(const sx of [-1,1])for(const sz of [-1,1])this.box(x+sx*(w/2-.09),0,z+sz*(d/2-.09),.055,h-.09,.055);if(kind==='desk'){this.box(x+w*.2,h,z+d*.22,.65,.04,.32);this.box(x+w*.2,h+.02,z+d*.28,.045,.19,.05);this.box(x+w*.2,h+.2,z+d*.28,.7,.44,.055);this.box(x+w*.2,h+.015,z-.15,.6,.025,.23);this.box(x,0,z+d*.47,w,.65,.04,LINE);this.chair(x,z+d*.5+.45);}if(kind==='cafe'){this.chair(x-w*.3,z+d/2+.45);this.chair(x+w*.3,z+d/2+.45);this.box(x,h,z,.16,.23,.12,LINE);}}
  else if(kind==='partition'){this.box(x,0,z,w,h,d,LINE);for(const side of [-1,1]){this.box(x+side*(w/2-.035),0,z,.07,h,d,INK);this.box(x,1.15,z+side*d/2,w,.045,.035,INK);}this.box(x,h-.07,z,w,.07,d);}
  else if(kind==='bench'){this.box(x,.32,z,w,.2,d);this.box(x+w*.35,.5,z,.2,.65,d);for(const side of [-1,1])this.box(x,.05,z+side*(d/2-.2),w*.7,.27,.08);}
  else if(kind==='column'){this.box(x,0,z,w,h,d);this.box(x,0,z,w+.15,.12,d+.15);}
@@ -46,9 +49,21 @@ export class StillRenderer{
  chair(x,z){this.box(x,.45,z,.52,.075,.5);this.box(x,.5,z+.23,.52,.52,.06);this.box(x,.08,z,.06,.38,.06);this.line([x-.32,.08,z],[x+.32,.08,z],INK);this.line([x,.08,z-.3],[x,.08,z+.3],INK);}
  label(text,x,y,z,height=.18,color=INK){const a=this.camera([x,y,z]);if(a[2]<.1)return;const q=this.project(a),up=this.project(this.camera([x,y+height,z]));this.faces.push({text,points:[q],depth:a[2]-.005,color,font:Math.abs(up[1]-q[1])});}
  architecture(r){const n=r.size/2;
+ this.exit(r);
+ if(r.theme==='roof'){this.skyline(n);this.helicopter(0,n+5,.15);return;}
+ if(r.theme==='helicopter'){
+  // Ribbed cargo fuselage, benches, overhead beams, cockpit glazing.
+  for(let z=-n;z<=n;z+=2){this.box(-3.05,0,z,.1,3.1,.1);this.box(3.05,0,z,.1,3.1,.1);this.box(0,3.1,z,6.2,.12,.1);}
+  for(const x of [-2.98,2.98])for(let z=-5;z<6;z+=3){this.box(x,1.55,z,.04,.6,1.1,LINE);this.box(x*.82,.4,z,.6,.12,1.6);}
+  this.box(0,.7,n+1.1,1.4,.25,.55);for(const x of [-.4,.4])this.box(x,1,n+1.2,.45,.3,.06,RED);
+  this.box(0,1.5,n+2,2,1.2,.04,LINE);return;
+ }
+ if(r.theme==='break'){this.box(-n+.6,0,-1,.9,2.3,1.4);this.line([-n+1.06,1.3,-1.7],[-n+1.06,1.3,-.3]);this.box(-n+.7,1.15,2,1,.7,.9);}
+ if(r.theme==='reception'){this.box(0,1.9,-n+.1,5,.55,.04,LINE);for(const x of [-7,7]){this.box(x,.4,-1,1.4,.25,3);this.box(x,.65,-1,.12,.65,3);}}
+
 
  // Doors, glazing, shopfronts and ceiling fixtures give each arena a real interior.
- for(let x=-n+2;x<n;x+=4){if((r.doors||[]).some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.1))continue;this.box(x,1.0,n-.13,2.5,1.7,.035,LINE);for(const dx of [-1.25,0,1.25])this.line([x+dx,1,n-.16],[x+dx,2.7,n-.16],INK,.8);this.line([x-1.25,1.85,n-.16],[x+1.25,1.85,n-.16],LINE);}
+ for(let x=-n+2;x<n;x+=4){if([...(r.doors||[]),...(r.exit?[r.exit]:[])].some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.1))continue;this.box(x,1.0,n-.13,2.5,1.7,.035,LINE);for(const dx of [-1.25,0,1.25])this.line([x+dx,1,n-.16],[x+dx,2.7,n-.16],INK,.8);this.line([x-1.25,1.85,n-.16],[x+1.25,1.85,n-.16],LINE);}
  for(let z=-n+3;z<n;z+=5)for(const x of [-n*.45,n*.45])this.box(x,3.3,z,1.5,.045,.45,LINE);
  // Closed leaf volumes avoid the old crossed, paper-thin triangles.
  for(const x of [-n+.8,n-.8]){const z=n-1;this.mesh([[x,0,z,.19,.19],[x,.4,z,.26,.26],[x,.44,z,.26,.26]],INK);
@@ -57,19 +72,38 @@ export class StillRenderer{
    this.mesh([[X,h-.3,Z,.015,.015],[X,h-.12,Z,.14,.065],[X+Math.sin(a)*.07,h+.13,Z+Math.cos(a)*.07,.012,.008]],INK,a);
   }
  }
- if(r.theme==='mall'){for(const x of [-n+3,n-3]){if((r.doors||[]).some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.6))continue;this.box(x,0,n-.5,3.5,2.8,.12);this.box(x,2.8,n-.58,3.7,.35,.13,RED);this.box(x,1,n-.7,2.6,.05,.5);this.box(x,1.7,n-.7,2.6,.05,.5);for(const dx of [-.8,0,.8]){this.box(x+dx,1.05,n-.7,.3,.4,.25,LINE);this.box(x+dx,1.75,n-.7,.25,.3,.2,LINE);}}}
+ if(r.theme==='mall'){for(const x of [-n+3,n-3]){if([...(r.doors||[]),...(r.exit?[r.exit]:[])].some(d=>d.side==='north'&&Math.abs(d.offset-x)<2.6))continue;this.box(x,0,n-.5,3.5,2.8,.12);this.box(x,2.8,n-.58,3.7,.35,.13,RED);this.box(x,1,n-.7,2.6,.05,.5);this.box(x,1.7,n-.7,2.6,.05,.5);for(const dx of [-.8,0,.8]){this.box(x+dx,1.05,n-.7,.3,.4,.25,LINE);this.box(x+dx,1.75,n-.7,.25,.3,.2,LINE);}}}
+ }
+ skyline(n){for(let i=0;i<18;i++){const a=i*Math.PI/9,d=n+17+(i%3)*4;this.box(Math.sin(a)*d,-9,Math.cos(a)*d,3+(i%3),8+(i%5)*2.5,4,LINE);}}
+ helicopter(x,z,y=0){
+  // Tandem rotor transport: rounded cargo body, raised aft pylon, two landing gears.
+  const ring=(Z,w,h)=>[[x-w,y+.3,z+Z],[x-w,y+h*.72,z+Z],[x-w*.6,y+h,z+Z],[x+w*.6,y+h,z+Z],[x+w,y+h*.72,z+Z],[x+w,y+.3,z+Z]];
+  const sections=[[-3.3,.7,1.8],[-2.4,1.4,2.5],[1.9,1.4,2.5],[3.6,.7,2.2]].map(([Z,w,h])=>ring(Z,w,h));
+  for(let j=0;j<sections.length-1;j++)for(let i=0;i<6;i++)this.face([sections[j][i],sections[j][(i+1)%6],sections[j+1][(i+1)%6],sections[j+1][i]],INK,'white');
+  for(const end of [-1,1]){const Z=z+end*2.6,H=y+(end>0?3.5:3);this.box(x,y+2.2,Z,.6,H-y-2.2,.9);this.box(x,H,Z,.1,.35,.1);const a=this.game.simTime*13;for(const arm of [0,Math.PI/2]){this.box(x,H+.3,Z,7.5,.035,.13,INK,a+arm);}for(const side of [-1,1]){this.limb([x+side,y+.55,Z],[x+side*1.65,y-.15,Z],.05,.04,INK);this.box(x+side*1.65,y-.4,Z,.18,.35,.5);}}
+  this.box(x,y+1,z+3.61,1.1,.65,.025,LINE);
+  for(const side of [-1,1])this.box(x+side*.95,y+.2,z-3.1,.12,1.7,.12,RED);
+  this.box(x,y+1.9,z-3.1,2,.12,.12,RED);
+ }
+ exit(r){const e=r.exit;if(!e)return;const n=r.size/2,z=e.z,open=this.game.exitUnlocked;
+  for(const x of [-.84,.84])this.box(x,0,z,.14,2.6,.18,RED,0,false,RED);this.box(0,2.55,z,1.82,.14,.18,RED,0,false,RED);
+  // A physical down arrow above the lintel remains readable in the depth renderer.
+  this.line([0,3.35,z-.13],[0,2.95,z-.13],RED,3);this.line([-.2,3.13,z-.13],[0,2.94,z-.13],RED,3);this.line([.2,3.13,z-.13],[0,2.94,z-.13],RED,3);
+  if(!open){this.box(0,0,z,1.55,2.5,.08,LINE);this.line([-.5,1,z-.06],[.5,1.8,z-.06],RED,1.4);this.line([.5,1,z-.06],[-.5,1.8,z-.06],RED,1.4);}
+  if(e.kind==='elevator'){for(const side of [-1,1]){this.box(side*1.1,0,z+1,.12,3,2.2);this.box(side*.9,0,z+.15,.18,2.5,.12,INK);}this.box(0,0,z+2,2.2,3,.12);this.box(0,.01,z+1,2.2,.03,2);this.box(1.05,1.2,z-.15,.16,.35,.06);this.box(1.05,1.3,z-.19,.07,.07,.03,RED);}
+  if(e.kind==='jump'){this.box(0,.01,z-.8,1.6,.025,1.5,LINE);for(const x of [-.9,.9])this.line([x,.9,z-1.5],[x,.9,z],RED,2);this.line([0,.04,z-2.8],[0,.04,z-.5],RED,2);this.line([-.35,.04,z-1],[0,.04,z-.5],RED,2);this.line([.35,.04,z-1],[0,.04,z-.5],RED,2);}
  }
  boundary(r){const n=r.size/2,cutaway=this.game.state==='dead';
   for(const side of ['north','south','east','west']){
    const horizontal=side==='north'||side==='south',sign=side==='north'||side==='east'?1:-1;
    const box=(offset,along,y,h,depth=.2,dist=n+.1)=>horizontal?this.box(offset,y,sign*dist,along,h,depth):this.box(sign*dist,y,offset,depth,h,along);
-   let start=-n;const doors=(r.doors||[]).filter(d=>d.side===side).sort((a,b)=>a.offset-b.offset);
-   for(const d of doors){const left=d.offset-.8,right=d.offset+.8;if(left>start)box((start+left)/2,left-start,0,cutaway?.35:3.4);box(d.offset,1.6,2.55,.85);start=right;
+   let start=-n;const doors=[...(r.doors||[]),...(r.exit?[{...r.exit,exit:true}]:[])].filter(d=>d.side===side).sort((a,b)=>a.offset-b.offset);
+   for(const d of doors){const left=d.offset-.8,right=d.offset+.8;if(left>start)box((start+left)/2,left-start,0,cutaway?.35:r.theme==='roof'?.85:3.4);if(r.theme!=='roof')box(d.offset,1.6,2.7,.7);start=right;if(d.exit&&r.exit.kind==='jump')continue;
     // Jambs and a lintel frame an open, roofless passage extending outside the room.
     for(const edge of [left,right])box(edge,.08,0,cutaway?.35:2.55,2.6,n+1.3);
     box(d.offset,1.6,0,.03,2.6,n+1.3);box(d.offset,1.6,0,cutaway?.35:2.55,.12,n+2.6);
    }
-   if(start<n)box((start+n)/2,n-start,0,cutaway?.35:3.4);
+   if(start<n)box((start+n)/2,n-start,0,cutaway?.35:r.theme==='roof'?.85:3.4);
   }
  }
  deathView(game){if(game.state!=='dead'||!game.death)return null;const d=game.death,t=Math.min(1,d.age/1.35),e=t*t*(3-2*t),p=d.camera,span=Math.hypot(d.origin.x-p.x,d.origin.z-p.z),height=Math.max(10,span*this.w/this.h*.8+8);
