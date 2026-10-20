@@ -1,5 +1,5 @@
-import {StillDepth} from './still-depth.js?v=depth-flight-1';
-import {WEAPONS,isFirearm} from './still-engine.js?v=depth-flight-1';
+import {StillDepth} from './still-depth.js?v=melee-drops-1';
+import {WEAPONS,isFirearm,isMelee} from './still-engine.js?v=melee-drops-1';
 const INK='#232421',RED='#c73136',LINE='#e5e5de';
 export class StillRenderer{
  constructor(canvas){this.canvas=canvas;this.ctx=canvas.getContext('2d');this.faces=[];this.lines=[];try{this.depth=new StillDepth(document.createElement('canvas'));}catch{this.depth=null;}}
@@ -18,6 +18,7 @@ export class StillRenderer{
  this.mesh([ring(0,1.48,.04,.085,.08),ring(0,1.57,.05,.13,.12),ring(0,1.73,.02,.145,.135),ring(0,1.83,.0,.10,.1),ring(0,1.86,0,.025,.03)],RED,angle);
  for(const side of [-1,1]){const hip=point(side*.13,.8,0),knee=point(side*.16,.44,stride*side),ankle=point(side*.17,.10,-stride*side);this.limb(hip,knee,.135,.09);this.limb(knee,ankle,.085,.05);this.mesh([ring(side*.17,.035,-stride*side+.06,.075,.15),ring(side*.17,.11,-stride*side,.065,.09)],RED,angle);}
  for(const side of [-1,1]){const shoulder=point(side*.29,1.33,.02),elbow=point(side*(e.type==='rush'?.34:.27),1.08,e.type==='rush'?stride*side:.25),hand=point(e.type==='rush'?side*.26:.14+side*.045,1.22,e.type==='rush'?.27:.59);this.limb(shoulder,elbow,.095,.065);this.limb(elbow,hand,.075,.045);this.limb(hand,hand.map((v,i)=>v+(i===1?.08:0)),.06,.055);}
+ if(isMelee(e.weapon)){const hand=point(.26,1.22,.32);this.meleeModel(e.weapon,...hand,INK,angle);}
  if(e.type==='gun'){const gun=point(.2,1.23,.68);this.firearm(e.weapon||'gun',...gun,INK,angle);if(e.windup>0&&e.target)this.line(gun,[e.target.x,1.28,e.target.z],'#df9696',.7,true);}}
  firearm(kind,x,y,z,color=INK,angle=0){
   const long=kind==='shotgun'||kind==='rifle',d=long?.78:kind==='smg'?.44:.33;
@@ -27,7 +28,14 @@ export class StillRenderer{
   if(kind==='rifle'){this.box(x,y+.13,z,.08,.07,.24,color,angle);this.box(x-Math.sin(angle)*.4,y-.05,z-Math.cos(angle)*.4,.14,.15,.24,color,angle);}
  }
 
- item(item,highlight=false){const {x,y,z,kind}=item,color=highlight?RED:INK;if(isFirearm(kind)){this.firearm(kind,x,y+.22,z,color,item.angle||0);}else if(kind==='bottle'){this.mesh([[x,y,z,.09,.09],[x,y+.24,z,.09,.09],[x,y+.31,z,.035,.035],[x,y+.4,z,.035,.035]],color);}else if(kind==='mug'){this.mesh([[x,y,z,.09,.09],[x,y+.18,z,.11,.11]],color);this.line([x+.1,y+.16,z],[x+.18,y+.14,z],color);this.line([x+.18,y+.14,z],[x+.18,y+.04,z],color);this.line([x+.18,y+.04,z],[x+.1,y+.03,z],color);}else{this.box(x,y,z,.12,.06,.3,color);this.box(x,y+.07,z,.11,.04,.32,color,.1);}
+ meleeModel(kind,x,y,z,color=INK,angle=0){
+  const point=(side,up,forward)=>[x+side*Math.cos(angle)+forward*Math.sin(angle),y+up,z-side*Math.sin(angle)+forward*Math.cos(angle)];
+  if(kind==='knife'){this.box(...point(0,0,0),.055,.06,.18,color,angle);this.box(...point(0,0,.22),.075,.025,.28,color,angle);this.box(...point(0,-.015,.1),.13,.08,.025,color,angle);}
+  else if(kind==='baton'){this.box(...point(0,0,.26),.065,.065,.72,color,angle);this.box(...point(.09,0,.03),.2,.06,.06,color,angle);}
+  else{this.box(...point(0,0,.25),.055,.065,.7,color,angle);this.box(...point(.1,-.04,.55),.3,.14,.19,color,angle);}
+ }
+
+ item(item,highlight=false){const {x,y,z,kind}=item,color=highlight?RED:INK;if(isMelee(kind)){this.meleeModel(kind,x,y+.12,z,color,item.angle||0);}else if(isFirearm(kind)){this.firearm(kind,x,y+.22,z,color,item.angle||0);}else if(kind==='bottle'){this.mesh([[x,y,z,.09,.09],[x,y+.24,z,.09,.09],[x,y+.31,z,.035,.035],[x,y+.4,z,.035,.035]],color);}else if(kind==='mug'){this.mesh([[x,y,z,.09,.09],[x,y+.18,z,.11,.11]],color);this.line([x+.1,y+.16,z],[x+.18,y+.14,z],color);this.line([x+.18,y+.14,z],[x+.18,y+.04,z],color);this.line([x+.18,y+.04,z],[x+.1,y+.03,z],color);}else{this.box(x,y,z,.12,.06,.3,color);this.box(x,y+.07,z,.11,.04,.32,color,.1);}
  if(highlight){const h=y+.54;this.line([x-.12,h+.1,z],[x,h,z],RED,1.5);this.line([x,h,z],[x+.12,h+.1,z],RED,1.5);}}
  furniture(b){const {x,z,w,d,h,kind}=b;if(['desk','cart','cafe'].includes(kind)){this.box(x,h-.09,z,w,.09,d);for(const sx of [-1,1])for(const sz of [-1,1])this.box(x+sx*(w/2-.09),0,z+sz*(d/2-.09),.055,h-.09,.055);if(kind==='desk'){this.box(x+w*.2,h,z+d*.22,.65,.04,.32);this.box(x+w*.2,h+.02,z+d*.28,.045,.19,.05);this.box(x+w*.2,h+.2,z+d*.28,.7,.44,.055);this.box(x+w*.2,h+.015,z-.15,.6,.025,.23);this.box(x,0,z+d*.47,w,.65,.04,LINE);this.chair(x,z+d*.5+.45);}if(kind==='cafe'){this.chair(x-w*.3,z+d/2+.45);this.chair(x+w*.3,z+d/2+.45);this.box(x,h,z,.16,.23,.12,LINE);}}
  else if(kind==='partition'){this.box(x,0,z,w,h,d,LINE);for(const side of [-1,1]){this.box(x+side*(w/2-.035),0,z,.07,h,d,INK);this.box(x,1.15,z+side*d/2,w,.045,.035,INK);}this.box(x,h-.07,z,w,.07,d);}
@@ -89,7 +97,7 @@ export class StillRenderer{
  if(['playing','clearing','paused','ready'].includes(game.state))this.weapon();
  if(game.state==='playing'){const x=this.w/2,y=this.h*.47;ctx.strokeStyle=INK;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x-8,y);ctx.lineTo(x-3,y);ctx.moveTo(x+3,y);ctx.lineTo(x+8,y);ctx.moveTo(x,y-8);ctx.lineTo(x,y-3);ctx.moveTo(x,y+3);ctx.lineTo(x,y+8);ctx.stroke();ctx.fillStyle=RED;ctx.fillRect(x-.8,y-.8,1.6,1.6);this.threats();}
  }
- weapon(){const ctx=this.ctx,p=this.game.player,w=this.w,h=this.h,scale=Math.min(w/900,h/520),kick=p.kick*11,reload=p.reload>0?Math.sin(Math.min(1,p.reload/1.4)*Math.PI)*70:0;ctx.save();ctx.translate(w*.62,h+reload+kick);ctx.scale(scale,scale);ctx.lineWidth=1.3;ctx.strokeStyle=INK;ctx.fillStyle='white';const poly=points=>{ctx.beginPath();points.forEach((v,i)=>i?ctx.lineTo(...v):ctx.moveTo(...v));ctx.closePath();ctx.fill();ctx.stroke()};poly([[-8,10],[-40,-48],[-16,-89],[17,-94],[51,-60],[76,10]]);if(!isFirearm(p.held)){if(p.held==='bottle'){poly([[-18,-73],[-22,-143],[-9,-162],[-9,-191],[8,-191],[8,-162],[22,-143],[20,-73]]);}else if(p.held==='mug'){poly([[-34,-70],[-39,-130],[29,-130],[25,-70]]);poly([[29,-119],[51,-119],[51,-82],[27,-82]]);}else if(p.held==='stapler'){poly([[-34,-96],[-41,-123],[42,-139],[49,-111]]);}else{poly([[-24,-65],[-34,-96],[-25,-112],[4,-116],[29,-100],[34,-72]]);}ctx.restore();return;}if(p.held==='shotgun'||p.held==='rifle'){
+ weapon(){const ctx=this.ctx,p=this.game.player,w=this.w,h=this.h,scale=Math.min(w/900,h/520),kick=p.kick*11,reload=p.reload>0?Math.sin(Math.min(1,p.reload/1.4)*Math.PI)*70:0;ctx.save();ctx.translate(w*.62,h+reload+kick);ctx.scale(scale,scale);if(isMelee(p.held)){ctx.translate(-p.kick*95,-p.kick*35);ctx.rotate(-p.kick*.9);}ctx.lineWidth=1.3;ctx.strokeStyle=INK;ctx.fillStyle='white';const poly=points=>{ctx.beginPath();points.forEach((v,i)=>i?ctx.lineTo(...v):ctx.moveTo(...v));ctx.closePath();ctx.fill();ctx.stroke()};poly([[-8,10],[-40,-48],[-16,-89],[17,-94],[51,-60],[76,10]]);if(!isFirearm(p.held)){if(isMelee(p.held)){poly([[-14,-74],[-18,-146],[2,-150],[14,-78]]);if(p.held==='knife'){poly([[-18,-146],[-24,-212],[-8,-245],[3,-151]]);poly([[-27,-143],[-28,-152],[13,-159],[16,-149]]);}else if(p.held==='baton'){poly([[-18,-145],[-30,-290],[-12,-298],[3,-150]]);poly([[-14,-130],[-60,-125],[-61,-143],[-15,-150]]);}else{poly([[-18,-145],[-30,-270],[-12,-276],[3,-150]]);poly([[-29,-260],[-76,-280],[-94,-248],[-79,-216],[-25,-234]]);}}else if(p.held==='bottle'){poly([[-18,-73],[-22,-143],[-9,-162],[-9,-191],[8,-191],[8,-162],[22,-143],[20,-73]]);}else if(p.held==='mug'){poly([[-34,-70],[-39,-130],[29,-130],[25,-70]]);poly([[29,-119],[51,-119],[51,-82],[27,-82]]);}else if(p.held==='stapler'){poly([[-34,-96],[-41,-123],[42,-139],[49,-111]]);}else{poly([[-24,-65],[-34,-96],[-25,-112],[4,-116],[29,-100],[34,-72]]);}ctx.restore();return;}if(p.held==='shotgun'||p.held==='rifle'){
   poly([[-15,-58],[-35,-143],[-20,-211],[3,-215],[34,-144],[55,-53],[24,-30]]);
   poly([[-35,-143],[-32,-218],[-21,-244],[-8,-239],[3,-163]]);
   poly([[-20,-211],[-13,-238],[0,-242],[15,-220],[34,-144],[3,-163]]);
