@@ -1,7 +1,7 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {StillGame,ROOMS,MODES,WEAPONS,MELEE,isFirearm,roomTimeScore,segmentBox,segmentSphere} from '../still-engine.js';
+import {StillGame,ROOMS,MODES,WEAPONS,MELEE,isFirearm,roomTimeScore,segmentBox,segmentSphere,roomBounds,stageConnection,transformPoint} from '../still-engine.js';
 import {validStillScores,saveStillScore,readStillScores} from '../still-scores.js';
-const leave=g=>{Object.assign(g.player,{x:g.room.exit.x,z:g.room.exit.z+(g.room.exit.kind==='jump'?1.7:.3),y:g.room.exit.kind==='jump'?2:1.5});g.next();};
+const leave=g=>{Object.assign(g.player,{x:g.room.exit.x,z:g.room.exit.z+(g.room.exit.travel??2.6)+.06,y:1.5});g.next();};
 const run=(g,seconds,input={})=>{for(let t=0;t<seconds;t+=1/120)g.step(1/120,input)};
 function empty(){const g=new StillGame();g.start();Object.defineProperty(g,'room',{configurable:true,get:()=>({size:18,start:[0,-6,0],cover:[{x:-5,z:0,w:2,d:2,h:1.1}],solids:[{x:-5,z:0,w:2,d:2,h:1.1}],enemies:[{x:7,z:7,type:'gun'}],items:[{x:.75,z:-4.15,y:.88,kind:'mug'}],waves:[],exit:{x:0,z:9,kind:'door',label:'NEXT'}})});g.loadRoom();Object.assign(g.player,{held:'gun',ammo:3,reserve:3});g.enemies=[{...g.enemies[0],x:7,z:7,fire:100,alive:true}];return g}
 test('world advances at 2.5% while still and full speed while moving',()=>{const a=empty(),b=empty();run(a,1);run(b,1,{x:1});assert(Math.abs(a.simTime-.025)<.001);assert(Math.abs(b.simTime-1)<.02);assert(b.player.x>3.5);assert.equal(a.player.x,0)});
@@ -54,7 +54,7 @@ test('rifle pierces two aligned enemies but stops at the second or solid cover',
 test('every firearm reloads to its own capacity and can be thrown and recovered without creating ammo',()=>{for(const kind of Object.keys(WEAPONS)){const g=empty();g.player.held=kind;g.player.ammo=0;g.player.reserve=20;g.reload();run(g,4);assert.equal(g.player.ammo,WEAPONS[kind].capacity);assert.equal(g.player.reserve,20-WEAPONS[kind].capacity);g.player.pitch=-.4;g.fire(true);run(g,5,{x:.01});const drop=g.items.find(i=>i.id.startsWith('thrown-'));assert(drop);assert.equal(drop.kind,kind);assert.equal(drop.ammo,WEAPONS[kind].capacity);assert.equal(drop.reserve,20-WEAPONS[kind].capacity)}});
 test('fatal bullet records original muzzle and exact impact; death replay freezes combat and clocks',()=>{const g=empty();const origin={x:0,y:1.3,z:-3};g.bullets=[{id:1,...origin,origin:{...origin},vx:0,vy:0,vz:-10,owner:'enemy',type:'shot',age:0,path:[],closest:99,attacker:9}];g.actionTime=1;run(g,.5,{x:.01});assert.equal(g.state,'dead');assert.equal(g.death.kind,'shot');assert.deepEqual(g.death.origin,origin);assert(Math.abs(g.death.impact.z-(g.player.z+.21))<1e-8);assert.equal(g.death.attacker,9);const clock=g.roomTime,real=g.roomRealTime,bullets=JSON.stringify(g.bullets),x=g.player.x;run(g,2,{x:1,fire:true});assert(g.death.age>1.6);assert.equal(g.roomTime,clock);assert.equal(g.roomRealTime,real);assert.equal(JSON.stringify(g.bullets),bullets);assert.equal(g.player.x,x);g.retry();assert.equal(g.death,null)});
 test('fatal fist records the attacker, and cannot hit through solid cover',()=>{const g=empty();g.enemies=[{...g.enemies[0],type:'rush',x:0,z:g.player.z+.6}];g.step(.01);assert.equal(g.death.kind,'fist');assert.equal(g.death.origin.z,g.enemies[0].z);const wall=empty();const wallRoom=wall.room;Object.defineProperty(wall,'room',{get:()=>({...wallRoom,solids:[{x:-5,z:0,w:2,d:2,h:3}]})});wall.player.x=-5;wall.player.z=-1.6;wall.enemies=[{...wall.enemies[0],type:'rush',x:-5,z:-.9}];wall.step(.01);assert.equal(wall.state,'playing')});
-test('all reinforcements walk inward through a clear perimeter opening before attacking',()=>{for(let level=0;level<ROOMS.length;level++){const g=new StillGame();g.start();g.level=level;g.loadRoom();while(g.pendingWaves.length){g.reinforce();const arriving=g.enemies.filter(e=>e.enter>0);for(const e of arriving){assert(g.room.doors.includes(e.door));assert(Math.abs(e.x)>g.room.size/2||Math.abs(e.z)>g.room.size/2);assert(!g.blocked(e.door.x,e.door.z));for(let i=0;i<=10;i++){const t=i/10,x=e.door.ox+(e.door.x-e.door.ox)*t,z=e.door.oz+(e.door.z-e.door.oz)*t;assert(!g.room.cover.some(b=>Math.abs(x-b.x)<b.w/2+.32&&Math.abs(z-b.z)<b.d/2+.32))}e.enter=0;}}}});
+test('all reinforcements walk inward through a clear perimeter opening before attacking',()=>{for(let level=0;level<ROOMS.length;level++){const g=new StillGame();g.start();g.level=level;g.loadRoom();while(g.pendingWaves.length){g.reinforce();const arriving=g.enemies.filter(e=>e.enter>0);for(const e of arriving){assert(g.room.doors.includes(e.door));assert(Math.abs(e.x)>roomBounds(g.room).x||Math.abs(e.z)>roomBounds(g.room).z);assert(!g.blocked(e.door.x,e.door.z));for(let i=0;i<=10;i++){const t=i/10,x=e.door.ox+(e.door.x-e.door.ox)*t,z=e.door.oz+(e.door.z-e.door.oz)*t;assert(!g.room.cover.some(b=>Math.abs(x-b.x)<b.w/2+.32&&Math.abs(z-b.z)<b.d/2+.32))}e.enter=0;}}}});
 test('doorway arrivals move visibly over time and do not shoot during entry',()=>{const g=new StillGame();g.start();g.enemies.forEach(e=>e.alive=false);g.reinforce();const e=g.enemies.find(e=>e.alive),start={x:e.x,z:e.z};g.player.x=0;g.player.z=0;g.actionTime=2;run(g,.55,{x:.01,reload:false});assert(e.enter>0);assert(Math.hypot(e.x-start.x,e.z-start.z)>0);assert.equal(g.bullets.length,0);run(g,.6,{x:.01});assert.equal(e.enter,0);assert(Math.hypot(e.x-e.door.x,e.z-e.door.z)<.15)});
 
 test('music bends sustained voices through two octaves without restarting the phrase',async()=>{const {StillMusic}=await import('../still-music.js');const music=new StillMusic(),calls=[];music.context={currentTime:4};music.pitch=null;music.pitchedVoices.add({detune:{setTargetAtTime:(...args)=>calls.push(args)}});music.step=37;for(const timeScale of [.025,.5125,1])music.update({state:'playing',timeScale,level:0,bullets:[]},false);assert.deepEqual(calls.map(c=>Math.round(c[0])||0),[-1200,0,1200]);assert(calls.every(c=>c[1]===4&&c[2]===.16));assert.equal(music.step,37);music.update({state:'playing',timeScale:1,level:0,bullets:[]},false);assert.equal(calls.length,3)});
@@ -71,8 +71,66 @@ test('axe cleaves two targets while baton hits one; walls block melee',()=>{for(
 test('melee weapons can be thrown, recovered and dropped by rushing enemies',()=>{for(const kind of Object.keys(MELEE)){const g=empty();g.player.held=kind;g.player.pitch=-.4;g.fire(true);assert.equal(g.player.held,null);run(g,5,{x:.01});assert(g.items.some(i=>i.id.startsWith('thrown-')&&i.kind===kind));const h=empty();Object.assign(h.enemies[0],{type:'rush',weapon:kind});h.kill(h.enemies[0]);assert(h.items.some(i=>i.kind===kind&&i.flight));}assert(ROOMS[0].items.some(i=>i.kind==='baton'));assert.deepEqual([...new Set(ROOMS.flatMap(r=>r.items).filter(i=>MELEE[i.kind]).map(i=>i.kind))].sort(),Object.keys(MELEE).sort());});
 
 
-test('office route is authored in order with elevator, roof jump and cockpit exits',()=>{assert.deepEqual(ROOMS.map(r=>r.name),['Cubicle area','Break room','Reception','Roof','Helicopter']);assert.deepEqual(ROOMS.map(r=>r.exit.kind),['door','door','elevator','jump','cockpit']);for(let level=0;level<5;level++){const g=new StillGame();g.level=level;g.loadRoom();assert(!g.blocked(0,g.room.size/2-.7));assert(g.blocked(0,g.room.size/2+.2));g.exitUnlocked=true;assert(!g.blocked(0,g.room.size/2+.2));assert(g.blocked(2,g.room.size/2+.2));}});
-test('roof jump physically clears the gap, walking off falls, and a locked gate blocks passage',()=>{const roof=()=>{const g=new StillGame();g.start();g.level=3;g.loadRoom();g.enemies=[];g.pendingWaves=[];g.exitUnlocked=true;Object.assign(g.player,{x:0,z:g.room.size/2-.7,yaw:0});return g;};const g=roof();g.step(1/120,{z:1,jump:true});run(g,.8,{z:1});assert.equal(g.level,4);assert.equal(g.splits.length,1);const fall=roof();run(fall,.5,{z:1});assert.equal(fall.state,'dead');assert.equal(fall.death.kind,'fall');const locked=roof();locked.exitUnlocked=false;locked.enemies=[{id:99,x:5,z:5,alive:true,phase:0,fire:100,type:'gun',angle:0}];locked.step(1/120,{z:1,jump:true});run(locked,.8,{z:1});assert.equal(locked.level,3);assert(locked.player.z<11);});
+test('office route has physical exits, side boarding and a cockpit destination',()=>{
+ assert.deepEqual(ROOMS.map(r=>r.name),['Cubicle area','Break room','Reception','Roof','Helicopter']);
+ assert.deepEqual(ROOMS.map(r=>r.exit.kind),['door','door','elevator','boarding','cockpit']);
+ assert.equal(ROOMS[4].entrance.side,'west');
+ for(let level=0;level<5;level++){const g=new StillGame();g.level=level;g.loadRoom();const z=g.room.exit.z;assert(!g.blocked(0,z-.7));assert(g.blocked(0,z+.2));g.exitUnlocked=true;assert(!g.blocked(0,z+.2));}
+});
+test('walking off the cleared roof boards the side door, with no jump or fall',()=>{
+ const roof=()=>{const g=new StillGame();g.start();g.level=3;g.loadRoom();g.enemies=[];g.pendingWaves=[];g.exitUnlocked=true;Object.assign(g.player,{x:0,z:g.room.exit.z-.7,yaw:0});return g;};
+ const g=roof();run(g,.8,{z:1});assert.equal(g.level,4);assert.equal(g.state,'playing');assert.equal(g.player.y,1.5);assert.equal(g.splits.length,1);assert(g.player.x>-3.2&&g.player.x<-1.5);assert(Math.abs(g.player.z-g.room.entrance.z)<.1);
+ const locked=roof();locked.exitUnlocked=false;locked.enemies=[{id:99,x:5,z:5,alive:true,phase:0,fire:100,type:'gun',angle:0}];run(locked,.8,{z:1,jump:true});assert.equal(locked.level,3);assert(locked.player.z<11);assert.equal(locked.player.y,1.5);
+});
 test('five stage splits reconcile to totals, stop at the cockpit and reset for a fresh run',()=>{const g=new StillGame();g.start();for(let level=0;level<5;level++){assert.equal(g.level,level);g.enemies=[];g.pendingWaves=[];run(g,1);assert(g.exitUnlocked);run(g,.25,{x:1});leave(g);}assert.equal(g.state,'won');assert.equal(g.splits.length,5);for(const [key,total] of [['world','totalTime'],['real','totalRealTime']])assert(Math.abs(g.splits.reduce((sum,s)=>sum+s[key],0)-g[total])<1e-8);const snapshot=JSON.stringify(g);run(g,10,{z:1,fire:true,jump:true});g.next();assert.equal(JSON.stringify(g),snapshot);g.start();assert.equal(g.splits.length,0);assert.equal(g.totalTime,0);assert.equal(g.totalRealTime,0);});
 test('enemy legs alternate, knees flex and gait stops when stationary',async()=>{const {enemyPose}=await import('../still-render.js');const pose=enemyPose({id:0,gait:1,phase:Math.PI/2,recoil:0});assert(pose.legs[0].foot*pose.legs[1].foot<0);assert(pose.legs.some(l=>l.lift>.1));const idle=enemyPose({id:0,gait:0,phase:2,recoil:0});assert(idle.legs.every(l=>l.foot===0&&l.lift===0));const g=empty();g.enemies[0].x=0;g.enemies[0].z=-3;g.enemies[0].phase=0;run(g,.5);assert.equal(g.enemies[0].phase,0);g.enemies[0].z=5;run(g,.5,{x:1});assert(g.enemies[0].phase>0);const phase=g.enemies[0].phase;g.pause();run(g,1);assert.equal(g.enemies[0].phase,phase);});
 test('office records do not mix with the old 24-room campaign',()=>{const entry={initials:'OLD',score:99999,room:5,difficulty:'hard',complete:true};assert.deepEqual(readStillScores({getItem:key=>key==='still-campaign-highscores-v3'?JSON.stringify([entry]):null}),[]);});
+
+test('difficulty changes guard counts, reinforcement pressure, warning time and armor',()=>{
+ for(let level=0;level<ROOMS.length;level++){
+  const games=['easy','medium','hard'].map(mode=>{const g=new StillGame(mode);g.start();g.level=level;g.loadRoom();return g;});
+  const count=g=>g.enemies.length+g.pendingWaves.flat().length;
+  assert(count(games[0])<count(games[1]));assert(count(games[1])<count(games[2]));
+  assert.equal(games[0].pendingWaves.length,0);
+  assert(games[0].enemies.every(e=>e.weapon==='gun'||e.type==='rush'));
+  assert(games[2].enemies.filter(e=>e.type==='gun').every(e=>e.armor===1));
+  for(const g of games)for(const e of [...g.enemies,...g.pendingWaves.flat()])assert(!g.blocked(e.x,e.z),`${g.mode} ${g.room.name} guard ${e.x},${e.z}`);
+ }
+ assert(MODES.easy.windup>MODES.medium.windup&&MODES.medium.windup>MODES.hard.windup);
+});
+test('hard chest plates stop one body shot; a second shot, headshot, rifle or disarm defeats the guard',()=>{
+ const target=()=>{const g=empty();g.mode='hard';Object.assign(g.enemies[0],{x:0,z:-3,armor:1});return g;};
+ const g=target();g.fire();run(g,.4);assert(g.enemies[0].alive);assert.equal(g.enemies[0].armor,0);assert.equal(g.kills,0);
+ g.player.cool=0;g.fire();run(g,.4);assert(!g.enemies[0].alive);assert.equal(g.kills,1);
+ const head=target();head.player.pitch=Math.atan2(.22,3);head.fire();run(head,.4);assert.equal(head.kills,1);
+ const rifle=target();rifle.player.held='rifle';rifle.fire();run(rifle,.4);assert.equal(rifle.kills,1);
+ const disarm=target();disarm.enemies[0].z=-5;disarm.melee();assert.equal(disarm.kills,1);
+ const easy=target();easy.mode='easy';easy.enemies[0].armor=0;easy.fire();run(easy,.4);assert.equal(easy.kills,1);
+});
+test('door crossings preserve position, facing, held weapon and ammunition in the connected scene',()=>{
+ for(let level=0;level<4;level++){
+  const g=new StillGame();g.start();g.level=level;g.loadRoom();g.exitUnlocked=true;
+  Object.assign(g.player,{x:.15,z:g.room.exit.z+g.room.exit.travel+.06,yaw:.12,pitch:.08,held:'shotgun',ammo:1,reserve:2});
+  const old={...g.player},link=stageConnection(level);assert(g.next());
+  const mapped=transformPoint(g.player,link);
+  assert(Math.hypot(mapped.x-old.x,mapped.z-old.z)<1e-9);
+  assert(Math.abs(g.player.yaw+link.yaw-old.yaw)<1e-9);
+  assert.equal(g.player.pitch,old.pitch);assert.equal(g.player.held,'shotgun');assert.equal(g.player.ammo,1);assert.equal(g.player.reserve,2);
+  assert(g.previousRoom);assert(!g.blocked(g.player.x,g.player.z));
+ }
+});
+test('only the current cleared exit receives a red frame and arrow',async()=>{
+ const {drawExit}=await import('../still-scenes.js');
+ for(const r of ROOMS){
+  for(const open of [false,true]){
+   const colors=[],v={sceneOpen:open,sceneActive:true,box:(...args)=>colors.push(args[6]),line:(a,b,color)=>colors.push(color),face:(points,color)=>colors.push(color)};
+   drawExit(v,r);assert.equal(colors.includes('#c73136'),open,r.name);
+  }
+ }
+});
+test('roof reinforcements use the roof-access corridor and helicopter guards begin inside the cabin',()=>{
+ const roof=ROOMS[3],cabin=ROOMS[4];
+ for(const e of roof.waves.flat()){assert.equal(e.door.side,roof.entrance.side);assert.equal(e.door.offset,roof.entrance.offset);}
+ assert.equal(cabin.waves.length,0);
+ for(const e of cabin.enemies){assert(Math.abs(e.x)<cabin.halfWidth);assert(Math.abs(e.z)<cabin.size/2);}
+});
