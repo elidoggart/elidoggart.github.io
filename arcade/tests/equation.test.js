@@ -1,14 +1,14 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {compile,makeRound,evaluate,scoreRound,readScores,structure,structureMatch} from '../equation-engine.js';
+import {compile,makeRound,evaluate,scoreRound,readScores,structure,structureMatch,familyCounts} from '../equation-engine.js';
 test('math grammar respects powers, unary signs and implicit products',()=>{for(const [s,x,y,want]of [['-x^2',3,0,-9],['2^3^2',0,0,512],['2x + 3(x-1)',2,0,7],['sin(pi/2)',0,0,1],['x^2-y^2',3,2,5],['2^-2',0,0,.25]])assert.equal(compile(s,3)(x,y),want);for(const s of ['alert(1)','x.constructor','x;1','sin(x','x +',''])assert.throws(()=>compile(s));assert.throws(()=>compile('y',2));});
-test('every generated family is finite and exactly recoverable',()=>{for(const [mode,n]of [['easy',4],['medium',6],['hard',6]])for(let family=0;family<n;family++)for(const seed of [0,.3,.7,.999]){const r=makeRound(mode,()=>seed,family);assert.equal(evaluate(r,compile(r.expression,r.dim)).error,0);assert.ok(r.range[0]<r.range[1]);assert.ok(r.points.every(p=>Number.isFinite(p.z)));assert.ok(evaluate(r,()=>1000).error>0);}});
+test('every generated family is finite and exactly recoverable',()=>{for(const [mode,n]of Object.entries(familyCounts))for(let family=0;family<n;family++)for(const seed of [0,.3,.7,.999]){const r=makeRound(mode,()=>seed,family);assert.equal(evaluate(r,compile(r.expression,r.dim)).error,0);assert.ok(r.range[0]<r.range[1]);assert.ok(r.points.every(p=>Number.isFinite(p.z)));assert.ok(evaluate(r,()=>1000).error>0);}});
 test('domain error uses RMS and rejects singular or non-real guesses',()=>{const r=makeRound('easy',()=>0,0);const e=evaluate(r,x=>r.fn(x)+2);assert.equal(e.rmse,2);assert.throws(()=>evaluate(r,x=>1/x));assert.throws(()=>evaluate(r,x=>Math.sqrt(x)));});
 test('accuracy, guesses and elapsed time all affect score',()=>{assert.equal(scoreRound(0,1,0),10000);assert.ok(scoreRound(.1,1,0)<10000);assert.ok(scoreRound(0,2,0)<10000);assert.ok(scoreRound(0,1,60)<10000);assert.ok(scoreRound(1e8,5,1e8)>=0);});
 test('score reads tolerate corruption',()=>{assert.deepEqual(readScores({getItem:()=>'{'}),[]);assert.deepEqual(readScores({getItem:()=>JSON.stringify([{initials:'<x>',score:4,difficulty:'easy'}])}),[]);});
 
 test('structure recognizes equivalent polynomial forms and rewards curve-family recognition',()=>{assert.deepEqual(structure('sin(2x)+1'),['sinusoidal']);assert.deepEqual(structure('cos(x)'),['sinusoidal']);assert.deepEqual(structure('(x-2)(x-2)'),['quadratic']);assert.deepEqual(structure('x*x*x'),['cubic']);assert.deepEqual(structure('x^2-y^2',3),['quadratic']);assert.deepEqual(structure('1/(1+x^2)'),['rational']);assert.equal(structureMatch(structure('sin(x)'),structure('cos(3x)')),1);assert.equal(structureMatch(structure('sin(x)'),structure('x^2')),0);assert.ok(structureMatch(['sinusoidal'],['sinusoidal','exponential'])<1);assert.equal(scoreRound(100,1,0,1),2000);assert.equal(scoreRound(0,1,0,1),10000);});
 
-test('hints describe every generated family and halve only the current round score',async()=>{const {hintForRound,applyHintPenalty}=await import('../equation-engine.js');for(const [mode,n]of [['easy',4],['medium',6],['hard',6]])for(let family=0;family<n;family++){const r=makeRound(mode,()=>0,family);assert.ok(hintForRound(r).length>5);assert.notEqual(hintForRound(r),r.expression);}assert.equal(applyHintPenalty(10000,true),5000);assert.equal(applyHintPenalty(10000,false),10000);assert.equal(applyHintPenalty(0,true),0);});
+test('hints describe every generated family and halve only the current round score',async()=>{const {hintForRound,applyHintPenalty}=await import('../equation-engine.js');for(const [mode,n]of Object.entries(familyCounts))for(let family=0;family<n;family++){const r=makeRound(mode,()=>0,family);assert.ok(hintForRound(r).length>5);assert.notEqual(hintForRound(r),r.expression);}assert.equal(applyHintPenalty(10000,true),5000);assert.equal(applyHintPenalty(10000,false),10000);assert.equal(applyHintPenalty(0,true),0);});
 
 test('structure recognizes functions after implicit coefficients',()=>{assert.deepEqual(structure('2sin(x)'),['sinusoidal']);assert.deepEqual(structure('1cos(x)+0.5x'),['sinusoidal']);assert.deepEqual(structure('3exp(-x^2)'),['exponential']);});
 
@@ -31,7 +31,7 @@ test('algebraic credit recognizes mixed terms and equivalent polynomial forms',a
 });
 test('all generated families have complete self-credit and text plus symbolic hints',async()=>{
  const {componentCredit,equationHintForRound,hintForRound}=await import('../equation-engine.js');
- for(const [mode,n]of [['easy',4],['medium',6],['hard',6]])for(let f=0;f<n;f++)for(const seed of [0,.3,.7,.999]){
+ for(const [mode,n]of Object.entries(familyCounts))for(let f=0;f<n;f++)for(const seed of [0,.3,.7,.999]){
   const r=makeRound(mode,()=>seed,f),credit=componentCredit(r.fn,r.fn,r.dim);
   assert.equal(credit.points,2000,`${mode} ${r.expression}`);assert.ok(credit.entries.length);assert.equal(credit.entries.reduce((s,c)=>s+c.points,0),2000);assert.ok(equationHintForRound(r).length>3);assert.ok(hintForRound(r).length>5);
  }
@@ -39,14 +39,14 @@ test('all generated families have complete self-credit and text plus symbolic hi
 
 test('implicit conics and quadrics are recoverable across all new families',async()=>{
  const {compileImplicit,implicitCredit,familyCounts,bonusFamilyCounts,hintForRound,equationHintForRound}=await import('../equation-engine.js');
- for(const [mode,start]of [['easy',4],['medium',6],['hard',6]])for(let family=start;family<familyCounts[mode]+bonusFamilyCounts[mode];family++){
+ for(const [mode,start]of Object.entries(familyCounts))for(let family=start;family<familyCounts[mode]+bonusFamilyCounts[mode];family++){
   const r=makeRound(mode,()=>.3,family);assert.equal(r.implicit,true);assert.ok(r.geometry.segments.length>20);assert.ok(hintForRound(r).length>3);assert.ok(equationHintForRound(r).includes('='));
   const fn=compileImplicit(r.expression,r.dim),fit=evaluate(r,fn);assert.ok(fit.error<1e-10,`${mode}: ${r.expression}`);assert.equal(implicitCredit(r,fn,fit.error).points,2000);
  }
 });
 test('implicit scoring is invariant to residual sign and scale and rewards closer shapes',async()=>{
  const {compileImplicit,implicitCredit}=await import('../equation-engine.js');
- const r=makeRound('easy',()=>.3,4),[left,right]=r.expression.split('=');
+ const r=makeRound('easy',()=>.3,familyCounts.easy),[left,right]=r.expression.split('=');
  for(const source of [`2(${left})=2(${right})`,`-(${left})=-(${right})`])assert.ok(evaluate(r,compileImplicit(source,2)).error<1e-10);
  const exact=compileImplicit(r.expression,2),near=compileImplicit('(x+.5)^2+(y-.5)^2=5',2),far=compileImplicit('(x-2)^2+(y-2)^2=1',2);
  assert.ok(evaluate(r,near).error<evaluate(r,far).error);assert.equal(implicitCredit(r,exact,0).points,2000);assert.throws(()=>evaluate(r,compileImplicit('x^2+y^2=-1',2)),/No curve/);
@@ -71,4 +71,50 @@ test('explicit equality guesses retain function-component credit',async()=>{
  const {compileGuess,componentCredit}=await import('../equation-engine.js');
  const r=makeRound('easy',()=>.3,3),fn=compileGuess('y = sin(x)-1',r);assert.ok(!fn.implicit);assert.equal(evaluate(r,fn).error,0);assert.equal(componentCredit(r.fn,fn).points,2000);
  assert.ok(compileGuess('y=x^2+y^2',r).implicit);assert.ok(compileGuess('x^2+y^2=4',r).implicit);assert.ok(compileGuess('y=x^2',{dim:3}).implicit);assert.ok(!compileGuess('z=x^2+y^2',{dim:3}).implicit);
+});
+
+test('cube roots are real on negative inputs and earn their own component credit',async()=>{
+ const {componentCredit,algebraicComponents}=await import('../equation-engine.js');
+ for(const [x,value]of [[-27,-3],[-8,-2],[0,0],[8,2],[27,3]])assert.equal(compile('cbrt(x)')(x),value);
+ assert.deepEqual(structure('2cbrt(x-1)+3'),['cube-root']);
+ assert.ok(algebraicComponents('2cbrt(x-1)+3').some(c=>c.label==='Cube root'));
+ assert.equal(componentCredit('cbrt(x)','sqrt(x)').points,0);
+ assert.ok(componentCredit('2cbrt(x-1)+3','cbrt(x)').points>0);
+ assert.equal(componentCredit('cbrt(x)-sin(x)','cbrt(x)-sin(x)').points,2000);
+});
+
+test('easy has diverse single parent functions and medium adds combinations',async()=>{
+ const {graphFamilies}=await import('../equation-families.js');
+ assert.equal(familyCounts.easy,10);assert.equal(familyCounts.medium,16);
+ for(const id of ['cubic','cube-root','square-root','growth','decay','logarithm'])assert.ok(graphFamilies.easy.some(f=>f.id===id));
+ for(let f=0;f<familyCounts.easy;f++){
+  const r=makeRound('easy',()=>.7,f);assert.equal(structure(r.expression).length,1);
+ }
+ for(const id of ['damped-wave','cube-root-linear','quadratic-sine','absolute-linear'])assert.ok(graphFamilies.medium.some(f=>f.id===id));
+ assert.deepEqual(structure('3 * 0.5^x'),['exponential']);
+});
+
+test('independent parameter combinations stay finite, visible and exactly solvable',async()=>{
+ const {componentCredit}=await import('../equation-engine.js');
+ for(const mode of ['easy','medium'])for(let family=0;family<familyCounts[mode];family++)
+ for(const a of [0,.4,.9])for(const b of [0,.3,.6,.9])for(const k of [0,.4,.9])for(const sign of [0,.9]){
+  let i=0;const values=[a,b,k,sign],r=makeRound(mode,()=>values[i++%values.length],family);
+  assert.ok(r.points.every(p=>Number.isFinite(p.z)&&p.z>=r.range[0]&&p.z<=r.range[1]),r.expression);
+  assert.equal(evaluate(r,compile(r.expression)).error,0);
+  assert.equal(componentCredit(r.fn,r.fn).points,2000,r.expression);
+  assert.ok(r.range[1]-r.range[0]<1000,r.expression);
+ }
+});
+
+test('growth, decay and root windows show the intended mathematical behavior',()=>{
+ for(const seed of [0,.3,.7,.999]){
+  const growth=makeRound('easy',()=>seed,7),decay=makeRound('easy',()=>seed,8);
+  const offset=growth.fn(0)*2-growth.fn(1);
+  assert.ok(Math.abs((growth.fn(2)-offset)/(growth.fn(1)-offset)-2)<1e-10);
+  assert.ok(Math.abs((decay.fn(2)-offset)/(decay.fn(1)-offset)-.5)<1e-10);
+  assert.ok(growth.fn(-1)<growth.fn(1));assert.ok(decay.fn(-1)>decay.fn(1));
+  const root=makeRound('medium',()=>seed,7),[lo,hi]=root.domain;
+  assert.ok(Number.isFinite(root.fn(lo)));assert.ok(Number.isNaN(root.fn(lo-.01)));assert.ok(Number.isFinite(root.fn(hi)));
+  const log=makeRound('medium',()=>seed,10);assert.ok(Number.isFinite(log.fn(log.domain[0])));
+ }
 });

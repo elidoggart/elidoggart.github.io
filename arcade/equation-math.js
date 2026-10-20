@@ -1,4 +1,4 @@
-const FN={sin:Math.sin,cos:Math.cos,tan:Math.tan,abs:Math.abs,sqrt:Math.sqrt,exp:Math.exp,ln:Math.log,log:Math.log,log10:Math.log10};
+const FN={sin:Math.sin,cos:Math.cos,tan:Math.tan,abs:Math.abs,sqrt:Math.sqrt,cbrt:Math.cbrt,exp:Math.exp,ln:Math.log,log:Math.log,log10:Math.log10};
 // A small mathematical grammar; user input is never executed as JavaScript.
 const number=value=>({type:'number',value});
 function node(type,a,b){

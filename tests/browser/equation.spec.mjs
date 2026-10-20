@@ -64,3 +64,36 @@ test('a near-perfect main round does not finish early or unlock the bonus',async
  for(let i=0;i<3;i++){await page.locator('#equation').fill(answers[i]+(i===0?'+0.000001':''));await page.locator('#submit').click();if(i===0){await expect(page.locator('#submit')).toBeEnabled();await expect(page.locator('.fit')).not.toHaveText('Exact');await page.locator('#finish').click();}if(i===2)await expect(page.locator('#finish')).toHaveText('See total →');await page.locator('#finish').click();}
  await expect(page.locator('.round-summary')).toHaveCount(3);await expect(page.locator('.bonus-summary')).toHaveCount(0);
 });
+
+for(const difficulty of ['easy','medium'])test(`new ${difficulty} families render, accept exact answers and show component credit`,async({page})=>{
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto('/arcade/equation.html');
+ const families=await page.evaluate(async difficulty=>{
+  const {makeRound,familyCounts}=await import('/arcade/equation-engine.js');
+  return Array.from({length:familyCounts[difficulty]},(_,family)=>{
+   const r=makeRound(difficulty,()=>.7,family);return {family,id:r.familyId,expression:r.expression,hint:r.hint};
+  }).filter(r=>r.family>=(difficulty==='easy'?4:6));
+ },difficulty);
+ for(const r of families){
+  // Keep the shuffle in place except for the chosen family's swap into slot zero.
+  await page.addInitScript(({family,count})=>{
+   let i=count-1;Math.random=()=>i>0?(i--===family?0:.999):.7;
+  },{family:r.family,count:difficulty==='easy'?10:16});
+  await page.goto(`/arcade/equation.html?difficulty=${difficulty}`);
+  await page.locator('#show-hint').click();await expect(page.locator('#hint')).toContainText(r.hint);
+  const visible=await page.locator('#graph').evaluate(canvas=>{
+   const {data}=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height);
+   let ink=0;for(let i=0;i<data.length;i+=4)if(data[i+3]>200&&data[i]<70&&data[i+1]<70&&data[i+2]<70)ink++;
+   return ink>100;
+  });expect(visible).toBe(true);
+  await page.locator('#equation').fill(`y = ${r.expression}`);await page.locator('#submit').click();
+  await expect(page.locator('#error')).toBeEmpty();await expect(page.locator('#submit')).toBeDisabled();
+  await expect(page.locator('.guess-card')).toContainText('Exact');await expect(page.locator('.guess-card')).toContainText('2,000');
+  await expect(page.locator('.guess-card canvas')).toHaveCount(2);
+  if(['cubic','cube-root','square-root','logarithm','decay','damped-wave','logistic'].includes(r.id))await page.screenshot({path:`.local/equation-variety-${difficulty}-${r.id}.png`});
+ }
+ await page.setViewportSize({width:390,height:844});await page.locator('#help-open').click();
+ await expect(page.locator('#help')).toContainText('cbrt(x)');
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ expect(errors).toEqual([]);
+});

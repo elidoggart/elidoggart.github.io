@@ -1,12 +1,13 @@
-import {makeImplicitRound,implicitFamilyCount,evaluateImplicit,compileImplicit} from './equation-implicit.js?v=implicit-1';
-export {compileImplicit,implicitCredit} from './equation-implicit.js?v=implicit-1';
-export const familyCounts={easy:4,medium:6,hard:6};
-export {implicitFamilyCount as bonusFamilyCounts} from './equation-implicit.js?v=implicit-1';
+import {makeImplicitRound,implicitFamilyCount,evaluateImplicit,compileImplicit} from './equation-implicit.js?v=variety-1';
+export {compileImplicit,implicitCredit} from './equation-implicit.js?v=variety-1';
+import {graphFamilies,familyCounts} from './equation-families.js?v=variety-1';
+export {familyCounts} from './equation-families.js?v=variety-1';
+export {implicitFamilyCount as bonusFamilyCounts} from './equation-implicit.js?v=variety-1';
 export function makeBonusRound(difficulty,rng=Math.random){const family=familyCounts[difficulty]+Math.floor(rng()*implicitFamilyCount[difficulty]);return makeRound(difficulty,rng,family);}
 export const isExactFit=result=>result.error<1e-10;
 export const bonusUnlocked=results=>results.length===3&&results.every(r=>r.exact);
-import {compile} from './equation-math.js?v=implicit-1';
-export {compile} from './equation-math.js?v=implicit-1';
+import {compile} from './equation-math.js?v=variety-1';
+export {compile} from './equation-math.js?v=variety-1';
 export function compileGuess(source,round){
  if(!round.implicit){
   const explicit=source.match(round.dim===3?/^\s*z\s*=\s*(.+)$/i:/^\s*y\s*=\s*(.+)$/i);
@@ -17,14 +18,17 @@ export function compileGuess(source,round){
 }
 export function makeRound(difficulty,rng=Math.random,familyIndex){
  const pick=a=>a[Math.floor(rng()*a.length)], a=pick([1,2,3]), b=pick([-2,-1,1,2]), k=pick([0.5,1,2]);
- const families={easy:[`${a}x + ${b}`,`${k}(x - ${b})^2 - ${a}`,`${a}abs(x - ${b}) - ${a}`,`${a}sin(x) + ${b}`],medium:[`${a}sin(${k}x + ${b})`,`${k}(x - ${b})^3 - ${a}x`,`${a}exp(-${k}(x - ${b})^2)`,`${a}cos(x) + ${k}x`,`${a}/(1 + (x - ${b})^2)`,`${k}x^2 + ${a}sin(2x)`],hard:[`${k}(x^2 + y^2) - ${a}`,`${k}(x^2 - y^2) + ${b}`,`${a}sin(x)cos(y)`,`${a}exp(-${k}(x^2 + y^2))`,`${k}x*y + ${b}`,`${a}sin(${k}sqrt(x^2 + y^2))`]};
- const family=familyIndex??Math.floor(rng()*families[difficulty].length);
- if(family>=families[difficulty].length)return makeImplicitRound(difficulty,family-families[difficulty].length,a,b,k);
- const expression=families[difficulty][family].replaceAll('+ -','- ').replaceAll('- -','+ '),dim=difficulty==='hard'?3:2,fn=compile(expression,dim);
- const domain=difficulty==='easy'&&family<3?[-4,4]:difficulty==='hard'?[-3,3]:[-5,5];
+ const families=graphFamilies[difficulty];
+ if(!families)throw Error('Choose easy, medium or hard.');
+ const family=familyIndex??Math.floor(rng()*families.length);
+ if(!Number.isInteger(family)||family<0||family>=families.length+implicitFamilyCount[difficulty])throw Error('Unknown graph family.');
+ if(family>=families.length)return makeImplicitRound(difficulty,family-families.length,a,b,k);
+ const definition=families[family],parameters={a,b,k,s:pick([-1,1])*a};
+ const expression=definition.expression(parameters).replaceAll('+ -','- ').replaceAll('- -','+ '),dim=difficulty==='hard'?3:2,fn=compile(expression,dim);
+ const domain=definition.domain?.(parameters)||[-3,3];
  const points=[];const n=dim===3?45:601;for(let j=0;j<(dim===3?n:1);j++)for(let i=0;i<n;i++){const x=domain[0]+(domain[1]-domain[0])*i/(n-1),y=dim===3?domain[0]+(domain[1]-domain[0])*j/(n-1):0;points.push({x,y,z:fn(x,y)});}
  const values=points.map(p=>p.z),lo=Math.min(...values),hi=Math.max(...values),pad=Math.max(1,(hi-lo)*.12);
- return {difficulty,expression,fn,dim,domain,range:[Math.floor(lo-pad),Math.ceil(hi+pad)],points,family};
+ return {difficulty,expression,fn,dim,domain,range:[Math.floor(lo-pad),Math.ceil(hi+pad)],points,family,familyId:definition.id,hint:definition.hint,hintEquation:definition.form};
 }
 export function evaluate(round,fn){if(round.implicit||fn.implicit)return evaluateImplicit(round,fn);let squared=0;for(const p of round.points){const v=fn(p.x,p.y);if(!Number.isFinite(v)||Math.abs(v)>1e12)throw Error('Your equation must be finite throughout the shown area.');squared+=(v-p.z)**2;}const rmse=Math.sqrt(squared/round.points.length),error=rmse/(round.range[1]-round.range[0]);return{rmse,error,closeness:100*Math.exp(-6*error)};}
 export function scoreRound(error,guesses,seconds,structural=Math.exp(-6*error)){return Math.round(10000*combinedAccuracy(error,structural)*Math.max(.6,1-.08*(guesses-1))*(.65+.35*Math.exp(-Math.max(0,seconds)/180)));}
@@ -32,7 +36,9 @@ export function readScores(storage){try{return JSON.parse(storage.getItem('equat
 // Recognize broad mathematical families, independently of fitted coefficients.
 export function structure(source,dimensions=2){
  const fn=compile(source,dimensions),text=source.toLowerCase(),families=new Set();
- for(const [pattern,family]of [[/(?<![a-z])(?:sin|cos)\s*\(/,'sinusoidal'],[/(?<![a-z])tan\s*\(/,'tangent'],[/(?<![a-z])abs\s*\(/,'absolute'],[/(?<![a-z])exp\s*\(|(?<![a-z])e\s*\^/,'exponential'],[/(?<![a-z])(?:ln|log|log10)\s*\(/,'logarithmic'],[/(?<![a-z])sqrt\s*\(/,'root']])if(pattern.test(text))families.add(family);
+ for(const [pattern,family]of [[/(?<![a-z])(?:sin|cos)\s*\(/,'sinusoidal'],[/(?<![a-z])tan\s*\(/,'tangent'],[/(?<![a-z])abs\s*\(/,'absolute'],[/(?<![a-z])exp\s*\(|(?<![a-z])e\s*\^/,'exponential'],[/(?<![a-z])(?:ln|log|log10)\s*\(/,'logarithmic'],[/(?<![a-z])sqrt\s*\(/,'root'],[/(?<![a-z])cbrt\s*\(/,'cube-root']])if(pattern.test(text))families.add(family);
+ const hasExponential=n=>n.type==='^'&&n.a.type==='number'&&n.b.type!=='number'||!!(n.a&&hasExponential(n.a))||!!(n.b&&hasExponential(n.b));
+ if(hasExponential(fn.ast))families.add('exponential');
  if(!families.size){
   // Finite differences identify equivalent expanded/factored polynomials, including surfaces.
   let degree=0;for(const [offset,step]of [[.137,.173],[-.683,.219]]){let values=Array.from({length:8},(_,i)=>fn(offset+i*step,dimensions===3?offset*.7+i*step*.61:0));const scale=Math.max(1,...values.map(Math.abs));if(values.some(v=>!Number.isFinite(v))){degree=8;break;}let order=0;while(values.length>1&&values.some(v=>Math.abs(v)>scale*1e-8)){values=values.slice(1).map((v,i)=>v-values[i]);order++;}degree=Math.max(degree,values.some(v=>Math.abs(v)>scale*1e-8)?8:order-1);}
@@ -45,8 +51,7 @@ export function combinedAccuracy(error,structural){return .8*Math.exp(-6*error)+
 
 export function hintForRound(round){
  if(round.implicit)return round.hint;
- const hints={easy:['Linear · slope + offset','Quadratic · shifted parabola','Absolute value · shifted V','Sinusoidal · sine + offset'],medium:['Sinusoidal · scaled and shifted sine','Cubic + linear','Exponential · shifted Gaussian bell','Sinusoidal + linear','Rational · reciprocal quadratic','Quadratic + sinusoidal'],hard:['Quadratic · sum of squares','Quadratic · difference of squares','Sinusoidal · sine × cosine','Exponential · Gaussian surface','Bilinear · x × y','Sinusoidal · radial distance']};
- return hints[round.difficulty]?.[round.family]||structure(round.expression,round.dim).join(' + ');
+ return round.hint||structure(round.expression,round.dim).join(' + ');
 }
 export function applyHintPenalty(score,used){return used?Math.round(score/2):score;}
 
@@ -88,7 +93,7 @@ export function algebraicComponents(source,dimensions=2){
   const p=polynomial(n);if(p){poly(p,prefix,argument);return;}
   if(n.type==='+'||n.type==='-'){
    const coefficients=new Map(),other=[];
-   function collect(term,sign=1){if(term.type==='+'||term.type==='-'){collect(term.a,sign);collect(term.b,term.type==='-'?-sign:sign);return;}const p=polynomial(term);if(p){for(const [key,v]of p)coefficients.set(key,(coefficients.get(key)||0)+sign*v);}else other.push(sign<0?node('neg',term):term);}
+   function collect(term,sign=1){if(term.type==='+'||term.type==='-'){collect(term.a,sign);collect(term.b,term.type==='-'?-sign:sign);return;}const p=polynomial(term);if(p){for(const [key,v]of p)coefficients.set(key,(coefficients.get(key)||0)+sign*v);}else other.push(sign<0?{type:'neg',a:term}:term);}
    collect(n);poly(new Map([...coefficients].filter(([,v])=>nonzero(v))),prefix,argument);for(const term of other)walk(term,prefix,argument);return;
   }
   if(n.type==='neg'){add(prefix+'reflection','Reflection');walk(n.a,prefix,argument);return;}
@@ -100,7 +105,7 @@ export function algebraicComponents(source,dimensions=2){
   }
   if(n.type==='call'||n.type==='^'&&n.a.type==='number'){
    const name=n.type==='call'?n.name:'exp',family={sin:'sinusoid',cos:'sinusoid',log:'logarithm',ln:'logarithm',log10:'logarithm'}[name]||name;
-   const labels={sinusoid:'Sinusoidal term',exp:'Exponential term',abs:'Absolute value',sqrt:'Square root',logarithm:'Logarithmic term',tan:'Tangent term'};
+   const labels={sinusoid:'Sinusoidal term',exp:'Exponential term',abs:'Absolute value',sqrt:'Square root',cbrt:'Cube root',logarithm:'Logarithmic term',tan:'Tangent term'};
    const input=n.type==='call'?n.a:n.b;
    // Variable suffix distinguishes the two oscillations in sin(x)cos(y).
    const vars=JSON.stringify(input).includes('"type":"y"')?'y':'x',key=prefix+family+':'+vars+':';
@@ -122,6 +127,5 @@ export function componentCredit(target,guess,dimensions=2,error=Infinity){
 }
 export function equationHintForRound(round){
  if(round.implicit)return round.hintEquation;
- const forms={easy:['ax + b','a(x − h)² + k','a|x − h| + k','a sin(x) + k'],medium:['a sin(bx + c)','a(x − h)³ + bx','a e^(−b(x − h)²)','a cos(x) + bx','a / (1 + (x − h)²)','ax² + b sin(cx)'],hard:['a(x² + y²) + c','a(x² − y²) + c','a sin(x) cos(y)','a e^(−b(x² + y²))','axy + c','a sin(b√(x² + y²))']};
- return forms[round.difficulty]?.[round.family]||'';
+ return round.hintEquation||'';
 }
