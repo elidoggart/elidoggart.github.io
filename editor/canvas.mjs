@@ -17,8 +17,12 @@ export function createCanvas({iframe,getData,isTemplate,markTemplate,changed,ref
  function text(node,path){if(!node)return;node.dataset.editPath=path;node.contentEditable='plaintext-only';const m=path.match(/^sections\[(\d+)\]\.entries\[(\d+)\](?:\.roles\[(\d+)\])?/);const entry=m?getData().sections[Number(m[1])].entries[Number(m[2])]:null;const context=entry?[entry.title,m[3]!==undefined?entry.roles[Number(m[3])].label:''].filter(Boolean).join(' — '):'';const key=path.split('.').at(-1).replace(/\[\d+\]/,'');node.setAttribute('aria-label','Edit '+(fieldNames[key]||key)+(context?' — '+context:''));node.setAttribute('role','textbox');node.spellcheck=true;}
  function image(node,value,path){owner(node,path,'image');node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label','Edit image: '+value.alt);}
  function blockNodes(parent,items,path,offset=0){
-  const children=[...parent.children].slice(offset).filter(n=>!n.matches('.collapse-button'));
-  if(children.length!==items.length)throw Error('Canvas block structure changed: '+path);
+  const split=offset===1&&parent.querySelector(':scope > .section-split');
+  const copy=split?[...split.querySelector('.section-copy').children]:[],media=split?[...split.querySelector('.section-media').children]:[];
+  // Split sections display text and media in separate columns. Walk their
+  // DOM queues in authored order so every edit keeps its original array path.
+  const children=split?items.map(item=>(['gallery','figure'].includes(item.type)?media:copy).shift()):[...parent.children].slice(offset).filter(n=>!n.matches('.collapse-button'));
+  if(children.length!==items.length||children.some(node=>!node)||copy.length||media.length)throw Error('Canvas block structure changed: '+path);
   items.forEach((item,index)=>{const node=children[index],p=path+'['+index+']';owner(node,p,'block');
    switch(item.type){
     case 'section':text(node.children[0],p+'.title');blockNodes(node,item.blocks,p+'.blocks',1);break;
@@ -83,7 +87,7 @@ export function createCanvas({iframe,getData,isTemplate,markTemplate,changed,ref
    });
   });
   const education=owner(doc.querySelector('.education'),'education','education');text(education.previousElementSibling.querySelector('h3'),'education.heading');text(education.querySelector('h4'),'education.school');text(education.querySelector('.date'),'education.date');text(education.querySelector('p'),'education.degree');
-  const contact=owner(doc.querySelector('.contact-content'),'site','site');text(contact.querySelector('h3'),'site.name');text(contact.querySelector('p'),'site.profession');text(contact.querySelector('.contact-email'),'site.email');text(contact.querySelector('.contact-phone'),'site.phone');
+  const contact=owner(doc.querySelector('.contact-content'),'site','site');text(contact.querySelector('.contact-card-info > strong'),'site.name');text(contact.querySelector('.contact-card-info > a[href^="mailto:"]'),'site.email');text(contact.querySelector('.contact-card-info > a[href^="tel:"]'),'site.phone');
   doc.addEventListener('click',event=>{const node=event.target.closest('[data-canvas-path]');if(node)select(bindings.get(node.dataset.canvasPath));if(event.target.closest('[data-edit-path]')||event.target.closest('[data-canvas-kind="image"]')||(event.target.closest('a')&&!event.target.closest('nav')&&!event.target.closest('.skip')))event.preventDefault();if(event.target.closest('.resume-download')){event.preventDefault();showFields({path:'resume',kind:'resume'});}},true);
   doc.addEventListener('focusin',event=>{const node=event.target.closest('[data-canvas-path]');if(node)select(bindings.get(node.dataset.canvasPath));});
   doc.addEventListener('dblclick',event=>{if(event.target.closest('[data-canvas-kind="image"]'))details();});

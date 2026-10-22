@@ -26,7 +26,7 @@ footer{height:58px;padding:0 24px;border-top:1px solid var(--line);display:flex;
 
 #music-button[aria-pressed="true"]{color:var(--red)}
 
-#effects-button[aria-pressed="true"]{color:var(--red)}@media(max-width:600px){.header-actions{gap:0!important}.header-actions button{font-size:9px;padding:7px 5px}}
+#effects-button[aria-pressed="true"]{color:var(--red)}@media(max-width:600px){.header-actions{gap:0}.header-actions button{font-size:9px;padding:7px 5px}}
 @media(min-width:601px) and (max-width:900px){#arena{height:calc(100dvh - 92px)}footer{height:92px;flex-wrap:wrap;justify-content:center;gap:4px;padding:8px 12px}.header-actions{width:100%;justify-content:center;margin:0}}
 
 .audio-volume-tip{position:fixed;z-index:1000;transform:translateX(-50%);padding:6px 9px;background:#232421;color:white;border-radius:4px;font:11px ui-monospace,monospace;pointer-events:none}.audio-volume-tip[hidden]{display:none}

@@ -8,7 +8,8 @@ function cancelReturn() {
   portfolioLink.classList.remove('holding');
 }
 addEventListener('keydown', event => {
-  if (event.code !== 'Escape' || event.repeat || returnTimer !== undefined) return;
+  // Let Escape dismiss a native dialog without starting portfolio navigation.
+  if (event.code !== 'Escape' || event.repeat || returnTimer !== undefined || document.querySelector('dialog[open]')) return;
   event.preventDefault();
   portfolioLink.classList.add('holding');
   returnTimer = setTimeout(() => location.assign(portfolioLink.href), returnHoldDuration);

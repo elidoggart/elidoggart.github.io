@@ -1,3 +1,4 @@
+import {setText,setAttribute} from './hud.js';
 import {bindAudioControl} from './audio-controls.js';
 import {readTankScores,saveTankScore} from './tanks-scores.js';
 import {SoundEffects,bindSounds} from './sound-effects.js';
@@ -6,6 +7,7 @@ import {TankGame,W,H,LEVELS,traceShot,BLAST_RADIUS,LEVEL_TRANSITION_SECONDS} fro
 const $=id=>document.getElementById(id),canvas=$('field'),ctx=canvas.getContext('2d'),game=new TankGame();
 let scoreSaved=false,scoreStorage;try{scoreStorage=localStorage;}catch{}
 const viewHeight=()=>game.levels[game.level].playHeight||H;
+const dialogOpen=()=>Boolean(document.querySelector('dialog[open]'));
 const music=new TankMusic();
 const effects=new SoundEffects();bindSounds($('effects-button'),effects);
 bindAudioControl($('music'),music);
@@ -16,7 +18,15 @@ const keys=new Set();let pointer={x:700,y:320},fire=false,queuedShot=false,last=
 const input=()=>{const shot=queuedShot;queuedShot=false;return {x:touchMove.x+(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0),y:touchMove.y+(keys.has('KeyS')?1:0)-(keys.has('KeyW')?1:0),aim:touchAim??Math.atan2(pointer.y-game.player.y,pointer.x-game.player.x),fire:fire||keys.has('KeyF'),firePressed:shot};};
 function resetInput(){game.player.pendingFire=0;keys.clear();fire=false;queuedShot=false;touchMove={x:0,y:0};touchAim=null;document.querySelectorAll('.pad i').forEach(e=>e.style.transform='');}
 function pause(){if(['playing','clear'].includes(game.state)){pauseFrom=game.state;game.state='paused';resetInput();}else if(game.state==='paused')game.state=pauseFrom;sync();}
-addEventListener('keydown',e=>{if($('tank-scores-dialog').open)return;if(e.target.matches('input'))return;if(['KeyW','KeyA','KeyS','KeyD','Space','KeyF','KeyP','Escape'].includes(e.code))e.preventDefault();if(e.code==='KeyP'&&!e.repeat)pause();if(e.code==='Escape'&&!e.repeat&&['playing','clear','paused'].includes(game.state))pause();keys.add(e.code);if(e.code==='KeyF'&&!e.repeat&&game.state==='playing')queuedShot=true;if(e.code==='Space'&&!e.repeat)game.mine();});
+addEventListener('keydown',e=>{
+ if(dialogOpen()||e.target.closest('input,textarea,select,[contenteditable]'))return;
+ if(e.code==='KeyP'||e.code==='Escape'){if(!e.repeat&&['playing','clear','paused'].includes(game.state)){e.preventDefault();pause();}return;}
+ // Let Space activate focused controls before handling gameplay shortcuts.
+ if(e.target.closest('button,a'))return;
+ if(['KeyW','KeyA','KeyS','KeyD','Space','KeyF'].includes(e.code))e.preventDefault();
+ if(game.state!=='playing')return;
+ keys.add(e.code);if(e.code==='KeyF'&&!e.repeat)queuedShot=true;if(e.code==='Space'&&!e.repeat)game.mine();
+});
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>{resetInput();if(['playing','clear'].includes(game.state))pause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){resetInput();if(['playing','clear'].includes(game.state))pause();}});
@@ -28,13 +38,16 @@ $('restart-run').onclick=()=>{resetInput();scoreSaved=false;$('tank-initials').v
 $('action').onclick=()=>{resetInput();if(game.state==='won'||(game.state==='dead'&&!game.lives)){scoreSaved=false;$('tank-initials').value='';$('tank-score-status').textContent='';}if(game.state==='dead')game.retry();else if(game.state==='won'){game.newRun();}else game.start();$('action').blur();sync();};
 $('mine').onclick=()=>{game.mine();$('mine').blur();};
 for(const id of ['drive','aim']){const pad=$(id);let active=null;function move(e){const b=pad.getBoundingClientRect(),x=(e.clientX-b.left-b.width/2)/32,y=(e.clientY-b.top-b.height/2)/32,n=Math.max(1,Math.hypot(x,y));pad.querySelector('i').style.transform=`translate(${x/n*24}px,${y/n*24}px)`;if(id==='drive')touchMove={x:x/n,y:y/n};else{touchAim=Math.atan2(y,x);fire=true;}}pad.addEventListener('pointerdown',e=>{if(active!==null)return;active=e.pointerId;pad.setPointerCapture(active);move(e);});pad.addEventListener('pointermove',e=>{if(e.pointerId===active)move(e);});const release=e=>{if(e.pointerId!==active)return;active=null;pad.querySelector('i').style.transform='';if(id==='drive')touchMove={x:0,y:0};else{fire=false;touchAim=null;}};for(const ev of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(ev,release);}
-function sync(){document.documentElement.style.setProperty('--arena-scale',W/viewHeight());music.update(game,document.hidden||$('tank-scores-dialog').open);const level=String(game.level+1).padStart(2,'0');$('level').textContent=`${level} / ${LEVELS.length}`;$('lives').textContent=game.lives>5?`● × ${game.lives}`:'● '.repeat(game.lives)+'○ '.repeat(Math.max(0,3-game.lives));$('lives').setAttribute('aria-label',`${game.lives} tanks remaining`);$('score').textContent=String(game.score).padStart(4,'0');const loaded=5-game.shots.filter(s=>s.owner===0).length;$('ammo').textContent='● '.repeat(loaded)+'○ '.repeat(5-loaded);$('ammo').setAttribute('aria-label',`${loaded} shells available`);canvas.dataset.state=game.state;canvas.dataset.level=game.level+1;
+function sync(){document.documentElement.style.setProperty('--arena-scale',W/viewHeight());music.update(game,document.hidden||dialogOpen());const level=String(game.level+1).padStart(2,'0');setText($('level'),`${level} / ${LEVELS.length}`);setText($('lives'),game.lives>5?`● × ${game.lives}`:'● '.repeat(game.lives)+'○ '.repeat(Math.max(0,3-game.lives)));setAttribute($('lives'),'aria-label',`${game.lives} tanks remaining`);setText($('score'),String(game.score).padStart(4,'0'));const loaded=5-game.shots.filter(s=>s.owner===0).length;setText($('ammo'),'● '.repeat(loaded)+'○ '.repeat(5-loaded));setAttribute($('ammo'),'aria-label',`${loaded} shells available`);setAttribute(canvas,'data-state',game.state);setAttribute(canvas,'data-level',game.level+1);
  $('tank-score-form').hidden=scoreSaved||!(game.state==='won'||(game.state==='dead'&&!game.lives));
- if(shown===game.state)return;if(shown==='clear'&&game.state==='playing')resetInput();shown=game.state;$('overlay').hidden=['playing','replay','clear'].includes(game.state);$('pause').disabled=!['playing','paused','clear'].includes(game.state);$('pause').textContent=game.state==='paused'?'Resume P':'Pause P';$('resume').hidden=game.state!=='paused';$('action').hidden=game.state==='paused';$('eyebrow').textContent=`${level} / ${LEVELS.length}`;$('eyebrow').hidden=['ready','paused'].includes(game.state);$('message').hidden=['ready','paused'].includes(game.state);$('restart-run').hidden=game.state!=='paused';$('overlay').classList.toggle('pause-mode',game.state==='paused');$('exit-game').textContent=game.state==='paused'?'Exit to arcade':'All games';$('transition-status').textContent=game.state==='clear'?`Field clear. Mission ${game.level+2} starting. ${game.levels[game.level+1].enemies.length} enemy tanks.`:'';$('overlay').classList.toggle('launch-screen',game.state==='ready');
- const copy={ready:['Tanks','','Play'],paused:['Paused','',''],dead:[game.lives?'Tank lost.':'Run over.',game.lives?`${game.lives} remaining. Try a different angle.`:`${game.score} points · field ${level}` ,game.lives?'Retry field →':'Start again →'],won:['All clear.',`${game.score} points · ${LEVELS.length} fields cleared.`,'Play again →']}[game.state];if(copy){$('title').textContent=copy[0];$('message').textContent=copy[1];$('action').textContent=copy[2];}if(game.state!=='playing')resetInput();}
+ if(shown===game.state)return;if(shown==='clear'&&game.state==='playing')resetInput();shown=game.state;$('overlay').hidden=['playing','replay','clear'].includes(game.state);$('pause').disabled=!['playing','paused','clear'].includes(game.state);setText($('pause'),game.state==='paused'?'Resume':'Pause');$('resume').hidden=game.state!=='paused';$('action').hidden=game.state==='paused';setText($('eyebrow'),`${level} / ${LEVELS.length}`);$('eyebrow').hidden=['ready','paused'].includes(game.state);$('message').hidden=['ready','paused'].includes(game.state);$('restart-run').hidden=game.state!=='paused';$('overlay').classList.toggle('pause-mode',game.state==='paused');setText($('exit-game'),game.state==='paused'?'Exit to arcade':'All games');setText($('transition-status'),game.state==='clear'?`Field clear. Mission ${game.level+2} starting. ${game.levels[game.level+1].enemies.length} enemy tanks.`:'');$('overlay').classList.toggle('launch-screen',game.state==='ready');
+ const copy={ready:['Tanks','','Play'],paused:['Paused','',''],dead:[game.lives?'Tank lost.':'Run over.',game.lives?`${game.lives} remaining. Try a different angle.`:`${game.score} points · field ${level}` ,game.lives?'Retry field →':'Start again →'],won:['All clear.',`${game.score} points · ${LEVELS.length} fields cleared.`,'Play again →']}[game.state];if(copy){setText($('title'),copy[0]);setText($('message'),copy[1]);setText($('action'),copy[2]);}if(game.state!=='playing')resetInput();}
 
 function renderTankScores(){const list=$('tank-highscores');list.replaceChildren();const scores=readTankScores(scoreStorage);if(!scores.length){const item=document.createElement('li');item.textContent='NO SCORES YET';list.append(item);}for(const [i,entry] of scores.entries()){const item=document.createElement('li');for(const text of [String(i+1).padStart(2,'0'),entry.initials,entry.score.toLocaleString(),entry.complete?'ALL CLEAR':`FIELD ${String(entry.mission).padStart(2,'0')}`]){const span=document.createElement('span');span.textContent=text;item.append(span);}list.append(item);}}
-$('highscores-button').onclick=()=>{resetInput();renderTankScores();$('tank-scores-dialog').showModal();};
+function openDialog(id){resetInput();if(['playing','clear'].includes(game.state))pause();$(id).showModal();}
+$('highscores-button').onclick=()=>{renderTankScores();openDialog('tank-scores-dialog');};
+$('help-button').onclick=()=>openDialog('manual');
+$('close-help').onclick=$('manual-done').onclick=()=>$('manual').close();
 $('close-tank-scores').onclick=()=>$('tank-scores-dialog').close();
 $('tank-initials').oninput=()=>{$('tank-initials').value=$('tank-initials').value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);};
 $('tank-score-form').onsubmit=event=>{event.preventDefault();if(scoreSaved||!(game.state==='won'||(game.state==='dead'&&!game.lives)))return;const initials=$('tank-initials').value.toUpperCase().replace(/[^A-Z]/g,'').slice(0,3);if(initials.length!==3){$('tank-score-status').textContent='Enter three letters.';return;}const saved=saveTankScore(scoreStorage,{initials,score:game.score,mission:game.level+1,complete:game.state==='won'});if(!saved.ok){$('tank-score-status').textContent='Browser storage is unavailable. Score could not be saved.';return;}scoreSaved=true;$('tank-score-status').textContent='Score saved on this browser.';sync();renderTankScores();$('tank-scores-dialog').showModal();};
@@ -116,7 +129,7 @@ function draw(){const height=viewHeight(),dpr=Math.min(devicePixelRatio||1,2),b=
  }
  if(game.state==='playing'&&touchAim===null){const {x,y}=pointer;circle(x,y,7,red,null,1);line(x-12,y,x-9,y,red);line(x+9,y,x+12,y,red);line(x,y-12,x,y-9,red);line(x,y+9,x,y+12,red);}
 }
-function frame(now){acc+=Math.min((now-last)/1000,.1);last=now;while(acc>=1/120){if(!document.hidden&&!$('tank-scores-dialog').open)game.step(1/120,input());acc-=1/120;}sync();effects.tanks(game);draw();requestAnimationFrame(frame);}sync();requestAnimationFrame(frame);
+function frame(now){acc+=Math.min((now-last)/1000,.1);last=now;while(acc>=1/120){if(!document.hidden&&!dialogOpen())game.step(1/120,input());acc-=1/120;}sync();effects.tanks(game);draw();requestAnimationFrame(frame);}sync();requestAnimationFrame(frame);
 
 const launchParams=new URLSearchParams(location.search);
 if(launchParams.get('scores')==='1')$('highscores-button').click();

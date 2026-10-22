@@ -19,7 +19,10 @@ export function entrySlots({doc,data,owner,text,isTemplate,select,addEntry,moveE
     makeButton('Move down',()=>moveEntry(si,entry.id,1),{disabled:ei===section.entries.length-1,'aria-label':'Move '+name+' down','data-entry-move':'down'}));
    node.prepend(tools);
    if(isTemplate(entry.id)&&(!entry.title.trim()||!entry.intro.trim()))tools.prepend(element('strong',{class:'canvas-unfinished',text:'Unfinished draft'}));
-   const title=doc.getElementById('title-'+entry.id),intro=node.querySelector('.entry-intro');
+   const title=doc.getElementById('title-'+entry.id);let intro=node.querySelector('.entry-intro');
+   // Public photo-only entries omit the summary, but the canvas still needs
+   // a field where an optional summary can be written later.
+   if(!intro){intro=element('p',{class:'entry-intro'});node.querySelector('.entry-summary > div').append(intro);}
    if(!entry.title.trim())title.textContent='';if(!entry.intro.trim())intro.textContent='';
    slot(title,ep+'.title',config.title,config.title);slot(intro,ep+'.intro','Summary',config.summary);
    const summary=node.querySelector('.entry-summary'),companyLine=summary.querySelector('.company-line');

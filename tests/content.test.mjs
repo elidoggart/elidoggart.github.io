@@ -9,7 +9,7 @@ const current=JSON.parse(fs.readFileSync('content/portfolio.json')).portfolio;
 const data=JSON.parse(fs.readFileSync('tests/fixtures/published-content.json')).portfolio;
 const changed=fn=>{const d=structuredClone(data);fn(d);return d;};
 test('the complete migrated content and every asset validate',async()=>{assert.deepEqual(validate(current),[]);await validateAssets(current,process.cwd());});
-test('render is deterministic and retains exact published DOM',()=>{
+test('render is deterministic and retains published content and structure apart from image scheduling',()=>{
  assert.equal(render(current),render(structuredClone(current)));const a=render(data);fs.mkdirSync('.local',{recursive:true});fs.writeFileSync('.local/generated.html',a);
  execFileSync('python3',['tests/parity.py','tests/fixtures/published.html','.local/generated.html']);
 });
@@ -30,7 +30,7 @@ test('local MP4 resources render as controlled, accessible inline videos',()=>{
  for(const url of ['assets/media/../demo.mp4','assets/images/demo.mp4','assets/media/demo.mov','assets/media/demo.mp4?x=1'])assert.equal(safeURL(url),false);
  const d=changed(d=>{d.resources[0].url='assets/media/demo.mp4';d.resources[0].label='Demo <test>';d.resources[0].note='Prototype & fixture';d.resources[0].download='';});
  const html=render(d);
- assert.match(html,/<video controls playsinline preload="metadata" aria-label="Demo &lt;test&gt;">/);
+ assert.match(html,/<video controls playsinline preload="none" aria-label="Demo &lt;test&gt;">/);
  assert.match(html,/<source src="assets\/media\/demo.mp4" type="video\/mp4">/);
  assert.match(html,/Prototype &amp; fixture/);
  assert.doesNotMatch(html,/<video[^>]*autoplay/);
