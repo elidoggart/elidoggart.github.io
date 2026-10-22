@@ -33,6 +33,8 @@ Run browser engines sequentially. Tests start their own read-only fixture server
 
 Every pull request runs unit tests, content/asset validation, the production build, and both browser suites automatically. Each browser suite is split across two isolated CI runners to reduce publication waits. The single required `validate` result succeeds only after all of these checks pass, including for changes published through the editor.
 
+For a manual audit, run **Validate portfolio content** from GitHub Actions. **Deploy validated portfolio** rebuilds and deploys `main`; browser audits use the validation workflow so there is only one maintained browser setup.
+
 ## Repository map
 
 - `content/`: actual portfolio content and schema.
