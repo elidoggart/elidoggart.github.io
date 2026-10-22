@@ -7,8 +7,17 @@
   const sectionSelect = document.getElementById('section-select');
   const toolbar = document.querySelector('.site-toolbar');
   const triggers = Array.from(document.querySelectorAll('[data-expand]'));
+  const videos = Array.from(document.querySelectorAll('main video'));
   let currentRoute;
   history.scrollRestoration = 'manual';
+
+  function syncMedia() {
+    for (const video of videos) {
+      if (document.hidden || video.closest('[hidden]')) video.pause();
+      // Hidden project videos must not compete with the initial page load.
+      else if (video.preload === 'none') video.preload = 'metadata';
+    }
+  }
 
   function revealTarget(target) {
     const anchor = target.closest('.work-role-control, .entry-actions') || target;
@@ -39,6 +48,7 @@
       Array.from(wrapper.querySelectorAll('[data-expand]')).some(item => item.getAttribute('aria-expanded') === 'true'));
     const title = button.dataset.disclosureLabel || document.getElementById('title-' + id).textContent;
     button.setAttribute('aria-label', `${expanded ? 'Collapse' : 'Expand'} ${title} details`);
+    syncMedia();
     if (returnFocus) {
       button.focus({ preventScroll: true });
       const rect = (button.closest('.work-role-control, .entry-actions') || button).getBoundingClientRect();
@@ -69,6 +79,7 @@
     sectionSelect.value = route.section;
     document.title = route.section[0].toUpperCase() + route.section.slice(1) + ' | ' + document.querySelector('.name').textContent;
     route.entries.forEach(id => setExpanded(id, true));
+    syncMedia();
     const lastEntry = route.entries[route.entries.length - 1];
     const target = lastEntry ? triggers.find(button => button.dataset.expand === lastEntry)
       : document.getElementById('heading-' + route.section);
@@ -110,6 +121,7 @@
   });
   window.addEventListener('popstate', () => renderRoute());
   window.addEventListener('hashchange', () => renderRoute());
+  document.addEventListener('visibilitychange', syncMedia);
   renderRoute({ initial: true });
 })();
 

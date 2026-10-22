@@ -1,0 +1,79 @@
+/* Common navigation and controls. Each game keeps its own playfield layout. */
+:root{--arcade-ink:#232421;--arcade-red:#c73136;--arcade-line:#d9d9d2;--arcade-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+.game-header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:16px;min-height:64px;padding:12px 24px;flex-shrink:0;font:13px Arial,Helvetica,sans-serif}
+.game-header .arcade-return{justify-self:start;white-space:nowrap;display:flex;align-items:center;min-height:36px;color:var(--arcade-ink);text-decoration:none}
+.game-header .readout,.game-header .flight-hud{display:flex;gap:24px;white-space:nowrap;letter-spacing:1px;font:12px var(--arcade-mono)}
+.game-header .brand{font:18px Arial,Helvetica,sans-serif}
+.game-header .portfolio-return,.arcade-header .portfolio-return{grid-column:3;position:relative;justify-self:end;display:flex;align-items:center;gap:10px;min-height:36px;padding:4px 0;border-bottom:2px solid transparent;max-width:none;white-space:nowrap;text-align:right;font:12px Arial,Helvetica,sans-serif;color:#777873;text-decoration:none}
+.portfolio-return kbd{display:inline-block;padding:3px 5px;border:1px solid var(--arcade-line);font:9px var(--arcade-mono);letter-spacing:0}
+.game-header a:hover,.arcade-header a:hover{color:var(--arcade-red)}
+.game-footer{height:auto;min-height:60px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;padding:10px 24px;font:10px var(--arcade-mono);letter-spacing:0}
+.game-footer .instructions{display:flex;flex-wrap:wrap;gap:8px 16px;font:9px var(--arcade-mono)}
+.game-footer .game-tools,.status .game-tools{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;margin-left:auto;flex-shrink:0}
+.game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open){display:inline-flex;align-items:center;justify-content:center;gap:6px;width:auto;min-width:40px;min-height:36px;margin:0;padding:8px 10px;border:1px solid var(--arcade-line);border-radius:0;background:#fff;color:var(--arcade-ink);font:10px var(--arcade-mono);letter-spacing:0;white-space:nowrap}
+.game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open):hover:not(:disabled){border-color:var(--arcade-ink);color:var(--arcade-red)}
+.game-tools :is(#effects-button,#music,#music-button,#map-button)[aria-pressed="true"]{border-color:var(--arcade-red);color:var(--arcade-red)}
+.game-tools button:disabled{opacity:.35;cursor:default}
+.game-tools button :is(kbd,b){margin:0;border:0;padding:0;font:inherit;color:#777873}
+.arcade-game :is(button,a,input):focus-visible,.arcade-menu :is(a,.game-card):focus-visible{outline:2px solid var(--arcade-red);outline-offset:3px}
+.arcade-game dialog{max-height:85dvh;overscroll-behavior:contain}
+.tanks-game #manual{width:min(600px,90vw);overflow:auto;padding:30px;border:1px solid var(--arcade-ink);background:white;color:var(--arcade-ink)}
+.tanks-game #manual::backdrop{background:#ffffffbb;backdrop-filter:blur(4px)}
+.tanks-game #manual h2{font-size:34px;font-weight:400;letter-spacing:-1px;margin:18px 0}
+.tanks-game #manual h3{font:11px var(--arcade-mono);text-transform:uppercase;letter-spacing:1px;margin-top:24px}
+.tanks-game #manual p{font-size:13px;line-height:1.7;margin:12px 0 18px}
+.tanks-game #manual-done{width:100%;min-height:44px;padding:12px;background:var(--arcade-ink);color:white;font:12px var(--arcade-mono)}
+.arcade-game dialog :is(.close,#close-tank-scores),.arcade-game .dialog-heading button{display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid var(--arcade-line);background:white;color:var(--arcade-ink);font:24px Arial,Helvetica,sans-serif;line-height:1}
+.arcade-game dialog :is(.close,#close-tank-scores){position:absolute;top:10px;right:10px}
+.arcade-game .dialog-heading{gap:16px}
+.arcade-game .dialog-heading h2{margin-right:auto}
+.arcade-game .dialog-heading button{flex-shrink:0}
+.arcade-game .launch-choices button,.arcade-menu .launch-choices a{min-height:44px;font-family:var(--arcade-mono)}
+.launch-panel :is(.quiet,.arcade-back),.launch-screen .panel :is(.quiet,#highscores-button,#how-to-play,#exit-game){display:flex;align-items:center;justify-content:center;width:100%;min-height:36px;margin:8px 0 0;padding:8px 12px;border:1px solid transparent;background:white;color:var(--arcade-ink);font:11px var(--arcade-mono);text-decoration:none}
+.launch-panel .arcade-back,.launch-screen .panel #exit-game{color:#777873}
+.launch-panel :is(.quiet,.arcade-back):hover,.launch-screen .panel :is(.quiet,#highscores-button,#how-to-play,#exit-game):hover{border-color:var(--arcade-line);background:white;color:var(--arcade-red)}
+.pause-mode .panel :is(#resume,#restart-run,#highscores-button,#exit-game,#change-difficulty,#how-to-play){display:block;width:100%;min-height:44px;margin:8px 0 0;padding:12px;font:12px var(--arcade-mono)}
+.pause-mode .panel #resume{margin-top:0}
+.pause-menu .pause-actions{width:100%;margin-top:8px;gap:8px}
+.pause-menu .primary,.pause-menu .pause-actions .primary{min-height:44px;padding:12px;font:12px var(--arcade-mono);text-align:center;justify-content:center}
+/* Unused touch pads should not squeeze launch and pause menus. */
+.tanks-game:has(#overlay:not([hidden]))>.touch-controls,.still-game:is([data-state="ready"],[data-state="paused"])>.touch-controls{display:none}
+.tanks-game .arena:has(#overlay.launch-screen){height:100%;aspect-ratio:auto;width:min(600px,100%)}
+.arcade-menu .scores-link,.arcade-menu .game-options[aria-label="Equation"] .scores-link{display:flex;align-items:center;justify-content:center;min-height:40px;padding:8px 18px;border:1px solid var(--arcade-line);text-decoration:none;background:white;color:var(--arcade-ink);font:11px var(--arcade-mono)}
+.arcade-menu .scores-link:hover{border-color:var(--arcade-red);color:var(--arcade-red)}
+.portfolio-return::after{content:"";position:absolute;left:0;right:0;bottom:-2px;height:2px;background:var(--arcade-red);transform:scaleX(1);transform-origin:center;opacity:0}
+.portfolio-return.holding::after{opacity:1;animation:return-countdown var(--return-hold-duration,1000ms) linear forwards}
+@keyframes return-countdown{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+.equation-game .status{height:auto;min-height:46px;padding-bottom:8px;gap:16px}
+.equation-game .status .game-tools{margin-left:0}
+.equation-game .status #help-open{padding:8px 10px;font-size:10px}
+
+@media(max-width:1000px){.game-footer .instructions{display:none}}
+@media(max-width:650px){
+ .game-header{min-height:52px;padding:7px 12px;gap:8px;font-size:12px}
+ .game-header .portfolio-return,.arcade-header .portfolio-return{font-size:11px}
+ .portfolio-return kbd{display:none}
+ .game-header .readout,.game-header .flight-hud{gap:10px;font-size:10px;letter-spacing:0}
+ .game-header .brand{font-size:16px}
+ .game-footer{min-height:56px;padding:8px 12px;gap:6px}
+ .game-footer .game-tools{gap:4px;flex-shrink:1}
+ /* Leave room for the wider system monospace font used by WebKit. */
+ .game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open){padding:7px 6px;font-size:9px}
+ .game-tools button :is(kbd,b){display:none}
+ .space-game .game-tools{width:100%;justify-content:center}
+ .equation-game .status{min-height:44px;gap:9px}
+ .equation-game .status .game-tools{gap:4px}
+ .equation-game .status #help-open{padding:7px;font-size:9px}
+ .arcade-game dialog :is(.close,#close-tank-scores){top:8px;right:8px}
+}
+@media(pointer:coarse){
+ .game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open),.arcade-game dialog :is(.close,#close-tank-scores),.arcade-game .dialog-heading button{min-height:44px;min-width:44px}
+ .game-footer .instructions{display:none}
+ .game-footer{padding-bottom:max(8px,env(safe-area-inset-bottom))}
+}
+@media(max-height:500px){
+ .game-header{min-height:44px;padding-block:4px}
+ .game-footer{min-height:48px;padding-block:6px}
+ .game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open){min-height:36px}
+}
+@media(prefers-reduced-motion:reduce){.portfolio-return.holding::after{animation:none}}

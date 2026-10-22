@@ -41,11 +41,19 @@ function lockEditing(label){
  operationControls.forEach(([node])=>{node.disabled=true;});document.querySelectorAll('#fields,#editor-nav,#preview,#canvas-toolbar,.preview-tools,.recovery-copies').forEach(node=>{node.inert=true;});return true;
 }
 function unlockEditing(){operation='';operationControls.forEach(([node,disabled])=>{node.disabled=disabled;});operationControls=[];document.querySelectorAll('#fields,#editor-nav,#preview,#canvas-toolbar,.preview-tools,.recovery-copies').forEach(node=>{node.inert=false;});if(friendly&&!publishingReady(publishing,location.origin))$('#publish').disabled=true;updateButtons();}
+// Uploaded asset paths contain a content hash, so existing bytes and their URL
+// can be reused when a backup or GitHub draft brings back the same file.
+const verifiedAssets=new Set();
+function cacheAsset(src,blob,verified=true){
+ if(urls.has(src)&&verifiedAssets.has(src))return;
+ if(urls.has(src))URL.revokeObjectURL(urls.get(src));
+ images.set(src,blob);urls.set(src,URL.createObjectURL(blob));if(verified)verifiedAssets.add(src);
+}
 async function prepareImage(file,{signal}={}){
  busy++;let stop;
  try{
   signal?.throwIfAborted();
-  const task=(async()=>{const {record,blob}=await optimizeImage(file);signal?.throwIfAborted();await putImage(record.src,blob);signal?.throwIfAborted();images.set(record.src,blob);if(urls.has(record.src))URL.revokeObjectURL(urls.get(record.src));urls.set(record.src,URL.createObjectURL(blob));return record;})();
+  const task=(async()=>{const {record,blob}=await optimizeImage(file);signal?.throwIfAborted();await putImage(record.src,blob);signal?.throwIfAborted();cacheAsset(record.src,blob);return record;})();
   return await (signal?Promise.race([task,new Promise((_,reject)=>{stop=()=>reject(new DOMException('Image upload cancelled','AbortError'));signal.addEventListener('abort',stop,{once:true});})]):task);
  }finally{if(stop)signal.removeEventListener('abort',stop);busy--;}
 }
@@ -68,7 +76,7 @@ function form(){
  const heading=element('h2',{text:active==='site'?'Site & contact':active==='media'?'Image library':friendly&&active==='resources'?'Links & downloads':active[0].toUpperCase()+active.slice(1)});root.append(heading);
  if(active==='resume'){
   resumeForm(root,{friendly,site:data.site,url:src=>urls.get(src)||'../'+src,onChange:changed,status,setBusy:value=>{busy+=value?1:-1;},onAccept:async candidate=>{
-   await putImage(candidate.src,candidate.blob);images.set(candidate.src,candidate.blob);if(urls.has(candidate.src))URL.revokeObjectURL(urls.get(candidate.src));urls.set(candidate.src,URL.createObjectURL(candidate.blob));
+   await putImage(candidate.src,candidate.blob);cacheAsset(candidate.src,candidate.blob);
    settleHistory();data.site.resume=candidate.src;data.site.resumeFilename=candidate.filename;data.site.resumeLabel='Download resume, '+(candidate.pages===1?'one-page PDF':candidate.pages+'-page PDF');changed();form();updatePreview();status('Resume PDF added to the draft. Save Draft to keep it; Publish updates the live download.');
   }});return;
  }
@@ -76,7 +84,7 @@ function form(){
   root.append(element('p',{class:'help',text:functional?'Images already on your website are shown below. To add or replace a photo, open the job, project, skill group or interest and use its Upload image button.':visual?'Images already on your website are shown below. Select a company, role or photo on the page, then choose Add image or Replace image to use one or upload from your device.':'Upload a JPEG, PNG or WebP (up to 12 MB / 40 megapixels). It is resized to 2400 px and optimized as WebP or PNG. Add alt text and credits when placing it in an entry.'}));
   const upload=element('input',{type:'file',accept:'.jpg,.jpeg,.png,.webp','aria-label':'Upload image'});
   upload.addEventListener('change',async()=>{if(!upload.files[0])return;busy++;try{
-   const {record,blob}=await optimizeImage(upload.files[0]);await putImage(record.src,blob);images.set(record.src,blob);urls.set(record.src,URL.createObjectURL(blob));
+   const {record,blob}=await optimizeImage(upload.files[0]);await putImage(record.src,blob);cacheAsset(record.src,blob);
    if(!data.media.some(m=>m.id===record.id))data.media.push(record);changed();form();status(`Image optimized: ${record.width} × ${record.height}, ${Math.round(blob.size/1024)} KB. Save your draft to retain its reference.`);
   }catch(e){status(e.message,true);}finally{busy--;}});if(!friendly)root.append(upload);
   const placements=new Map();const collect=value=>{if(Array.isArray(value))value.forEach(collect);else if(value&&typeof value==='object'){if(value.media&&value.alt&&!placements.has(value.media))placements.set(value.media,value.caption||value.alt);Object.values(value).forEach(collect);}};if(friendly)collect(data.sections);const grid=element('div',{class:'media-grid'});data.media.forEach(m=>{const name=friendly?(placements.get(m.id)||'Uploaded image'):m.id;grid.append(element('div',{class:'media-card'},element('img',{src:urls.get(m.src)||'../'+m.src,alt:name,loading:'lazy'}),element('span',{text:name})));});root.append(grid);if(friendly)return;
@@ -94,8 +102,7 @@ function resourceField({key,value,path,set}){
  host.append(element('label',{class:'field'},element('span',{text:'Website address or uploaded file'}),input));
  if(/^https:\/\//.test(value)||/^assets\/[a-zA-Z0-9_./-]+$/.test(value)&&!value.includes('..'))host.append(element('a',{href:urls.get(value)||(value.startsWith('assets/')?'../':'')+value,target:'_blank',rel:'noopener',text:'Open current link or PDF'}));
  host.append(element('label',{class:'field'},element('span',{text:'Upload PDF'}),pdfUpload({status,setBusy:v=>{busy+=v?1:-1;},onAccept:async candidate=>{
-  await putImage(candidate.src,candidate.blob);images.set(candidate.src,candidate.blob);
-  if(urls.has(candidate.src))URL.revokeObjectURL(urls.get(candidate.src));urls.set(candidate.src,URL.createObjectURL(candidate.blob));
+  await putImage(candidate.src,candidate.blob);cacheAsset(candidate.src,candidate.blob);
   settleHistory();resource.download=candidate.filename;set(candidate.src);form();const details=[...$('#fields').querySelectorAll('details[data-path]')].find(d=>d.dataset.path===path.replace(/\.url$/,''));if(details)details.open=true;updatePreview();status('PDF added to the draft. Save Draft to keep it; Publish updates the website.');
  }})),element('p',{class:'help',text:'Certificates and reports: PDF, up to 5 MB and 20 pages. Add or select this link in a job, project or skill group to show it on your website.'}));
  return host;
@@ -190,11 +197,11 @@ $('#import').onchange=async e=>{const file=e.target.files[0];if(!file)return;if(
  if(!wrapper.recoveryOnly)for(const src of documentPaths(next))if(!documentPaths(baseline).includes(src)&&!images.has(src)&&!files?.has(src))throw Error('Missing PDF. Import the complete exported ZIP.');
  if(friendly&&!await confirmChange('Restore this backup?',(wrapper.recoveryOnly?'This is a text-only recovery copy. You may need to upload missing images or PDFs again. ':'')+'This replaces the draft you are editing. You can use Undo to return to it. The live website stays unchanged.','Restore backup'))return;
  if(files)for(const [p,blob] of files)if(p!=='content/portfolio.json'){
-  if(isResumeUpload(p)){if(!documentPaths(next).includes(p))throw Error('Unreferenced PDF in draft package.');await verifyResume(p,blob);await putImage(p,blob);images.set(p,blob);urls.set(p,URL.createObjectURL(blob));continue;}
+  if(isResumeUpload(p)){if(!documentPaths(next).includes(p))throw Error('Unreferenced PDF in draft package.');await verifyResume(p,blob);await putImage(p,blob);cacheAsset(p,blob);continue;}
   if(blob.size>2_000_000)throw Error('Uploaded images must be smaller than 2 MB.');
   const bytes=new Uint8Array(await blob.arrayBuffer());const hash=[...new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))].map(x=>x.toString(16).padStart(2,'0')).join('').slice(0,20);if(!matchesImageUpload(p,bytes,hash))throw Error('Uploaded image does not match its stable filename or image format.');
   const bitmap=await createImageBitmap(blob);const record=next.media.find(m=>m.src===p);const ok=record&&bitmap.width===record.width&&bitmap.height===record.height&&bitmap.width<=2400&&bitmap.height<=2400;bitmap.close();if(!ok)throw Error('Image dimensions do not match the draft.');
-  await putImage(p,blob);images.set(p,blob);urls.set(p,URL.createObjectURL(blob));
+  await putImage(p,blob);cacheAsset(p,blob);
  }
  settleHistory();history.push(JSON.stringify(data));data=next;for(const id of nextTemplates)templateIDs.add(id);prior=JSON.stringify(data);future=[];revision++;form();updateButtons();updatePreview();status(wrapper.recoveryOnly?'Text recovered. Save Draft to keep it. Missing images or PDFs must be uploaded again before publishing.':friendly?'Backup restored. Save Draft to keep it in this browser.':'Imported draft. Save Draft to keep it in this browser.');
  }catch(err){status(friendly?'Backup could not be restored. Your current draft is unchanged. '+(err instanceof SyntaxError?'Choose a backup downloaded from this editor.':/assets\/|stable filename|dimensions|WebP format/.test(err.message)?'The backup contains an incomplete or damaged image. Try the original backup file.':err.message):'Import failed: '+err.message,true);}finally{e.target.value='';unlockEditing();}};
@@ -217,7 +224,7 @@ try{
  if(cachedPublication)$('.notice').after(element('p',{class:'notice',role:'alert',text:'The latest website content could not be loaded. You can keep editing your saved draft using the last downloaded website copy. Some images may be unavailable until you reconnect. Publish will check GitHub for newer changes.'}));
  try{images=await getImages();}catch{status('Uploaded-file storage is unavailable in this browser. Existing content can still be edited and exported.',true);}
  if(images.unreadable)$('.notice').after(element('p',{class:'notice',role:'alert',text:'Some uploaded files could not be read from browser storage. Your text is still available. Load saved version from GitHub or upload missing files again before publishing.'}));
- for(const [src,blob] of images)urls.set(src,URL.createObjectURL(blob));saved=JSON.stringify(data);prior=saved;
+ for(const [src,blob] of images)cacheAsset(src,blob,false);saved=JSON.stringify(data);prior=saved;
  for(const key of ['work','projects','skills','passions','resume','site','education','media','resources']){
   if(functional&&['work','resume','media'].includes(key))$('#editor-nav').append(element('span',{class:'nav-label',text:{work:'Website sections',resume:'Profile',media:'Library'}[key]}));
   const button=element('button',{text:key==='site'?'Site & contact':friendly&&key==='media'?'Images':friendly&&key==='resources'?'Links & downloads':key[0].toUpperCase()+key.slice(1),'aria-current':key===active?'page':undefined,onclick:()=>{settleHistory();fieldSelection=null;if(visual)$('#fields').hidden=false;active=key;$('#editor-nav').querySelectorAll('button').forEach(b=>b.removeAttribute('aria-current'));button.setAttribute('aria-current','page');if(functional)$('#editor-section').value=key;form();}});button.dataset.group=key;$('#editor-nav').append(button);if(functional)$('#editor-section').append(element('option',{value:key,text:button.textContent}));
@@ -269,7 +276,7 @@ async function adoptRemote(state,load){
  if(load){
   // Keep the displaced draft and its uploaded assets recoverable locally and with Undo.
   localStorage.setItem('portfolio-before-github-load',JSON.stringify({portfolio:data,editor:templateMetadata(data,templateIDs),savedAt:new Date().toISOString()}));
-  const assets=await remote.media(next,state.draft?.head||state.publishedHead);for(const [src,blob]of assets){await putImage(src,blob);images.set(src,blob);urls.set(src,URL.createObjectURL(blob));}
+  const assets=await remote.media(next,state.draft?.head||state.publishedHead);for(const [src,blob]of assets){await putImage(src,blob);cacheAsset(src,blob);}
   settleHistory();history.push(JSON.stringify(data));data=structuredClone(next);templateIDs=new Set();prior=JSON.stringify(data);future=[];revision++;form();updateButtons();updatePreview();
  }
  remote.adopt(state);knownRemote=remoteVersion(state);baseline=structuredClone(state.published);remoteState=state;remoteAdopted=true;showDraft(state.draft);

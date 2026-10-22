@@ -27,3 +27,37 @@ test('new projects and skill details expose blank roles and dates, and PDF contr
  }
  await page.setViewportSize({width:390,height:844});await page.getByRole('combobox',{name:'Edit section',exact:true}).selectOption('resources');await page.locator('#fields > div .list > details').first().locator('summary').click();await expect(page.getByLabel('Upload PDF',{exact:true})).toBeVisible();expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });
+
+
+test('leaving a PDF field while it is being read cancels the detached upload and permits a retry',async({page})=>{
+ await page.goto('/editor/');await openResource(page);
+ await page.evaluate(()=>{const read=File.prototype.arrayBuffer;File.prototype.arrayBuffer=async function(){if(this.name==='Slow.pdf')await new Promise(resolve=>window.releasePDFRead=resolve);return read.call(this);};});
+ const upload=page.getByLabel('Upload PDF',{exact:true}),input=await upload.elementHandle();
+ await upload.setInputFiles({name:'Slow.pdf',mimeType:'application/pdf',buffer:original});await page.waitForFunction(()=>typeof window.releasePDFRead==='function');
+ await page.getByRole('button',{name:'Work',exact:true}).click();await page.evaluate(()=>window.releasePDFRead());
+ await expect.poll(()=>input.evaluate(node=>node.disabled)).toBe(false);await expect(page.getByRole('dialog')).toHaveCount(0);
+ await openResource(page);await page.getByLabel('Upload PDF',{exact:true}).setInputFiles({name:'Retry.pdf',mimeType:'application/pdf',buffer:original});await page.getByRole('button',{name:'Use this PDF in draft',exact:true}).click();await expect(page.locator('#status')).toContainText('PDF added');
+ await page.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(page.locator('#status')).toContainText('Draft saved');expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('eli-portfolio-draft-v1')).portfolio.resources[0].download)).toBe('Retry.pdf');
+});
+
+test('Escape cannot dismiss a PDF acceptance while storage is pending, and Undo remains exact',async({page})=>{
+ await page.goto('/editor/');await openResource(page);await page.getByLabel('Upload PDF',{exact:true}).setInputFiles({name:'Pending.pdf',mimeType:'application/pdf',buffer:original});
+ await expect(page.getByRole('button',{name:'Use this PDF in draft',exact:true})).toBeVisible();
+ await page.evaluate(()=>{const read=Blob.prototype.arrayBuffer;Blob.prototype.arrayBuffer=async function(){if(this.type==='application/pdf')await new Promise(resolve=>window.releasePDFStore=resolve);return read.call(this);};});
+ await page.getByRole('button',{name:'Use this PDF in draft',exact:true}).click();await page.waitForFunction(()=>typeof window.releasePDFStore==='function');await page.keyboard.press('Escape');
+ await expect(page.getByRole('dialog',{name:'Review PDF',exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'Use this PDF in draft',exact:true})).toBeDisabled();
+ await page.evaluate(()=>window.releasePDFStore());await expect(page.locator('#status')).toContainText('PDF added');await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.getByRole('button',{name:'Undo',exact:true}).click();await openResourceAfterUndo(page);await expect(page.getByLabel('Website address',{exact:true})).toHaveValue(fixture.resources[0].url);
+});
+
+
+test('restoring the same PDF backup reuses its preview URL instead of retaining duplicate file buffers',async({page})=>{
+ await page.addInitScript(()=>{const create=URL.createObjectURL,revoke=URL.revokeObjectURL;window.pdfURLs=new Set();URL.createObjectURL=function(blob){const url=create.call(this,blob);if(blob.type==='application/pdf')window.pdfURLs.add(url);return url;};URL.revokeObjectURL=function(url){window.pdfURLs.delete(url);return revoke.call(this,url);};});
+ await page.goto('/editor/');await openResource(page);await page.getByLabel('Upload PDF',{exact:true}).setInputFiles({name:'Reusable.pdf',mimeType:'application/pdf',buffer:original});await page.getByRole('button',{name:'Use this PDF in draft',exact:true}).click();await expect(page.locator('#status')).toContainText('PDF added');
+ await expect.poll(()=>page.evaluate(()=>window.pdfURLs.size)).toBe(1);
+ const pending=page.waitForEvent('download');await page.getByRole('button',{name:'Download backup',exact:true}).click();const bytes=fs.readFileSync(await(await pending).path());
+ for(let i=0;i<2;i++){
+  await page.getByLabel('Restore backup',{exact:true}).setInputFiles({name:'repeat.zip',mimeType:'application/zip',buffer:bytes});await page.getByRole('dialog').getByRole('button',{name:'Restore backup',exact:true}).click();await expect(page.locator('#status')).toContainText('Backup restored');await expect.poll(()=>page.evaluate(()=>window.pdfURLs.size)).toBe(1);
+ }
+ await openResourceAfterUndo(page);await expect(page.getByRole('link',{name:'Open current link or PDF'})).toHaveAttribute('href',/^blob:/);
+});

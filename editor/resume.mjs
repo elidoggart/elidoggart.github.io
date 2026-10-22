@@ -15,15 +15,21 @@ export function resumeForm(root,{friendly=false,site,url,onAccept,onChange,statu
 export function pdfUpload({label='Upload PDF',title='Review PDF',onAccept,status,setBusy,input}){
  input ||= element('input',{type:'file',accept:'.pdf,application/pdf','aria-label':label});
  input.onchange=async()=>{
-  const file=input.files[0];if(!file)return;input.disabled=true;setBusy(true);
+  const file=input.files[0];if(!file)return;input.disabled=true;setBusy(true);let dialog;
+  const reset=()=>{input.value='';input.disabled=false;};
   try{
-   const candidate=await prepareResume(file),preview=URL.createObjectURL(candidate.blob);
-   const dialog=element('dialog',{'aria-labelledby':'resume-review-title'}),accept=element('button',{class:'primary',text:'Use this PDF in draft'}),cancel=element('button',{text:'Cancel'});
+   const candidate=await prepareResume(file);
+   // Navigation or Undo can replace the field during decoding. Its callback
+   // would then edit a detached resource instead of the current draft.
+   if(!input.isConnected)return;
+   const preview=URL.createObjectURL(candidate.blob),accept=element('button',{class:'primary',text:'Use this PDF in draft'}),cancel=element('button',{text:'Cancel'});let accepting=false;
+   dialog=element('dialog',{'aria-labelledby':'resume-review-title'});
    dialog.append(element('h2',{id:'resume-review-title',text:title}),element('p',{text:candidate.filename+' · '+candidate.pages+' '+(candidate.pages===1?'page':'pages')+' · '+Math.ceil(candidate.blob.size/1024)+' KB'}),element('p',{},element('a',{href:preview,target:'_blank',rel:'noopener',text:'Open PDF preview'})),element('p',{text:'Check the PDF before using it. This changes the draft only; Save Draft and Publish remain separate steps.'}),accept,cancel);
-   cancel.onclick=()=>dialog.close();dialog.addEventListener('close',()=>{URL.revokeObjectURL(preview);dialog.remove();input.value='';input.disabled=false;},{once:true});
-   accept.onclick=async()=>{accept.disabled=true;cancel.disabled=true;setBusy(true);try{await onAccept(candidate);dialog.close();}catch(e){status(e.message,true);accept.disabled=false;cancel.disabled=false;}finally{setBusy(false);}};
+   cancel.onclick=()=>dialog.close();dialog.addEventListener('close',()=>{URL.revokeObjectURL(preview);dialog.remove();reset();},{once:true});
+   dialog.addEventListener('cancel',event=>{if(accepting)event.preventDefault();});
+   accept.onclick=async()=>{accepting=true;accept.disabled=true;cancel.disabled=true;dialog.setAttribute('aria-busy','true');setBusy(true);try{await onAccept(candidate);dialog.close();}catch(e){status(e.message,true);accept.disabled=false;cancel.disabled=false;}finally{accepting=false;dialog.removeAttribute('aria-busy');setBusy(false);}};
    document.body.append(dialog);dialog.showModal();cancel.focus();
-  }catch(e){status(e.message,true);input.value='';input.disabled=false;}finally{setBusy(false);}
+  }catch(e){if(input.isConnected)status(e.message,true);}finally{if(!dialog?.open)reset();setBusy(false);}
  };
  return input;
 }
