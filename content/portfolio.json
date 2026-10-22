@@ -63,7 +63,7 @@
                       },
                       {
                         "type": "text",
-                        "text": "Evenly distributed flow in two dimensions across the active area is extremely important for performance. Constrained by manufacturing limitations and legacy tooling, I reduced the maldistribution in reactants from over 40% to less than 2%. Properly loading flow fields in the active area of the hydrogen fuel cell leads to lower electrical resistance, but too much pressure can restrict fluid flow. I used flow and structural simulation to ensure acceptable levels of pressure and electrical resistance despite a reduction in landing area. After designing this fuel cell, I worked with component suppliers across the globe as well as scaled up in house procedures and facilities in order to produce an engine sized prototype.",
+                        "text": "Evenly distributed flow in two dimensions across the active area is extremely important for performance. Constrained by manufacturing limitations and legacy tooling, I reduced the maldistribution in reactants from over 20% to less than 2%. Properly loading flow fields in the active area of the hydrogen fuel cell leads to lower electrical resistance, but too much pressure can restrict fluid flow. I used flow and structural simulation to ensure acceptable levels of pressure and electrical resistance despite a reduction in landing area. After designing this fuel cell, I worked with component suppliers across the globe as well as scaled up in house procedures and facilities in order to produce an engine sized prototype.",
                         "style": "body"
                       }
                     ]
@@ -78,7 +78,7 @@
                       {
                         "type": "text",
                         "style": "body",
-                        "text": ""
+                        "text": "Through the use of the Solidworks flow simulation I rapidly iterated flow channels in order to increase flow uniformity. In this example which is fuel the difference between highest channel utilization and lowest channel utilization went from over 20% to below 2% this allows you to push the fuel cell much harder without damaging its proton exchange membrane."
                       },
                       {
                         "type": "figure",
