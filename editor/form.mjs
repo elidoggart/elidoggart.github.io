@@ -3,6 +3,11 @@ import {contentNames,fieldNames,uniqueID,itemName} from './friendly.mjs';
 const label=s=>s.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/^./,c=>c.toUpperCase());
 const names={id:'Stable ID',intro:'Summary',blocks:'Content blocks',roles:'Roles & expandable details',media:'Image',linkLabel:'Full-size link description',lazy:'Load when near the screen',newTab:'Open in a new tab',src:'Image file',phoneLink:'Telephone link',resume:'Resume PDF file',divider:'Heading above this entry',label:'Label',credit:'Image credit / attribution'};
 export function element(tag,props={},...children){const e=document.createElement(tag);for(const [k,v] of Object.entries(props)){if(k==='text')e.textContent=v;else if(k==='class')e.className=v;else if(k.startsWith('on'))e.addEventListener(k.slice(2).toLowerCase(),v);else if(v!==undefined&&v!==false)e.setAttribute(k,v===true?'':v);}for(const c of children.flat())if(c)e.append(c);return e;}
+export function editableText(node){
+ // Browsers can append caret-placeholder breaks to contenteditable fields,
+ // especially inline elements in Safari. Keep authored internal line breaks.
+ const value=node.innerText.replace(/\r/g,'').replace(/\n+$/,'');return value.trim()?value:'';
+}
 function newValue(def,referenceData){
  const value=blank(def);const name=def.$ref?.split('/').at(-1);
  if(value&&typeof value==='object'&&!Array.isArray(value)&&'id' in value)value.id=uniqueID(referenceData,name||'item');

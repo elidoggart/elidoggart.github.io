@@ -1,4 +1,4 @@
-import {element} from './form.mjs';
+import {element,editableText} from './form.mjs';
 import {templates} from './templates.mjs';
 
 // Editor-only affordances added after the unchanged public DOM is bound.
@@ -49,7 +49,7 @@ export function entrySlots({doc,data,owner,text,isTemplate,select,addEntry,moveE
     }
     if(!role.blocks.length){
      const body=element('p',{class:'canvas-empty-details'});details.prepend(body);owner(body,rp,'role');slot(body,rp+'.blocks[0].text','Details',config.details,true);
-     body.addEventListener('input',event=>{event.stopPropagation();const value=body.innerText.replace(/\r/g,'');role.blocks=value.trim()?[{type:'text',text:value,style:'body'}]:[];dirty();changed({repaint:false});});
+     body.addEventListener('input',event=>{event.stopPropagation();const value=editableText(body);role.blocks=value?[{type:'text',text:value,style:'body'}]:[];dirty();changed({repaint:false});});
     }
     const extra=element('div',{class:'canvas-detail-slots','data-editor-ui':''},
      makeButton('Add image to details',()=>addImage({path:rp,kind:'role'},section.id==='passions'),{class:'canvas-detail-image'}));

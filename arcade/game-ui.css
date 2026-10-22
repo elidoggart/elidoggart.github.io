@@ -57,7 +57,8 @@
  .game-header .brand{font-size:16px}
  .game-footer{min-height:56px;padding:8px 12px;gap:6px}
  .game-footer .game-tools{gap:4px;flex-shrink:1}
- .game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open){padding:7px;font-size:9px}
+ /* Leave room for the wider system monospace font used by WebKit. */
+ .game-tools :is(button,#effects-button,#music,#music-button,#pause,#pause-button,#map-button,#help-button,#help-open,#scores-open){padding:7px 6px;font-size:9px}
  .game-tools button :is(kbd,b){display:none}
  .space-game .game-tools{width:100%;justify-content:center}
  .equation-game .status{min-height:44px;gap:9px}

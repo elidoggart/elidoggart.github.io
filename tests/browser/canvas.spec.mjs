@@ -51,10 +51,10 @@ test('split sections bind interleaved text and images to their original draft po
  await page.addInitScript(data=>{if(!localStorage.getItem('eli-portfolio-draft-v1'))localStorage.setItem('eli-portfolio-draft-v1',JSON.stringify({portfolio:data}));},data);await page.goto('/editor/visual.html');
  const prefix='sections[0].entries[0].roles[0].blocks[0].blocks';await expect(frame(page).locator('#view-passions .canvas-add-entry')).toHaveCount(1);await expect(page.locator('#status')).not.toContainText('could not display');
  await frame(page).locator('[data-expand="'+data.sections[0].entries[0].roles[0].id+'"]').click();await expect(field(page,prefix+'[1].text')).toHaveText('First explanation');await expect(field(page,prefix+'[3].text')).toHaveText('Second explanation');
- await field(page,prefix+'[1].text').fill('Updated first explanation');await field(page,prefix+'[3].text').fill('Updated second explanation');
+ await field(page,prefix+'[1].text').fill('Updated first explanation\nSecond line');await field(page,prefix+'[3].text').fill('Updated second explanation');
  await frame(page).locator('[data-canvas-path="'+prefix+'[2].images[0]"]').press('Enter');await expect(page.getByRole('textbox',{name:'Image description (alt text)',exact:true})).toHaveValue(photo.alt);await page.getByRole('textbox',{name:'Image description (alt text)',exact:true}).fill('Updated second image description');
  await page.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(page.locator('#status')).toContainText('Draft saved');
- const blocks=(await saved(page)).sections[0].entries[0].roles[0].blocks[0].blocks;expect(blocks.map(block=>block.type)).toEqual(['figure','text','gallery','text']);expect(blocks[0].image).toEqual(photo);expect(blocks[1].text).toBe('Updated first explanation');expect(blocks[2].images[0].alt).toBe('Updated second image description');expect(blocks[3].text).toBe('Updated second explanation');
+ const blocks=(await saved(page)).sections[0].entries[0].roles[0].blocks[0].blocks;expect(blocks.map(block=>block.type)).toEqual(['figure','text','gallery','text']);expect(blocks[0].image).toEqual(photo);expect(blocks[1].text).toBe('Updated first explanation\nSecond line');expect(blocks[2].images[0].alt).toBe('Updated second image description');expect(blocks[3].text).toBe('Updated second explanation');
 });
 
 test('photo-only entries retain an editable summary slot and contact-card fields stay editable',async({page})=>{
@@ -65,4 +65,20 @@ test('photo-only entries retain an editable summary slot and contact-card fields
  await frame(page).getByRole('link',{name:'Contact',exact:true}).click();const contact=frame(page).locator('.contact-card-info');
  await contact.locator('[data-edit-path="site.name"]').fill('Updated contact name');await contact.locator('[data-edit-path="site.email"]').fill('review@example.com');await contact.locator('[data-edit-path="site.phone"]').fill('860 555 0101');
  await page.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(page.locator('#status')).toContainText('Draft saved');const result=await saved(page);expect(result.sections[1].entries[0].intro).toBe('Optional project summary added later.');expect(result.site).toMatchObject({name:'Updated contact name',email:'review@example.com',phone:'860 555 0101'});
+});
+
+
+test('nested split sections keep their text and image columns independent',async({page})=>{
+ const data=structuredClone(original),photo=structuredClone(data.sections[0].entries[0].image[0]);
+ data.sections[0].entries[0].roles[0].blocks=[{type:'section',title:'Outer section',level:4,chapter:false,layout:'split',blocks:[
+  {type:'section',title:'Nested section',level:5,chapter:false,layout:'split',blocks:[{type:'figure',layout:'plain',image:{...photo,alt:'Nested photo'}},{type:'text',style:'body',text:'Nested explanation'}]},
+  {type:'figure',layout:'plain',image:{...photo,alt:'Outer photo'}},{type:'gallery',layout:'grid',images:[photo]},{type:'text',style:'body',text:'Outer explanation'}
+ ]}];
+ await page.addInitScript(data=>{if(!localStorage.getItem('eli-portfolio-draft-v1'))localStorage.setItem('eli-portfolio-draft-v1',JSON.stringify({portfolio:data}));},data);await page.goto('/editor/visual.html');
+ await expect(frame(page).locator('#view-passions .canvas-add-entry')).toHaveCount(1);await expect(page.locator('#status')).not.toContainText('could not display');await frame(page).locator('[data-expand="'+data.sections[0].entries[0].roles[0].id+'"]').click();
+ const prefix='sections[0].entries[0].roles[0].blocks[0].blocks',nested=prefix+'[0].blocks';
+ await expect(field(page,nested+'[1].text')).toHaveText('Nested explanation');await expect(field(page,prefix+'[3].text')).toHaveText('Outer explanation');
+ await field(page,nested+'[1].text').fill('Updated nested explanation');await frame(page).locator('[data-canvas-path="'+nested+'[0].image"]').press('Enter');await page.getByRole('textbox',{name:'Image description (alt text)',exact:true}).fill('Updated nested photo');await page.getByRole('button',{name:'Close details',exact:true}).click();
+ await frame(page).locator('[data-canvas-path="'+prefix+'[1].image"]').press('Enter');await expect(page.getByRole('textbox',{name:'Image description (alt text)',exact:true})).toHaveValue('Outer photo');await page.getByRole('textbox',{name:'Image description (alt text)',exact:true}).fill('Updated outer photo');await page.getByRole('button',{name:'Save Draft',exact:true}).click();await expect(page.locator('#status')).toContainText('Draft saved');
+ const blocks=(await saved(page)).sections[0].entries[0].roles[0].blocks[0].blocks;expect(blocks[0].blocks[0].image.alt).toBe('Updated nested photo');expect(blocks[0].blocks[1].text).toBe('Updated nested explanation');expect(blocks[1].image.alt).toBe('Updated outer photo');expect(blocks[2].images[0]).toEqual(photo);expect(blocks[3].text).toBe('Outer explanation');
 });

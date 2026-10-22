@@ -1,6 +1,6 @@
 // Editing bindings for the controlled renderer. No heading matching, HTML input,
 // or independent page template: the public DOM remains the canvas.
-import {element,mountForm,confirmRemoval} from './form.mjs';
+import {element,mountForm,confirmRemoval,editableText} from './form.mjs';
 import {schema,resolve,blank} from '../lib/schema.mjs';
 import {chooseImage as pickImage} from './image-picker.mjs';
 import {blankEntry,templates} from './templates.mjs';
@@ -18,7 +18,7 @@ export function createCanvas({iframe,getData,isTemplate,markTemplate,changed,ref
  function image(node,value,path){owner(node,path,'image');node.tabIndex=0;node.setAttribute('role','button');node.setAttribute('aria-label','Edit image: '+value.alt);}
  function blockNodes(parent,items,path,offset=0){
   const split=offset===1&&parent.querySelector(':scope > .section-split');
-  const copy=split?[...split.querySelector('.section-copy').children]:[],media=split?[...split.querySelector('.section-media').children]:[];
+  const copy=split?[...split.querySelector(':scope > .section-copy').children]:[],media=split?[...split.querySelector(':scope > .section-media').children]:[];
   // Split sections display text and media in separate columns. Walk their
   // DOM queues in authored order so every edit keeps its original array path.
   const children=split?items.map(item=>(['gallery','figure'].includes(item.type)?media:copy).shift()):[...parent.children].slice(offset).filter(n=>!n.matches('.collapse-button'));
@@ -93,8 +93,11 @@ export function createCanvas({iframe,getData,isTemplate,markTemplate,changed,ref
   doc.addEventListener('dblclick',event=>{if(event.target.closest('[data-canvas-kind="image"]'))details();});
   doc.addEventListener('keydown',event=>{if(event.target.matches('[data-canvas-kind="image"]')&&['Enter',' '].includes(event.key)){event.preventDefault();details();}if(event.target.matches('[data-edit-path]')&&event.key==='Escape'){event.target.blur();}});
   doc.addEventListener('paste',event=>{if(event.target.closest('[data-edit-path]')){event.preventDefault();const text=event.clipboardData.getData('text/plain');const selection=doc.getSelection();if(!selection.rangeCount)return;const range=selection.getRangeAt(0);range.deleteContents();const node=doc.createTextNode(text);range.insertNode(node);range.setStartAfter(node);range.collapse(true);selection.removeAllRanges();selection.addRange(range);event.target.dispatchEvent(new Event('input',{bubbles:true}));}});
-  doc.addEventListener('input',event=>{const node=event.target.closest('[data-edit-path]');if(!node)return;const raw=node.innerText.replace(/\r/g,'');const value=raw.trim()?raw:'';put(getData(),node.dataset.editPath,value);for(const other of doc.querySelectorAll('[data-edit-path]'))if(other!==node&&other.dataset.editPath===node.dataset.editPath)other.textContent=value;dirtyInline=true;changed({repaint:false});controls();});
-  doc.addEventListener('focusout',event=>{if(dirtyInline&&event.target.matches('[data-edit-path]')&&event.relatedTarget?.ownerDocument!==doc){dirtyInline=false;settle();refresh();}});
+  doc.addEventListener('input',event=>{const node=event.target.closest('[data-edit-path]');if(!node)return;const value=editableText(node);put(getData(),node.dataset.editPath,value);for(const other of doc.querySelectorAll('[data-edit-path]'))if(other!==node&&other.dataset.editPath===node.dataset.editPath)other.textContent=value;dirtyInline=true;changed({repaint:false});controls();});
+  // Safari does not focus clicked links, so an inline field can report a null
+  // relatedTarget while navigation is still inside the canvas. Wait for the
+  // iframe itself to lose focus before replacing its document.
+  doc.defaultView.addEventListener('blur',()=>{if(dirtyInline){dirtyInline=false;settle();refresh();}});
   doc.defaultView.addEventListener('hashchange',()=>{const id=doc.querySelector('.view:not([hidden])')?.dataset.view;const si=getData().sections.findIndex(s=>s.id===id);const current=selected?.path.match(/^sections\[(\d+)\]/);if(current&&Number(current[1])===si)return;select(si<0?{path:'site',kind:'site'}:{path:'sections['+si+']',kind:'section'});});
   entrySlots({doc,data,owner,text,isTemplate,select,addEntry,moveEntry,addImage:(record,gallery)=>{select(record);if(gallery){const role=at(getData(),record.path),index=role.blocks.findIndex(b=>b.type==='gallery');if(index>=0){select({path:record.path+'.blocks['+index+']',kind:'block'});gallery=false;}}chooseImage(gallery).catch(e=>status(e.message,true));},addLink:(path,id)=>{const role=at(getData(),path);if(role.blocks.length>=100)return;const next={path:path+'.blocks['+role.blocks.length+']',kind:'block'};mutate(()=>role.blocks.push({type:'resource',resource:id}),next);revealSelection();},showFields,changed,dirty:()=>{dirtyInline=true;}});
   const restoreSelection=selected;for(const section of data.sections)for(const entry of section.entries)if(isTemplate(entry.id)&&(!entry.title.trim()||!entry.intro.trim()))for(const role of entry.roles){const control=doc.querySelector('[data-expand="'+role.id+'"]');if(control?.getAttribute('aria-expanded')==='false')control.click();}
