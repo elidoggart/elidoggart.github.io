@@ -6,6 +6,38 @@ const callback=(start,state=start.url.searchParams.get('state'),extra='')=>new R
 test('OAuth start binds fresh random state and S256 PKCE to a secure encrypted cookie',async()=>{const a=await start(),b=await start();assert.equal(a.res.status,302);assert.notEqual(a.cookie,b.cookie);assert.notEqual(a.url.searchParams.get('state'),b.url.searchParams.get('state'));assert.equal(a.url.searchParams.get('code_challenge_method'),'S256');assert.equal(a.url.searchParams.get('redirect_uri'),env.AUTH_ORIGIN+'/callback');assert.equal(a.url.searchParams.has('scope'),false);assert.match(a.res.headers.get('Set-Cookie'),/Secure; HttpOnly; SameSite=Lax/);assert.equal(a.res.headers.get('Cache-Control'),'no-store');});
 test('reject forged, missing, tampered, expired and cancelled callbacks before token exchange',async()=>{const a=await start();let calls=0;const deps={now:()=>1000001,fetcher:()=>{calls++;throw Error();}};const requests=[callback(a,'wrong'),new Request(env.AUTH_ORIGIN+'/callback?code=x&state=x'),callback({...a,cookie:a.cookie+'x'}),callback(a,a.url.searchParams.get('state'),'&error=access_denied'),callback(a,a.url.searchParams.get('state'),'&state=duplicate')];for(const req of requests)assert.equal((await handle(req,env,deps)).status,400);assert.equal((await handle(callback(a),env,{...deps,now:()=>2000000})).status,400);assert.equal(calls,0);});
 test('reject caller-chosen scope/origin/redirect and unconfigured deployment',async()=>{assert.equal((await handle(new Request(env.AUTH_ORIGIN+'/auth?scope=repo'),env)).status,400);assert.equal((await handle(new Request(env.AUTH_ORIGIN+'/auth',{headers:{Origin:'https://evil.test'}}),env)).status,403);assert.equal((await handle(new Request(env.AUTH_ORIGIN+'/auth'),{})).status,503);});
+test('only canonical HTTPS origins reach authentication, excluding script markup before provider calls',async()=>{
+ const malformed=[
+  'https://portfolio.example.test</script><script>alert(1)</script>',
+  'https://portfolio.example.test/</script><script>alert(1)</script>',
+  'https://portfolio.example.test?x=</script>',
+  'https://portfolio.example.test#</script>',
+  'https://user:pass@portfolio.example.test',
+  'https://%3Cscript%3E.example.test',
+  'https://%253Cscript%253E.example.test',
+  'https://portfolio.example.test:443',
+  'http://portfolio.example.test',
+  'data:text/html,<script>',
+  'https://portfolio.example.test/',
+  'https://PORTFOLIO.example.test',
+  'https://portfolio.example.test\n'
+ ];
+ const a=await start();let providerCalls=0;
+ const deps={now:()=>1000001,fetcher:async()=>{providerCalls++;throw Error('Unexpected provider request');}};
+ for(const name of ['EDITOR_ORIGIN','AUTH_ORIGIN']){
+  for(const value of malformed){
+   const res=await handle(callback(a),{...env,[name]:value},deps);
+   assert.equal(res.status,503,name+' must reject '+JSON.stringify(value));
+   assert.match(res.headers.get('Content-Type'),/^text\/plain/);assert.doesNotMatch(await res.text(),/<script/i);
+  }
+  for(const origin of ['https://portfolio.example.test','https://xn--53h.example','https://[::1]:8443']){
+   const configured={...env,[name]:origin};
+   const res=await handle(new Request(configured.AUTH_ORIGIN+'/auth'),configured,deps);
+   assert.equal(res.status,302,name+' must accept '+origin);
+  }
+ }
+ assert.equal(providerCalls,0);
+});
 function provider({id=456,push=true,expires=28800}={}){const calls=[];return {calls,fetcher:async(url,opts)=>{calls.push([url,opts]);return new Response(JSON.stringify(url.includes('access_token')?{access_token:'test-token-not-real',expires_in:expires,refresh_token:'discard-this'}:url.endsWith('/user')?{id}:{id:123,permissions:{push}}));}};}
 test('successful exchange narrows repository and verifies PKCE, numeric identity and access',async()=>{const a=await start(),p=provider();const res=await handle(callback(a),env,{...p,now:()=>1000001});assert.equal(res.status,200);const body=JSON.parse(p.calls[0][1].body);assert.equal(body.repository_id,'123');const challenge=Buffer.from(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(body.code_verifier))).toString('base64url');assert.equal(challenge,a.url.searchParams.get('code_challenge'));const html=await res.text();assert.match(html,/e\.origin!==origin\|\|e\.source!==target/);assert.doesNotMatch(html,/discard-this|postMessage\([^\n]*,'\*'/);assert.match(res.headers.get('Set-Cookie'),/Max-Age=0/);assert.match(res.headers.get('Content-Security-Policy'),/frame-ancestors 'none'/);});
 test('deny wrong user, read-only repository and non-expiring credentials',async()=>{for(const options of [{id:999},{push:false},{expires:undefined},{expires:0}]){const a=await start(),p=provider(options);if(Object.hasOwn(options,'expires')&&options.expires===undefined)p.fetcher=async()=>new Response(JSON.stringify({access_token:'test-token'}));const res=await handle(callback(a),env,{...p,now:()=>1000001});assert.equal(res.status,400);assert.doesNotMatch(await res.text(),/test-token|unit-test-only/);}});

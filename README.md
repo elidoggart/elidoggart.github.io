@@ -31,6 +31,10 @@ TEST_BROWSER=webkit npm run test:browser
 
 Run browser engines sequentially. Tests start their own read-only fixture server on port 4175. Their fixed portfolio is built into `.local/browser-dist/`, separate from the actual `dist/` deployment. Renaming your real headings or removing an entry must not break tests that exercise the editor with example content. Actual content and assets are still validated on every change.
 
+Every pull request runs unit tests, content/asset validation, the production build, and both browser suites automatically. Each browser suite is split across two isolated CI runners to reduce publication waits. The single required `validate` result succeeds only after all of these checks pass, including for changes published through the editor.
+
+For a manual audit, run **Validate portfolio content** from GitHub Actions. **Deploy validated portfolio** rebuilds and deploys `main`; browser audits use the validation workflow so there is only one maintained browser setup.
+
 ## Repository map
 
 - `content/`: actual portfolio content and schema.
@@ -52,3 +56,7 @@ Generated builds, installed dependencies, downloads and test results are ignored
 5. A merged topic branch can be removed after confirming it has no newer commits or open draft. Keep active editor draft branches.
 
 Undo a released change with a reviewed revert commit through the same checks. Keep dependencies and Actions pinned, and review upgrades explicitly. See the [reliability audit](docs/editor-reliability-audit.md) and [GitHub maintenance review](docs/github-maintenance-review.md).
+
+Dependabot opens weekly npm and GitHub Actions update PRs, with minor/patch updates grouped and major upgrades reviewed separately. Security fixes can arrive sooner. Updates are not automatically merged. CodeQL and secret scanning provide additional security checks; report vulnerabilities through the [security policy](SECURITY.md).
+
+Browser CI uses the official Playwright container pinned by version and digest. When updating `@playwright/test`, update that image tag and verified digest in the same PR; validation checks that the package, lockfile and image versions agree. Dependabot does not update job container images itself.

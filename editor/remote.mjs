@@ -155,7 +155,12 @@ export function createRemote(config,{apiFactory,fetcher=fetch,now=()=>Date.now()
   }
   // Like check-runs, read public readiness without the app's restricted status visibility.
   // The authenticated merge below still enforces GitHub's branch rules and exact head.
-  let pr;for(let attempt=0;;attempt++){pr=await publicJSON('/pulls/'+draft.pr.number);if(!wait||(pr.mergeable!==null&&pr.mergeable_state!=='unknown')||attempt>=15)break;await pause(2000);}
+  let pr;for(let attempt=0;;attempt++){
+   pr=await publicJSON('/pulls/'+draft.pr.number);
+   // Other checks can finish after validate. Retry briefly, but accept only clean below.
+   const retryable=pr.mergeable===null||pr.mergeable_state==='unknown'||(pr.mergeable===true&&pr.mergeable_state==='unstable');
+   if(!wait||!retryable||attempt>=15)break;await pause(2000);
+  }
   if(pr.head?.sha!==expectedHead)throw Error('The saved draft changed while checking it. Click Publish again to review the latest version.');
   if(pr.state!=='open')throw Error('This draft is already closed. Click Publish again to load the latest published version.');
   if(pr.mergeable!==true||pr.mergeable_state!=='clean')throw Error('GitHub is not ready to merge this draft ('+(pr.mergeable_state||'calculating')+'). Review public draft for details, or retry shortly.');

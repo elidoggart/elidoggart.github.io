@@ -1,5 +1,7 @@
 # Content editing and reliability audit — 16 October 2026
 
+This records the configuration on that date. For current required browser checks and publishing behavior, see [the editor guide](EDITOR.md).
+
 The editing scope is Work, Projects and Skills. New items use the existing website templates and styles. The reliability review also covers the public site, editor storage, uploads, recovery and publishing.
 
 ## Changes

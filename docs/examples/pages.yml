@@ -1,5 +1,5 @@
-# INACTIVE REVIEW EXAMPLE. Copy to .github/workflows/ only after publication approval.
-# Also select GitHub Actions as the Pages source and require PR validation on main.
+# HISTORICAL, INACTIVE rollout example. Do not copy as current configuration.
+# Maintained deployment configuration: ../../.github/workflows/pages.yml
 name: Deploy validated portfolio
 on:
   push:

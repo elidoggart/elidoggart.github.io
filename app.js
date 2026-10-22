@@ -14,8 +14,17 @@
   function syncMedia() {
     for (const video of videos) {
       if (document.hidden || video.closest('[hidden]')) video.pause();
-      // Hidden project videos must not compete with the initial page load.
-      else if (video.preload === 'none') video.preload = 'metadata';
+      // preload is only a browser hint: withhold URLs until the details open.
+      else if (video.preload === 'none') {
+        video.preload = 'metadata';
+        const sources = video.querySelectorAll('source[data-src]');
+        for (const source of sources) {
+          source.src = source.dataset.src;
+          delete source.dataset.src;
+        }
+        // Reopening keeps the loaded resource and playback position intact.
+        if (sources.length) video.load();
+      }
     }
   }
 
