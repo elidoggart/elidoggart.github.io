@@ -5,6 +5,7 @@ import {render} from '../lib/render.mjs';
 import {createContact} from '../lib/contact.mjs';
 import {assertValid,schema} from '../lib/schema.mjs';
 import {validateAssets} from './assets.mjs';
+import {documentPaths} from '../lib/pdf.mjs';
 const root=path.resolve(fileURLToPath(new URL('..',import.meta.url)));
 const browserTest=process.argv.includes('--browser-test');
 // UI examples must never replace the actual portfolio deployment artifact.
@@ -14,7 +15,12 @@ const wrapper=JSON.parse(raw);if(Object.keys(wrapper).join()!=='portfolio')throw
 const data=assertValid(wrapper.portfolio);await validateAssets(data,root);
 if(process.argv.includes('--validate')){console.log(`Validated ${data.sections.flatMap(s=>s.entries).length} entries, ${data.media.length} media, ${data.resources.length} resources.`);process.exit(0);}
 const output=path.join(root,browserTest?'.local/browser-dist':'dist');await fs.rm(output,{recursive:true,force:true});await fs.mkdir(output,{recursive:true});
-for(const f of ['assets','style.css','app.js','stats-client.mjs','l','CNAME','.nojekyll','README.txt','accelerate.html','mott.html','nimbus.html','favicon-flow.svg','favicon-32.png','favicon.ico','apple-touch-icon.png','editor','lib','content'])await fs.cp(path.join(root,f),path.join(output,f),{recursive:true});
+// Retain historical resumes for repository history and test fixtures, but do not
+// publish obsolete claims at unused PDF URLs. An explicitly referenced PDF wins.
+const retiredResumes=new Set(['assets/documents/Eli-Doggart-Resume.pdf','assets/documents/resume-68597ad7e549c03f98bd.pdf','assets/documents/resume-0232d025924d450c9098.pdf']);
+const currentDocuments=new Set(documentPaths(data));
+const publishAsset=source=>{const relative=path.relative(root,source).split(path.sep).join('/');return browserTest||!retiredResumes.has(relative)||currentDocuments.has(relative);};
+for(const f of ['assets','style.css','app.js','stats-client.mjs','l','CNAME','.nojekyll','README.txt','accelerate.html','mott.html','nimbus.html','favicon-flow.svg','favicon-32.png','favicon.ico','apple-touch-icon.png','editor','lib','content'])await fs.cp(path.join(root,f),path.join(output,f),{recursive:true,filter:publishAsset});
 await fs.cp(path.join(root,'arcade'),path.join(output,'arcade'),{recursive:true,filter:source=>!['tests','research','README.md'].includes(path.basename(source))});
 await fs.writeFile(path.join(output,'content/portfolio.json'),raw);
 await fs.writeFile(path.join(output,'index.html'),render(data,{stats:true}));
