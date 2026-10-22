@@ -45,6 +45,7 @@ test('project videos load on disclosure and pause when collapsed or navigating a
  await expect(source).toHaveAttribute('src',videoURL);
  await expect(source).not.toHaveAttribute('data-src');
  await video.evaluate(video=>video.play());await expect(video).toHaveJSProperty('paused',false);
+ await expect.poll(()=>video.evaluate(video=>video.currentTime)).toBeGreaterThan(0.2);
  await page.locator(`[data-collapse="${role}"]`).click();await expect(video).toHaveJSProperty('paused',true);
  const position=await video.evaluate(video=>video.currentTime);
  await page.locator(`[data-expand="${role}"]`).click();
