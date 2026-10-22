@@ -31,7 +31,8 @@ test('local MP4 resources render as controlled, accessible inline videos',()=>{
  const d=changed(d=>{d.resources[0].url='assets/media/demo.mp4';d.resources[0].label='Demo <test>';d.resources[0].note='Prototype & fixture';d.resources[0].download='';});
  const html=render(d);
  assert.match(html,/<video controls playsinline preload="none" aria-label="Demo &lt;test&gt;">/);
- assert.match(html,/<source src="assets\/media\/demo.mp4" type="video\/mp4">/);
+ assert.match(html,/<source data-src="assets\/media\/demo.mp4" type="video\/mp4">/);
+ assert.doesNotMatch(html,/<(?:video|source)[^>]*\ssrc=/);
  assert.match(html,/Prototype &amp; fixture/);
  assert.doesNotMatch(html,/<video[^>]*autoplay/);
 });

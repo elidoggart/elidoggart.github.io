@@ -39,8 +39,15 @@ test('opening combat chains a throwable, a timed pistol pickup and an incoming w
  await expect.poll(()=>page.evaluate(()=>officeTest.game.enemies[0].alive)).toBe(false);
  expect(await page.evaluate(()=>officeTest.game.wave)).toBe(0);
  await page.evaluate(()=>officeTest.game.player.yaw=0);
- await page.keyboard.down('KeyD');await page.waitForTimeout(500);await page.keyboard.up('KeyD');
- await page.keyboard.down('KeyW');await page.waitForTimeout(320);await page.keyboard.up('KeyW');
+ // The engine caps simulation steps at 50ms. Walk to observable positions,
+ // since a fixed wall-clock hold covers less ground on slower renderers.
+ await page.keyboard.down('KeyD');
+ try{await page.waitForFunction(()=>officeTest.game.player.x>=1.7);}finally{await page.keyboard.up('KeyD');}
+ await page.keyboard.down('KeyW');
+ try{await page.waitForFunction(()=>{
+  const g=officeTest.game,item=g.nearbyItem();
+  return item?.id==='enemy-0'&&Math.hypot(item.x-g.player.x,item.z-g.player.z)<2;
+ });}finally{await page.keyboard.up('KeyW');}
  await page.evaluate(()=>{const g=officeTest.game,item=g.items.find(i=>i.id==='enemy-0');g.player.yaw=Math.atan2(item.x-g.player.x,item.z-g.player.z);});
  await page.keyboard.press('KeyE');
  await expect.poll(()=>page.evaluate(()=>officeTest.game.player.held)).toBe('gun');

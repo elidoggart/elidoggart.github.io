@@ -31,7 +31,7 @@ TEST_BROWSER=webkit npm run test:browser
 
 Run browser engines sequentially. Tests start their own read-only fixture server on port 4175. Their fixed portfolio is built into `.local/browser-dist/`, separate from the actual `dist/` deployment. Renaming your real headings or removing an entry must not break tests that exercise the editor with example content. Actual content and assets are still validated on every change.
 
-Every pull request runs unit tests, content/asset validation, the production build, and both browser suites automatically. Browser engines run on separate CI runners. The single required `validate` result succeeds only after all of these checks pass, including for changes published through the editor.
+Every pull request runs unit tests, content/asset validation, the production build, and both browser suites automatically. Each browser suite is split across two isolated CI runners to reduce publication waits. The single required `validate` result succeeds only after all of these checks pass, including for changes published through the editor.
 
 ## Repository map
 
