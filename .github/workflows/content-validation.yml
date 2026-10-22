@@ -2,11 +2,6 @@ name: Validate portfolio content
 on:
   pull_request:
   workflow_dispatch:
-    inputs:
-      run_browser_tests:
-        description: Run the full Chrome and Safari suites
-        type: boolean
-        default: false
 permissions:
   contents: read
 # Superseded PR revisions do not need to finish testing. Deployment is separate.
@@ -14,9 +9,40 @@ concurrency:
   group: content-validation-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 jobs:
-  validate:
+  checks:
     timeout-minutes: 15
     runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Review introduced dependency risk
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+          fail-on-scopes: runtime, development, unknown
+          license-check: false
+          comment-summary-in-pr: never
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run validate
+      - run: npm test
+      - run: npm run build
+
+  browser:
+    # Separate runners isolate each engine's fixture server and test artifacts.
+    timeout-minutes: 10
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    env:
+      TEST_BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -26,26 +52,34 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npm run validate
-      - run: npm test
-      - run: npm run build
-      # Opt in manually while the site is undergoing rapid content changes.
-      - if: github.event_name == 'workflow_dispatch' && inputs.run_browser_tests
-        run: npx playwright install --with-deps chromium webkit
-      - if: github.event_name == 'workflow_dispatch' && inputs.run_browser_tests
-        run: npm run test:browser
-      - if: github.event_name == 'workflow_dispatch' && inputs.run_browser_tests
-        run: npm run test:browser
-        env:
-          TEST_BROWSER: webkit
+      - run: npx playwright install --with-deps "$TEST_BROWSER"
+      - run: npm run test:browser
       - name: Keep failed UI test diagnostics
-        if: failure() && github.event_name == 'workflow_dispatch' && inputs.run_browser_tests
+        if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ui-test-failures
+          name: ui-test-failures-${{ matrix.browser }}
           path: |
-            test-results/
+            test-results/${{ matrix.browser }}/
             .local/parity-*.png
           if-no-files-found: ignore
           retention-days: 7
+
+  validate:
+    # The editor and branch rules wait for this single, exact check name.
+    # Always report failure if a prerequisite failed, was cancelled or skipped.
+    if: always()
+    needs: [checks, browser]
+    timeout-minutes: 2
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every validation job to pass
+        env:
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          BROWSER_RESULT: ${{ needs.browser.result }}
+        run: |
+          if [[ "$CHECKS_RESULT" != "success" || "$BROWSER_RESULT" != "success" ]]; then
+            echo "Validation failed: checks=$CHECKS_RESULT, browsers=$BROWSER_RESULT"
+            exit 1
+          fi
       # Validation only; the separately configured Pages workflow deploys main.

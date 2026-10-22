@@ -62,6 +62,49 @@ test('review paginates drafts with at least 100 changed files',async t=>{
  const {remote,calls}=await session(t,{draft:true,handle:(u,o,p)=>p==='/pulls/7/files'?json(u.searchParams.get('page')==='2'?[{filename:'content/portfolio.json',status:'modified'}]:files):undefined});
  assert.equal((await remote.review(original)).head,head);assert.ok(calls.some(c=>c.url.searchParams.get('page')==='2'));
 });
+test('review waits for an unstable PR to become clean after validation succeeds',async t=>{
+ let readinessReads=0;const pauses=[];
+ const {remote,calls}=await session(t,{draft:true,pause:async ms=>pauses.push(ms),handle:(u,o,p)=>{
+  if(p==='/pulls/7')return json({...pr,mergeable_state:++readinessReads<3?'unstable':'clean'});
+ }});
+ assert.equal((await remote.review(original,{wait:true})).head,head);
+ assert.equal(readinessReads,3);assert.deepEqual(pauses,[2000,2000]);assert.ok(calls.every(c=>c.method==='GET'));
+});
+test('persistently unstable readiness exhausts the existing retry budget without accepting publication',async t=>{
+ let readinessReads=0;const pauses=[];
+ const {remote,calls}=await session(t,{draft:true,pause:async ms=>pauses.push(ms),handle:(u,o,p)=>{
+  if(p==='/pulls/7'){readinessReads++;return json({...pr,mergeable_state:'unstable'});}
+ }});
+ await assert.rejects(remote.review(original,{wait:true}),/not ready to merge this draft \(unstable\)/);
+ assert.equal(readinessReads,16);assert.deepEqual(pauses,Array(15).fill(2000));assert.ok(calls.every(c=>c.method==='GET'));
+});
+test('conflicting and blocked PRs are rejected without readiness retries',async t=>{
+ for(const [state,mergeable] of [['dirty',false],['blocked',true],['unstable',false]]){
+  let readinessReads=0;const pauses=[];
+  const {remote,calls}=await session(t,{draft:true,pause:async ms=>pauses.push(ms),handle:(u,o,p)=>{
+   if(p==='/pulls/7'){readinessReads++;return json({...pr,mergeable,mergeable_state:state});}
+  }});
+  await assert.rejects(remote.review(original,{wait:true}),new RegExp('not ready to merge this draft \\('+state+'\\)'));
+  assert.equal(readinessReads,1);assert.deepEqual(pauses,[]);assert.ok(calls.every(c=>c.method==='GET'));remote.end();
+ }
+});
+test('failed validation stops review before polling PR readiness',async t=>{
+ const pauses=[];
+ const {remote,calls}=await session(t,{draft:true,pause:async ms=>pauses.push(ms),handle:(u,o,p)=>{
+  if(p.endsWith('/check-runs'))return json({check_runs:[{name:'validate',app:{slug:'github-actions'},head_sha:head,status:'completed',conclusion:'failure'}]});
+ }});
+ await assert.rejects(remote.review(original,{wait:true}),/validation check did not pass \(failure\)/);
+ assert.deepEqual(pauses,[]);assert.ok(calls.every(c=>c.method==='GET'&&!c.url.pathname.endsWith('/pulls/7')));
+});
+test('publication rechecks readiness and rejects newly unstable checks without waiting or merging',async t=>{
+ let unstable=false;const pauses=[];
+ const {remote,calls}=await session(t,{draft:true,pause:async ms=>pauses.push(ms),handle:(u,o,p)=>{
+  if(p==='/pulls/7')return json({...pr,mergeable_state:unstable?'unstable':'clean'});
+ }});
+ const reviewed=await remote.review(original);unstable=true;
+ await assert.rejects(remote.publish(original,reviewed),/not ready to merge this draft \(unstable\)/);
+ assert.deepEqual(pauses,[]);assert.ok(calls.every(c=>c.method==='GET'));
+});
 test('timed-out reads terminate and release session for retry',async t=>{
  let hang=false;
  const {remote}=await session(t,{requestTimeout:10,readRetries:0,handle:async(u,o,p)=>{if(hang&&p==='/branches/main')return new Promise((resolve,reject)=>o.signal.addEventListener('abort',()=>reject(o.signal.reason),{once:true}));}});

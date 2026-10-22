@@ -1,4 +1,34 @@
-# GitHub maintenance review — 13 October 2026
+# GitHub maintenance reviews
+
+## Current review — 22 October 2026
+
+The existing release safeguards remain sound: active ruleset `24894237` requires an up-to-date successful `validate` check and a PR, blocks deletion and force pushes, and has no bypass actors. Workflows default to read-only tokens; PR approval by Actions is disabled. The Pages environment permits deployments only from `main`. All five existing Actions pins match their current official release tags.
+
+This review addresses missing automation:
+
+| Area | Current behavior |
+| --- | --- |
+| Browser checks | Every PR and manual validation run exercises Chromium and WebKit on separate runners. One final `validate` result requires successful unit/asset/build checks and both browser jobs. Failed, cancelled or skipped prerequisites cannot produce a successful gate. |
+| Mutable portfolio content | Browser checks allow optional photos/videos to be removed through the editor; generic current-content navigation and mobile checks still run. |
+| Dependency alerts | Dependabot vulnerability alerts and automatic security-update PRs are enabled. The reviewed lockfile has zero known npm advisories as of this review. |
+| Version updates | Dependabot checks npm and Actions every Monday, with three open version PRs per ecosystem, grouped minor/patch updates, and separate major updates. Security PRs are independent. There is no automatic merging. |
+| New dependency risk | PR dependency review checks high/critical advisories in runtime, development and unknown scopes. Development scope matters because browser-bundled editor libraries are declared as dev dependencies. |
+| Code scanning | CodeQL default setup scans Actions, JavaScript/TypeScript and Python on repository changes and its weekly schedule. |
+| Secret protection | Secret scanning and push protection were already enabled and remain enabled. No open secret alerts were reported during this review; this is not a full manual history audit. |
+| Private reports | Private vulnerability reporting is enabled, with reporting instructions in `SECURITY.md`. |
+| Review information | A concise PR template asks for the problem, resulting behavior, validation and material risks. Current editor/release documentation describes the automatic checks. |
+
+The owner can still publish alone: no additional human approval, app permission, direct-main write or bypass was introduced. Newer nonurgent Playwright/Decap releases should go through their own dependency PRs and browser checks. Exact package versions, lockfile integrity, immutable Actions pins and `npm ci --ignore-scripts` are retained.
+
+The editor now waits through brief `unstable` merge-readiness results within its existing 30-second budget, which accommodates pending advisory checks. It still accepts only `clean`, rejects conflicts/blocked states, and rechecks the exact reviewed SHA before merging. Five regression cases cover transient/permanent instability and final publication rejection.
+
+Initial CodeQL analysis found one `js/bad-code-sanitization` alert in the OAuth helper's origin serialization. Independent review confirmed a false positive: `configured(env)` runs before callback handling and requires each configured origin to equal a parsed HTTPS URL's canonical origin. Paths, queries, credentials and script-like host characters cannot reach the template under that invariant. This matches the [URL Standard's host restrictions](https://url.spec.whatwg.org/#forbidden-host-code-point). Synthetic checks rejected 26 malformed-origin configurations before any provider request, with three valid controls accepted. The alert is dismissed with that reasoning; no Worker change or deployment is needed. Reassess if origin validation changes.
+
+The automation follows GitHub's guidance for [repository security features](https://docs.github.com/en/code-security/getting-started/quickstart-for-securing-your-repository), [minimal workflow permissions and pinned Actions](https://docs.github.com/en/actions/reference/security/secure-use), [Dependabot grouping and limits](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), and [dependency review](https://github.com/actions/dependency-review-action/tree/v5.0.0). The [current workflow](../.github/workflows/content-validation.yml) is the source of truth.
+
+## Historical review — 13 October 2026
+
+The following records the earlier configuration; statements about automation being disabled describe that date.
 
 This review supports dependable editing and publishing. It does not add a new publishing service, require another person to approve a solo repository, or expand the editor's GitHub permissions.
 

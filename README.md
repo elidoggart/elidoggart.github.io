@@ -31,6 +31,8 @@ TEST_BROWSER=webkit npm run test:browser
 
 Run browser engines sequentially. Tests start their own read-only fixture server on port 4175. Their fixed portfolio is built into `.local/browser-dist/`, separate from the actual `dist/` deployment. Renaming your real headings or removing an entry must not break tests that exercise the editor with example content. Actual content and assets are still validated on every change.
 
+Every pull request runs unit tests, content/asset validation, the production build, and both browser suites automatically. Browser engines run on separate CI runners. The single required `validate` result succeeds only after all of these checks pass, including for changes published through the editor.
+
 ## Repository map
 
 - `content/`: actual portfolio content and schema.
@@ -52,3 +54,5 @@ Generated builds, installed dependencies, downloads and test results are ignored
 5. A merged topic branch can be removed after confirming it has no newer commits or open draft. Keep active editor draft branches.
 
 Undo a released change with a reviewed revert commit through the same checks. Keep dependencies and Actions pinned, and review upgrades explicitly. See the [reliability audit](docs/editor-reliability-audit.md) and [GitHub maintenance review](docs/github-maintenance-review.md).
+
+Dependabot opens weekly npm and GitHub Actions update PRs, with minor/patch updates grouped and major upgrades reviewed separately. Security fixes can arrive sooner. Updates are not automatically merged. CodeQL and secret scanning provide additional security checks; report vulnerabilities through the [security policy](SECURITY.md).
