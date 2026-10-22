@@ -1,3 +1,4 @@
+import {createPopoutPreview} from './popout-preview.mjs';
 import {loadLocalDraft,missingDraftAssets,remoteVersion,sameRemoteVersion} from './storage.mjs';
 import {createRecovery,readableDraft,storageMessage} from './recovery.mjs';
 import {createPublishProgress} from './publish-progress.mjs';
@@ -24,6 +25,8 @@ let recovery,recoveryReady=false,recoveryRaw='',saving=false,operation='',operat
 const visual=document.body.classList.contains('visual-editor'),functional=document.body.classList.contains('forms-editor'),friendly=visual||functional;let canvas,forms,fieldSelection=null,templateIDs=new Set();
 const publication=createPublishProgress({anchor:$('.notice'),checkDeployment:sha=>createRemote(publishing,{apiFactory:()=>{}}).deployment(sha)});
 const stats=createStats({getConfig:()=>publishing,getNames:()=>new Map((baseline?.sections.find(s=>s.id==='work')?.entries||[]).flatMap(e=>e.roles.map(r=>[r.id,[e.title,r.label||r.role].filter(Boolean).join(' — ')]))),onSignIn:connectGitHub});
+const popout=createPopoutPreview({getData:()=>data,getURLs:()=>urls,select:path=>{if(!operation){settleHistory();revealError({path});window.focus();}},status:(...args)=>status(...args)});
+$('#popout-preview')?.addEventListener('click',()=>{popout.open();updatePreview();});
 const setupTitle=$('#publish-dialog h2').textContent,setupMessage=$('#publish-message').innerHTML;
 async function loadJSON(path,timeout){const controller=new AbortController();let timer;try{return await Promise.race([(async()=>{const response=await fetch(path,{signal:controller.signal});if(!response.ok)throw Error('The website could not return the requested content.');return response.json();})(),new Promise((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(Error('The connection timed out.'));},timeout);})]);}finally{clearTimeout(timer);}}
 function showSetup(){const enabled=publishingReady(publishing,location.origin);$('#publish-dialog h2').textContent=enabled?'Sign in to publish':setupTitle;if(enabled)$('#publish-message').replaceChildren(element('p',{text:'Sign in with GitHub, load or save the current public draft, then review it before publishing. Your local draft remains available.'}));else $('#publish-message').innerHTML=setupMessage;$('#confirm-publish').hidden=true;$('#publish-dialog').showModal();}
@@ -37,7 +40,7 @@ function checkpoint(){
 }
 function lockEditing(label){
  if(operation)return false;operation=label;
- operationControls=[...document.querySelectorAll('#save,#publish,#load-remote,#signin,#logout,#undo,#redo,#import,#editor-section,#open-preview,#export,#open-stats')].map(node=>[node,node.disabled]);
+ operationControls=[...document.querySelectorAll('#save,#publish,#load-remote,#signin,#logout,#undo,#redo,#import,#editor-section,#open-preview,#popout-preview,#export,#open-stats')].map(node=>[node,node.disabled]);
  operationControls.forEach(([node])=>{node.disabled=true;});document.querySelectorAll('#fields,#editor-nav,#preview,#canvas-toolbar,.preview-tools,.recovery-copies').forEach(node=>{node.inert=true;});return true;
 }
 function unlockEditing(){operation='';operationControls.forEach(([node,disabled])=>{node.disabled=disabled;});operationControls=[];document.querySelectorAll('#fields,#editor-nav,#preview,#canvas-toolbar,.preview-tools,.recovery-copies').forEach(node=>{node.inert=false;});if(friendly&&!publishingReady(publishing,location.origin))$('#publish').disabled=true;updateButtons();}
@@ -65,7 +68,8 @@ function valid(){
 }
 function changed(options={}){
  clearTimeout(changeTimer);changeTimer=setTimeout(()=>{history.push(prior);if(history.length>40)history.shift();future=[];prior=JSON.stringify(data);updateButtons();},350);
- revision++;updateButtons();status(remote?.isConnected()?'Unsaved changes. Save Draft to keep them locally and on the public GitHub draft.':'Unsaved changes. Save Draft to keep them in this browser.');clearTimeout(previewTimer);if(options.repaint!==false)previewTimer=setTimeout(updatePreview,700);
+ revision++;updateButtons();status(remote?.isConnected()?'Unsaved changes. Save Draft to keep them locally and on the public GitHub draft.':'Unsaved changes. Save Draft to keep them in this browser.');clearTimeout(previewTimer);if(options.repaint!==false||popout.isOpen())previewTimer=setTimeout(updatePreview,700);
+ popout.pending();
 }
 function settleHistory(){if(changeTimer){clearTimeout(changeTimer);changeTimer=null;if(prior!==JSON.stringify(data)){history.push(prior);future=[];prior=JSON.stringify(data);}}updateButtons();}
 function updateButtons(){$('#undo').disabled=!!operation||!history.length&&!(changeTimer&&prior!==JSON.stringify(data));$('#redo').disabled=!!operation||!future.length;updateSaveState();}
@@ -109,7 +113,8 @@ function resourceField({key,value,path,set}){
 }
 function updatePreview(){
  clearTimeout(previewTimer);const errors=valid();
- if(errors.length){if(!$('#preview').srcdoc)$('#preview').srcdoc=render(baseline,{base:new URL('../',location.href).href});status(friendly?'Before publishing, please check: '+describeError(errors[0],data,true)+' Save Draft keeps your unfinished edits.':`${errors.length} validation issue${errors.length===1?'':'s'}: ${describeError(errors[0],data)}`,true);$('#preview-status').textContent='Showing the last valid preview. Fix validation errors to update it.';return;}
+ if(errors.length){popout.invalid();if(!$('#preview').srcdoc)$('#preview').srcdoc=render(baseline,{base:new URL('../',location.href).href});status(friendly?'Before publishing, please check: '+describeError(errors[0],data,true)+' Save Draft keeps your unfinished edits.':`${errors.length} validation issue${errors.length===1?'':'s'}: ${describeError(errors[0],data)}`,true);$('#preview-status').textContent='Showing the last valid preview. Fix validation errors to update it.';return;}
+ popout.update();
  const renderRevision=revision,iframe=$('#preview');let route=functional&&['work','projects','skills','passions'].includes(active)?'#'+active:'#work',open=[],scroll=0;
  // A second edit can arrive while srcdoc is still loading. Preserve the last
  // usable view instead of reading the temporary, collapsed replacement DOM.
@@ -127,7 +132,7 @@ function revealError(error){
  const reveal=()=>{
   valid();const fields=$('#fields');
   for(const node of fields.querySelectorAll('details[data-path]'))if(error.path===node.dataset.path||error.path.startsWith(node.dataset.path+'.')||error.path.startsWith(node.dataset.path+'['))node.open=true;
-  const field=[...fields.querySelectorAll('input,textarea,select')].find(n=>n.dataset.path===error.path);
+  const field=[...fields.querySelectorAll('input,textarea,select')].find(n=>n.dataset.path===error.path)||[...fields.querySelectorAll('input,textarea,select')].find(n=>n.dataset.path?.startsWith(error.path+'.')||n.dataset.path?.startsWith(error.path+'['));
   if(field){for(let node=field.parentElement;node&&node!==fields;node=node.parentElement)if(node.tagName==='DETAILS')node.open=true;field.focus();}
   else if(++attempts<16)requestAnimationFrame(reveal);
  };reveal();
