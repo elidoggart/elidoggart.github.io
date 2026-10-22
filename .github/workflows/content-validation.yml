@@ -28,6 +28,17 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Check Playwright container version
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const pkg=JSON.parse(fs.readFileSync('package.json'));
+          const lock=JSON.parse(fs.readFileSync('package-lock.json'));
+          const workflow=fs.readFileSync('.github/workflows/content-validation.yml','utf8');
+          const image=workflow.match(/^\s+image: mcr\.microsoft\.com\/playwright:v([\d.]+)-noble@sha256:[a-f0-9]{64}$/m);
+          const version=pkg.devDependencies['@playwright/test'];
+          if(!image||image[1]!==version||lock.packages['node_modules/@playwright/test'].version!==version)throw Error('Keep Playwright, its lockfile and the CI image at the same version. Update the container tag and verified digest in the Playwright dependency PR.');
+          NODE
       - run: npm ci --ignore-scripts
       - run: npm run validate
       - run: npm test
@@ -37,6 +48,12 @@ jobs:
     # Separate runners isolate each engine's fixture server and test artifacts.
     timeout-minutes: 10
     runs-on: ubuntu-24.04
+    container:
+      # Keep this image version/digest aligned with @playwright/test in package.json
+      # and package-lock.json. Browsers and OS libraries are already installed.
+      image: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+      # Match the hosted runner's workspace ownership; no root or extra capabilities.
+      options: --user 1001 --init
     strategy:
       fail-fast: false
       matrix:
@@ -52,7 +69,6 @@ jobs:
           node-version: '22'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install --with-deps "$TEST_BROWSER"
       - run: npm run test:browser
       - name: Keep failed UI test diagnostics
         if: failure()
@@ -62,6 +78,8 @@ jobs:
           path: |
             test-results/${{ matrix.browser }}/
             .local/parity-*.png
+          # The explicit .local glob contains only generated parity screenshots.
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
 

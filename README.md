@@ -56,3 +56,5 @@ Generated builds, installed dependencies, downloads and test results are ignored
 Undo a released change with a reviewed revert commit through the same checks. Keep dependencies and Actions pinned, and review upgrades explicitly. See the [reliability audit](docs/editor-reliability-audit.md) and [GitHub maintenance review](docs/github-maintenance-review.md).
 
 Dependabot opens weekly npm and GitHub Actions update PRs, with minor/patch updates grouped and major upgrades reviewed separately. Security fixes can arrive sooner. Updates are not automatically merged. CodeQL and secret scanning provide additional security checks; report vulnerabilities through the [security policy](SECURITY.md).
+
+Browser CI uses the official Playwright container pinned by version and digest. When updating `@playwright/test`, update that image tag and verified digest in the same PR; validation checks that the package, lockfile and image versions agree. Dependabot does not update job container images itself.

@@ -9,6 +9,7 @@ This review addresses missing automation:
 | Area | Current behavior |
 | --- | --- |
 | Browser checks | Every PR and manual validation run exercises Chromium and WebKit on separate runners. One final `validate` result requires successful unit/asset/build checks and both browser jobs. Failed, cancelled or skipped prerequisites cannot produce a successful gate. |
+| Browser runner reliability | Two hosted WebKit runs stalled downloading Ubuntu packages before tests. Browser jobs now use the official version-matched Playwright container pinned to its verified registry digest, eliminating per-run OS dependency installation. A configuration check requires package, lockfile and image versions to agree. Update the image tag and digest in Playwright dependency PRs. |
 | Mutable portfolio content | Browser checks allow optional photos/videos to be removed through the editor; generic current-content navigation and mobile checks still run. |
 | Dependency alerts | Dependabot vulnerability alerts and automatic security-update PRs are enabled. The reviewed lockfile has zero known npm advisories as of this review. |
 | Version updates | Dependabot checks npm and Actions every Monday, with three open version PRs per ecosystem, grouped minor/patch updates, and separate major updates. Security PRs are independent. There is no automatic merging. |
