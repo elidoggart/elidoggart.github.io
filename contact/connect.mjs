@@ -5,7 +5,7 @@ import {randomBytes,createHash} from 'node:crypto';
 const credentials=JSON.parse(await fs.readFile(process.argv[2],'utf8')).web;
 const folder=process.argv[3];
 if(!credentials?.client_id||!credentials.client_secret||!folder)throw Error('Usage: node contact/connect.mjs CLIENT_JSON FOLDER_ID');
-const origin='http://localhost:4188',scope='https://www.googleapis.com/auth/drive.file';
+const origin='http://localhost:4188',scope='https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/gmail.send';
 const session=randomBytes(32).toString('hex'),state=randomBytes(32).toString('hex'),verifier=randomBytes(32).toString('base64url');
 let token,apiKey='',consumed=false;
 const js=value=>JSON.stringify(value).replaceAll('<','\\u003c');
@@ -20,7 +20,7 @@ const server=http.createServer(async(req,res)=>{
   if(req.method==='POST'&&(req.headers.origin!==origin||!sameSession))return send(403,'Invalid session');
   if(req.method==='GET'&&url.pathname==='/'){
    if(req.headers['sec-fetch-site']==='cross-site')return send(403,'Open localhost directly.');
-   return send(200,page(`<p>This connects your private upload folder using Google's selected-file permission.</p><form method="post" action="/authorize"><label>Google Picker API key <input type="password" name="key" required autocomplete="off"></label><p><button>Authorize Google Drive</button></p></form>`),{'Set-Cookie':`portfolio_setup=${session}; HttpOnly; SameSite=Lax; Path=/`});
+   return send(200,page(`<p>This connects your private upload folder and enables submission notifications using Google's send-email permission. It does not request permission to read your inbox.</p><form method="post" action="/authorize"><label>Google Picker API key <input type="password" name="key" required autocomplete="off"></label><p><button>Authorize Google Drive</button></p></form>`),{'Set-Cookie':`portfolio_setup=${session}; HttpOnly; SameSite=Lax; Path=/`});
   }
   if(req.method==='POST'&&url.pathname==='/authorize'){
    apiKey=(await readForm(req)).get('key')||'';if(!/^AIza[\w-]{20,}$/.test(apiKey))return send(400,'Enter the Google Picker API key.');
@@ -32,7 +32,7 @@ const server=http.createServer(async(req,res)=>{
    consumed=true;
    const response=await fetch('https://oauth2.googleapis.com/token',{method:'POST',redirect:'error',signal:AbortSignal.timeout(20000),body:new URLSearchParams({client_id:credentials.client_id,client_secret:credentials.client_secret,code:url.searchParams.get('code'),code_verifier:verifier,redirect_uri:origin+'/callback',grant_type:'authorization_code'})});
    if(!response.ok)throw Error('Google authorization failed');token=await response.json();
-   if(!token.refresh_token||!token.access_token||!token.scope?.split(' ').includes(scope))throw Error('Google did not return the requested offline authorization');
+   if(!token.refresh_token||!token.access_token||!scope.split(' ').every(item=>token.scope?.split(' ').includes(item)))throw Error('Google did not return the requested offline authorization');
    return send(302,'',{Location:'/choose'});
   }
   if(req.method==='GET'&&url.pathname==='/choose'&&sameSession&&token){
