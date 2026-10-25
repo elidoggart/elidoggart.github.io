@@ -70,7 +70,7 @@ test('notifies only the owner with Unicode name and private folder link',async()
  assert.deepEqual(message.to,['elidoggart@gmail.com']);assert.equal(message.from,'Portfolio notifications <notifications@notify.elidoggart.com>');
  assert.equal(call.options.headers.Authorization,'Bearer resend-secret');assert.equal(call.options.headers['Idempotency-Key'],'portfolio-submission-submission-folder');
  assert.equal(message.subject,'New portfolio submission: Zoë 李 Bcc: attacker@example.com');
- assert.match(message.text,/drive.google.com\/drive\/folders\/submission-folder/);
+ assert.match(message.text,/https:\/\/drive\.google\.com\/drive\/folders\/submission-folder/);
  assert.deepEqual(Object.keys(message).sort(),['from','subject','text','to']);
  assert.deepEqual(JSON.parse(calls.at(-1).options.body).appProperties,{contactNotification:'sent'});
  assert.match(decodeURIComponent(calls[1].url),/pending/);
