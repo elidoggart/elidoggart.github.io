@@ -1,0 +1,9 @@
+{
+  "name": "portfolio-contact",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-25",
+  "workers_dev": true,
+  "observability": {"enabled": false},
+  "vars": {"SITE_ORIGIN": "https://www.elidoggart.com"},
+  "ratelimits": [{"name": "UPLOAD_LIMITER", "namespace_id": "1001", "simple": {"limit": 5, "period": 60}}]
+}

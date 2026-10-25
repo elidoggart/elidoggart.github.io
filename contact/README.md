@@ -1,0 +1,19 @@
+# Private contact uploads
+
+The contact card accepts optional name, email, message, and attachment fields. Any file type up to 50 MiB is accepted; message-only and blank submissions are supported. Each submission creates its own timestamped folder inside the fixed private destination, containing submission.txt with the entered fields and the optional attachment. No email notification is sent.
+
+The Worker refreshes an owner-authorized Google token server-side. Store `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `DRIVE_FOLDER_ID`, and a random `UPLOAD_SESSION_KEY` (at least 32 characters) in Worker secret bindings. Never put these in portfolio content, browser code, or Git. Use `drive.file` authorization and explicitly select the destination using Google Picker. An existing folder URL alone does not grant the app access. Service accounts cannot own files in a personal My Drive folder.
+
+Run `node contact/connect.mjs PATH_TO_CLIENT_JSON DESTINATION_FOLDER_ID` for the local setup page. It uses a Picker-only API key and saves the owner token in ignored `.local/contact-secrets/worker-secrets.json` with owner-only file permissions. The helper also generates the private upload-session encryption key.
+
+Enable Drive and Picker APIs in the owner-controlled Google Cloud project. Configure the consent screen and OAuth web client. The one-time local connection uses `http://localhost:4188` and callback `http://localhost:4188/callback`. Keep client JSON and resulting tokens private. A Google OAuth app in Testing can have refresh tokens expire after seven days; resolve production status before enabling the public form.
+
+Deploy `contact/worker.mjs` with the bindings in `wrangler.jsonc`. Confirm the rate limit namespace is unused by other applications before deploying. The rate limiter is a per-IP, per-location abuse mitigation, not a strict global storage budget. No visitor list, public read endpoint, or permission-changing endpoint is exposed. The folder must remain Restricted; inherited sharing would also apply to uploaded files. File types are unrestricted as requested; this is not a malware scanner.
+
+After verifying a real upload reaches the private folder, set the GitHub repository variable `CONTACT_UPLOAD_ENDPOINT` to the Worker's HTTPS `/upload` URL and run the Pages workflow. The form is absent when the variable is unset. To preview before deployment, set this environment variable for `npm run build`. Remove the variable and rebuild to disable the public UI; remove the Worker refresh-token binding to stop server uploads immediately.
+
+Validation: `node --test tests/contact-upload.test.mjs`, `npm test`, and `npm run build`. Test the live integration with a clearly labeled sample VCF, confirm its description and private access in Drive, and verify the visitor sees success only after Drive confirms creation. Do not claim the integration is live based on mocked tests alone.
+
+References: [Drive uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads), [Google Picker](https://developers.google.com/workspace/drive/picker/guides/web-picker), [OAuth offline access](https://developers.google.com/identity/protocols/oauth2/web-server), [Cloudflare rate limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
+
+Uploads use two requests: a small JSON POST creates the submission folder and text file, then the attachment is streamed in a PUT through the Worker into a Google resumable upload. An encrypted, expiring, IP-bound session fixes the destination and byte count. Google credentials and the resumable session URL never reach the visitor. Failed file transfers can leave a submission folder and text file; the UI preserves fields and reports uncertainty without automatically resubmitting.
