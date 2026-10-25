@@ -20,10 +20,10 @@ const output=path.join(root,browserTest?'.local/browser-dist':'dist');await fs.r
 const retiredResumes=new Set(['assets/documents/Eli-Doggart-Resume.pdf','assets/documents/resume-68597ad7e549c03f98bd.pdf','assets/documents/resume-0232d025924d450c9098.pdf']);
 const currentDocuments=new Set(documentPaths(data));
 const publishAsset=source=>{const relative=path.relative(root,source).split(path.sep).join('/');return browserTest||!retiredResumes.has(relative)||currentDocuments.has(relative);};
-for(const f of ['assets','style.css','app.js','stats-client.mjs','l','CNAME','.nojekyll','README.txt','accelerate.html','mott.html','nimbus.html','favicon-flow.svg','favicon-32.png','favicon.ico','apple-touch-icon.png','editor','lib','content'])await fs.cp(path.join(root,f),path.join(output,f),{recursive:true,filter:publishAsset});
+for(const f of ['assets','style.css','app.js','stats-client.mjs','contact-upload.mjs','contact-privacy.html','l','CNAME','.nojekyll','README.txt','accelerate.html','mott.html','nimbus.html','favicon-flow.svg','favicon-32.png','favicon.ico','apple-touch-icon.png','editor','lib','content'])await fs.cp(path.join(root,f),path.join(output,f),{recursive:true,filter:publishAsset});
 await fs.cp(path.join(root,'arcade'),path.join(output,'arcade'),{recursive:true,filter:source=>!['tests','research','README.md'].includes(path.basename(source))});
 await fs.writeFile(path.join(output,'content/portfolio.json'),raw);
-await fs.writeFile(path.join(output,'index.html'),render(data,{stats:true}));
+await fs.writeFile(path.join(output,'index.html'),render(data,{stats:true,uploadEndpoint:process.env.CONTACT_UPLOAD_ENDPOINT||''}));
 // Regenerate the contact whenever the published email or phone changes.
 const portrait=await fs.readFile(path.join(root,'assets/images/contact-portrait.jpg'));
 const [firstName,...lastName]=data.site.name.trim().split(/\s+/);
