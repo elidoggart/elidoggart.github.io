@@ -550,7 +550,7 @@
                   },
                   {
                     "type": "section",
-                    "title": "5 Cell Test Cart Improvements",
+                    "title": "Test Cart Improvements",
                     "level": 5,
                     "chapter": true,
                     "blocks": []
@@ -635,73 +635,6 @@
                             "credit": "",
                             "linked": true,
                             "linkLabel": "Open image: Heater: archived work image 1",
-                            "lazy": true
-                          }
-                        ]
-                      }
-                    ],
-                    "layout": "split"
-                  },
-                  {
-                    "type": "section",
-                    "title": "Feet",
-                    "level": 6,
-                    "chapter": false,
-                    "blocks": [
-                      {
-                        "type": "text",
-                        "text": "I made nonconductive supports for the fuel cell.",
-                        "style": "body"
-                      },
-                      {
-                        "type": "gallery",
-                        "layout": "grid",
-                        "images": [
-                          {
-                            "media": "nimbus-28",
-                            "alt": "Feet: archived work image 1",
-                            "caption": "",
-                            "credit": "",
-                            "linked": true,
-                            "linkLabel": "Open image: Feet: archived work image 1",
-                            "lazy": true
-                          },
-                          {
-                            "media": "nimbus-29",
-                            "alt": "Feet: archived work image 2",
-                            "caption": "",
-                            "credit": "",
-                            "linked": true,
-                            "linkLabel": "Open image: Feet: archived work image 2",
-                            "lazy": true
-                          }
-                        ]
-                      }
-                    ],
-                    "layout": "split"
-                  },
-                  {
-                    "type": "section",
-                    "title": "Insulating Jacket",
-                    "level": 6,
-                    "chapter": false,
-                    "blocks": [
-                      {
-                        "type": "text",
-                        "text": "I made an insulating jacket to retain heat and help keep the temperature even through the stack.",
-                        "style": "body"
-                      },
-                      {
-                        "type": "gallery",
-                        "layout": "single",
-                        "images": [
-                          {
-                            "media": "nimbus-30",
-                            "alt": "Insulating Jacket: archived work image 1",
-                            "caption": "",
-                            "credit": "",
-                            "linked": true,
-                            "linkLabel": "Open image: Insulating Jacket: archived work image 1",
                             "lazy": true
                           }
                         ]
