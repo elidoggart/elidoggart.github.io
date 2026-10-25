@@ -49,7 +49,7 @@ test('provider failure does not report success or expose credentials',async()=>{
 });
 test('form is optional, unrestricted, and uses a secure endpoint',()=>{
  assert.equal(contactUpload('',escape),'');assert.throws(()=>contactUpload('http://example.com',escape));const html=contactUpload('https://example.com/upload',escape);
- assert.match(html,/50 MB/);assert.doesNotMatch(html,/required|accept=|Share your résumé/);
+ assert.match(html,/50 MB/);assert.doesNotMatch(html,/required|accept=|Share your résumé|Any file type|How submissions are stored/);
 });
 
 test('does not follow provider redirects with credentials',async()=>{let calls=0;const response=await handle(request(),env,{fetcher:async(url,options)=>{calls++;assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://untrusted.example'}});}});assert.equal(response.status,502);assert.equal(calls,1);});
