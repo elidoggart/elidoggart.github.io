@@ -126,7 +126,13 @@
                     "level": 4,
                     "chapter": true,
                     "layout": "stacked",
-                    "blocks": []
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "text": "I coordinated with multiple domestic and international suppliers to ensure parts made to spec with numerous challenging supply chain and manufacturing issues. Our shop went from making one to two 3 cell stacks per month to making a 240 cell stack every month. ",
+                        "style": "body"
+                      }
+                    ]
                   },
                   {
                     "type": "section",
