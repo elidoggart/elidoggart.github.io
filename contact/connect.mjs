@@ -36,7 +36,7 @@ const server=http.createServer(async(req,res)=>{
    return send(302,'',{Location:'/choose'});
   }
   if(req.method==='GET'&&url.pathname==='/choose'&&sameSession&&token){
-   return send(200,page(`<p>Select <strong>Portfolio uploads</strong>. Only that folder and files created by this app will be used.</p><button id="choose" disabled>Choose upload folder</button><p id="status"></p><script>
+   return send(200,page(`<p>Select <strong>Portfolio uploads</strong>. Only that folder and files created by this app will be used.</p><form method="post" action="/finish"><input type="hidden" name="folder" value="${folder}"><button>Reconnect existing upload folder</button></form><button id="choose" disabled>Choose upload folder</button><p id="status"></p><script>
    function loaded(){gapi.load('picker',()=>{document.getElementById('choose').disabled=false;});}
    document.getElementById('choose').onclick=()=>{
     const view=new google.picker.DocsView().setIncludeFolders(true).setSelectFolderEnabled(true).setMimeTypes('application/vnd.google-apps.folder').setMode(google.picker.DocsViewMode.LIST);
@@ -55,7 +55,8 @@ const server=http.createServer(async(req,res)=>{
    if(!response.ok)throw Error('The selected folder is not yet accessible');const info=await response.json();
    if(info.mimeType!=='application/vnd.google-apps.folder'||!info.capabilities?.canAddChildren)throw Error('The folder does not allow uploads');
    await fs.mkdir('.local/contact-secrets',{recursive:true,mode:0o700});
-   await fs.writeFile('.local/contact-secrets/worker-secrets.json',JSON.stringify({GOOGLE_CLIENT_ID:credentials.client_id,GOOGLE_CLIENT_SECRET:credentials.client_secret,GOOGLE_REFRESH_TOKEN:token.refresh_token,DRIVE_FOLDER_ID:folder,UPLOAD_SESSION_KEY:randomBytes(32).toString('base64url')}),{mode:0o600});
+   const previous=await fs.readFile('.local/contact-secrets/worker-secrets.json','utf8').then(JSON.parse).catch(()=>({}));
+   await fs.writeFile('.local/contact-secrets/worker-secrets.json',JSON.stringify({GOOGLE_CLIENT_ID:credentials.client_id,GOOGLE_CLIENT_SECRET:credentials.client_secret,GOOGLE_REFRESH_TOKEN:token.refresh_token,DRIVE_FOLDER_ID:folder,UPLOAD_SESSION_KEY:previous.DRIVE_FOLDER_ID===folder&&previous.UPLOAD_SESSION_KEY||randomBytes(32).toString('base64url')}),{mode:0o600});
    return send(200,'Connected. The private authorization is saved locally for deployment. You can close this tab.');
   }
   send(404,'Not found');
