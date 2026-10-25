@@ -6,7 +6,7 @@ import {escape} from '../lib/render.mjs';
 const env={SITE_ORIGIN:'https://www.elidoggart.com',GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'secret',GOOGLE_REFRESH_TOKEN:'refresh',DRIVE_FOLDER_ID:'destination',UPLOAD_SESSION_KEY:'a'.repeat(64),UPLOAD_LIMITER:{limit:async()=>({success:true})}};
 function request(data={},origin=env.SITE_ORIGIN){return new Request('https://contact.example/upload',{method:'POST',headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.1','Content-Type':'application/json'},body:JSON.stringify(data)});}
 function google(calls=[]){return async(url,options)=>{
- calls.push({url,options});
+ calls.push({url,options});assert.equal(options.redirect,'manual');
  if(url.includes('oauth2'))return Response.json({access_token:'access'});
  if(url.includes('uploadType=resumable'))return new Response(null,{headers:{Location:'https://www.googleapis.com/upload/drive/v3/files?upload_id=test'}});
  if(options.method==='PUT')await new Response(options.body).arrayBuffer();
@@ -51,3 +51,5 @@ test('form is optional, unrestricted, and uses a secure endpoint',()=>{
  assert.equal(contactUpload('',escape),'');assert.throws(()=>contactUpload('http://example.com',escape));const html=contactUpload('https://example.com/upload',escape);
  assert.match(html,/50 MB/);assert.doesNotMatch(html,/required|accept=|Share your résumé/);
 });
+
+test('does not follow provider redirects with credentials',async()=>{let calls=0;const response=await handle(request(),env,{fetcher:async(url,options)=>{calls++;assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://untrusted.example'}});}});assert.equal(response.status,502);assert.equal(calls,1);});
