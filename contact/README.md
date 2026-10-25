@@ -1,6 +1,6 @@
 # Private contact uploads
 
-The contact card accepts optional name, email, message, and attachment fields. Any file type up to 50 MiB is accepted; message-only and blank submissions are supported. Each submission creates its own timestamped folder inside the fixed private destination, containing submission.txt with the entered fields and the optional attachment. No email notification is sent.
+The contact card accepts optional name, email, message, and attachment fields. Any file type up to 50 MiB is accepted; message-only and blank submissions are supported. Each submission creates its own timestamped folder inside the fixed private destination, containing submission.txt with the entered fields and the optional attachment. Completed submissions are queued on their Drive folder and emailed to elidoggart@gmail.com by a Worker scheduled every minute. The notification includes the name (or “Name not provided”) and private folder link. Resend receives only these notification details, not attachments or the full message.
 
 The Worker refreshes an owner-authorized Google token server-side. Store `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `DRIVE_FOLDER_ID`, and a random `UPLOAD_SESSION_KEY` (at least 32 characters) in Worker secret bindings. Never put these in portfolio content, browser code, or Git. Use `drive.file` authorization and explicitly select the destination using Google Picker. An existing folder URL alone does not grant the app access. Service accounts cannot own files in a personal My Drive folder.
 
@@ -17,3 +17,9 @@ Validation: `node --test tests/contact-upload.test.mjs`, `npm test`, and `npm ru
 References: [Drive uploads](https://developers.google.com/workspace/drive/api/guides/manage-uploads), [Google Picker](https://developers.google.com/workspace/drive/picker/guides/web-picker), [OAuth offline access](https://developers.google.com/identity/protocols/oauth2/web-server), [Cloudflare rate limiting](https://developers.cloudflare.com/workers/runtime-apis/bindings/rate-limit/).
 
 Uploads use two requests: a small JSON POST creates the submission folder and text file, then the attachment is streamed in a PUT through the Worker into a Google resumable upload. An encrypted, expiring, IP-bound session fixes the destination and byte count. Google credentials and the resumable session URL never reach the visitor. Failed file transfers can leave a submission folder and text file; the UI preserves fields and reports uncertainty without automatically resubmitting.
+
+## Email notifications
+
+Use Resend’s free plan with the verified sending subdomain `notify.elidoggart.com`. Store a sending-only, domain-restricted key as the encrypted Worker secret `RESEND_API_KEY`; Google authorization stays `drive.file` only. The sender is `notifications@notify.elidoggart.com` and recipient is fixed to `elidoggart@gmail.com`. Configure the `* * * * *` cron trigger. No Gmail access is requested or used.
+
+Only fully saved submissions receive a pending marker. The scheduled task sends up to ten pending notifications per run, and leaves failed sends pending for retry. Resend idempotency keys prevent duplicate sends during its 24-hour retention window. A persistent failure recording success in Drive beyond that window can produce a duplicate. Provider quota/rate limits delay notifications; they do not stop uploads. Old submissions without a pending marker are not emailed retroactively. Confirm a live email is delivered before claiming notifications work.

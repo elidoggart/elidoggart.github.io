@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handle} from '../contact/worker.mjs';
+import {handle,sendPendingNotifications} from '../contact/worker.mjs';
 import {contactUpload} from '../lib/contact-upload.mjs';
 import {escape} from '../lib/render.mjs';
-const env={SITE_ORIGIN:'https://www.elidoggart.com',GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'secret',GOOGLE_REFRESH_TOKEN:'refresh',DRIVE_FOLDER_ID:'destination',UPLOAD_SESSION_KEY:'a'.repeat(64),UPLOAD_LIMITER:{limit:async()=>({success:true})}};
+const env={SITE_ORIGIN:'https://www.elidoggart.com',RESEND_API_KEY:'resend-secret',GOOGLE_CLIENT_ID:'client',GOOGLE_CLIENT_SECRET:'secret',GOOGLE_REFRESH_TOKEN:'refresh',DRIVE_FOLDER_ID:'destination',UPLOAD_SESSION_KEY:'a'.repeat(64),UPLOAD_LIMITER:{limit:async()=>({success:true})}};
 function request(data={},origin=env.SITE_ORIGIN){return new Request('https://contact.example/upload',{method:'POST',headers:{Origin:origin,'CF-Connecting-IP':'192.0.2.1','Content-Type':'application/json'},body:JSON.stringify(data)});}
 function google(calls=[]){return async(url,options)=>{
  calls.push({url,options});assert.equal(options.redirect,'manual');
@@ -14,7 +14,7 @@ function google(calls=[]){return async(url,options)=>{
 };}
 test('saves optional fields in a text file inside a new private submission folder',async()=>{
  const calls=[],response=await handle(request({name:'Example',email:'example@example.com',message:'Hello'}),env,{fetcher:google(calls)});
- assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});assert.equal(calls.length,3);
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});assert.equal(calls.length,4);assert.deepEqual(JSON.parse(calls[3].options.body).appProperties,{contactNotification:'pending'});
  const metadata=JSON.parse(calls[1].options.body);assert.deepEqual(metadata.parents,['destination']);assert.equal(metadata.mimeType,'application/vnd.google-apps.folder');
  const details=await calls[2].options.body.text();assert.match(details,/"parents":\["submission-folder"\]/);assert.match(details,/"name":"submission.txt"/);assert.match(details,/Email: example@example.com/);assert.match(details,/Message:\nHello/);assert.doesNotMatch(details,/anyone|permissions/);
 });
@@ -26,7 +26,7 @@ test('accepts arbitrary file types and streams the upload to the same submission
  const start=await handle(request({file:{name:'design.step',size:3}}),env,{fetcher});const {session}=await start.json();assert.ok(session);assert.doesNotMatch(session,/googleapis|access/);
  assert.deepEqual(JSON.parse(calls[3].options.body).parents,['submission-folder']);assert.equal(JSON.parse(calls[3].options.body).name,'design.step');
  const response=await handle(new Request('https://contact.example/upload',{method:'PUT',headers:{Origin:env.SITE_ORIGIN,'CF-Connecting-IP':'192.0.2.1','X-Upload-Session':session},body:'abc'}),env,{fetcher});
- assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});assert.equal(calls.at(-1).options.body instanceof ReadableStream,true);
+ assert.equal(response.status,200);assert.deepEqual(await response.json(),{ok:true});assert.equal(calls.find(call=>call.options.method==='PUT').options.body instanceof ReadableStream,true);assert.equal(calls.at(-1).options.method,'PATCH');
 });
 test('allows 50 MB and rejects larger files before calling Google',async()=>{
  const response=await handle(request({file:{name:'archive.zip',size:50*1024*1024}}),env,{fetcher:google()});assert.equal(response.status,200);assert.ok((await response.json()).session);
@@ -53,3 +53,40 @@ test('form is optional, unrestricted, and uses a secure endpoint',()=>{
 });
 
 test('does not follow provider redirects with credentials',async()=>{let calls=0;const response=await handle(request(),env,{fetcher:async(url,options)=>{calls++;assert.equal(options.redirect,'manual');return new Response(null,{status:302,headers:{Location:'https://untrusted.example'}});}});assert.equal(response.status,502);assert.equal(calls,1);});
+
+function notificationGoogle(name,{failSend=false,failPatch=false}={}){
+ const calls=[];return {calls,fetcher:async(url,options)=>{
+  calls.push({url,options});assert.equal(options.redirect,'manual');
+  if(url.includes('oauth2'))return Response.json({access_token:'access'});
+  if(url==='https://api.resend.com/emails')return failSend?new Response('',{status:503}):Response.json({id:'mail-id'});
+  if(options.method==='PATCH')return failPatch?new Response('',{status:503}):Response.json({id:'submission-folder'});
+  return Response.json({files:[{id:'submission-folder',description:JSON.stringify({name})}]});
+ }};
+}
+test('notifies only the owner with Unicode name and private folder link',async()=>{
+ const {calls,fetcher}=notificationGoogle('Zoë 李\r\nBcc: attacker@example.com');
+ assert.deepEqual(await sendPendingNotifications(env,{fetcher}),{sent:1,failed:0});
+ const call=calls.find(c=>c.url==='https://api.resend.com/emails'),message=JSON.parse(call.options.body);
+ assert.deepEqual(message.to,['elidoggart@gmail.com']);assert.equal(message.from,'Portfolio notifications <notifications@notify.elidoggart.com>');
+ assert.equal(call.options.headers.Authorization,'Bearer resend-secret');assert.equal(call.options.headers['Idempotency-Key'],'portfolio-submission-submission-folder');
+ assert.equal(message.subject,'New portfolio submission: Zoë 李 Bcc: attacker@example.com');
+ assert.match(message.text,/drive.google.com\/drive\/folders\/submission-folder/);
+ assert.deepEqual(Object.keys(message).sort(),['from','subject','text','to']);
+ assert.deepEqual(JSON.parse(calls.at(-1).options.body).appProperties,{contactNotification:'sent'});
+ assert.match(decodeURIComponent(calls[1].url),/pending/);
+});
+test('blank names use a clear notification fallback',async()=>{
+ const {calls,fetcher}=notificationGoogle('');await sendPendingNotifications(env,{fetcher});
+ const message=JSON.parse(calls.find(c=>c.url==='https://api.resend.com/emails').options.body);
+ assert.match(message.text,/Name: Name not provided/);
+});
+test('failed notifications stay pending for the next scheduled attempt',async()=>{
+ const {calls,fetcher}=notificationGoogle('Example',{failSend:true});assert.deepEqual(await sendPendingNotifications(env,{fetcher}),{sent:0,failed:1});assert.equal(calls.some(c=>c.options.method==='PATCH'),false);
+});
+test('unfinished file uploads are not queued for notification',async()=>{
+ const calls=[];await handle(request({name:'Example',file:{name:'test.zip',size:3}}),env,{fetcher:google(calls)});assert.equal(calls.some(c=>c.options.method==='PATCH'),false);
+});
+
+test('missing Resend configuration does not call Google or an email provider',async()=>{
+ await assert.rejects(sendPendingNotifications({...env,RESEND_API_KEY:''},{fetcher:()=>assert.fail('No provider calls expected')}),/notification_configuration/);
+});

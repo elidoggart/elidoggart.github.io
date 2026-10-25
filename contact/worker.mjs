@@ -15,6 +15,33 @@ async function accessToken(env,fetcher){
  const response=await fetcher('https://oauth2.googleapis.com/token',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(15000),body:new URLSearchParams({client_id:env.GOOGLE_CLIENT_ID,client_secret:env.GOOGLE_CLIENT_SECRET,refresh_token:env.GOOGLE_REFRESH_TOKEN,grant_type:'refresh_token'})});
  if(!response.ok){const problem=await response.json().catch(()=>({}));throw Error(['invalid_client','invalid_grant','unauthorized_client'].includes(problem.error)?problem.error:'authorization');}const token=await response.json();if(!token.access_token)throw Error('authorization');return token.access_token;
 }
+async function notificationState(folder,state,token,fetcher){
+ const response=await fetcher('https://www.googleapis.com/drive/v3/files/'+encodeURIComponent(folder)+'?fields=id',{method:'PATCH',redirect:'manual',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({appProperties:{contactNotification:state}})});
+ if(!response.ok)throw Error('notification_state');
+}
+const NOTIFICATION_EMAIL='elidoggart@gmail.com';
+function notificationMessage(folder,name){
+ const label=(typeof name==='string'?name:'').replace(/[\u0000-\u001f\u007f]+/g,' ').trim()||'Name not provided';
+ return {from:'Portfolio notifications <notifications@notify.elidoggart.com>',to:[NOTIFICATION_EMAIL],subject:'New portfolio submission: '+label,text:'You received a new submission through your portfolio contact page.\n\nName: '+label+'\n\nOpen the submission folder:\nhttps://drive.google.com/drive/folders/'+encodeURIComponent(folder)+'\n\nThe folder contains submission.txt and any uploaded attachment.\n'};
+}
+export async function sendPendingNotifications(env,{fetcher=fetch}={}){
+ if(!env.RESEND_API_KEY)throw Error('notification_configuration');
+ const token=await accessToken(env,fetcher);
+ const query=new URLSearchParams({q:"'"+env.DRIVE_FOLDER_ID.replace(/[\\']/g,'\\$&')+"' in parents and trashed = false and appProperties has { key='contactNotification' and value='pending' }",fields:'files(id,description)',pageSize:'10',orderBy:'createdTime'});
+ const response=await fetcher('https://www.googleapis.com/drive/v3/files?'+query,{redirect:'manual',signal:AbortSignal.timeout(15000),headers:{Authorization:'Bearer '+token}});
+ if(!response.ok)throw Error('notification_list');
+ let sent=0,failed=0;
+ for(const folder of (await response.json()).files||[]){
+  try{
+   const name=JSON.parse(folder.description||'{}').name;
+   const result=await fetcher('https://api.resend.com/emails',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(20000),headers:{Authorization:'Bearer '+env.RESEND_API_KEY,'Content-Type':'application/json','Idempotency-Key':'portfolio-submission-'+folder.id},body:JSON.stringify(notificationMessage(folder.id,name))});
+   if(result.status===429){failed++;break;}
+   if(!result.ok||!(await result.json()).id)throw Error('notification_send');
+   await notificationState(folder.id,'sent',token,fetcher);sent++;
+  }catch{failed++;} // Keep pending in Drive so the next scheduled run retries.
+ }
+ return {sent,failed};
+}
 const clean=value=>value.replace(/[\u0000-\u001f\u007f/\\]/g,'_').trim().slice(0,200);
 export async function handle(request,env,{fetcher=fetch,now=()=>Date.now()}={}){
  const origin=request.headers.get('Origin'),headers={'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff',Vary:'Origin'};
@@ -43,6 +70,7 @@ export async function handle(request,env,{fetcher=fetch,now=()=>Date.now()}={}){
    const token=await accessToken(env,fetcher);
    const response=await fetcher(url.href,{method:'PUT',redirect:'manual',signal:AbortSignal.timeout(300000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream','Content-Length':String(session.size)},body,duplex:'half'});
    if(!response.ok||!(await response.json()).id)throw Error('upload');
+   if(session.folder)await notificationState(session.folder,'pending',token,fetcher);
    return reply(200,{ok:true});
   }
   if(!(await env.UPLOAD_LIMITER.limit({key:ip})).success)throw new Invalid('Too many submissions. Please try again later.',429);
@@ -54,17 +82,17 @@ export async function handle(request,env,{fetcher=fetch,now=()=>Date.now()}={}){
   if(file!==undefined&&file!==null&&(typeof file!=='object'||Array.isArray(file)||typeof file.name!=='string'||!file.name||file.name.length>255||!Number.isInteger(file.size)||file.size<0||file.size>MAX_FILE))throw new Invalid('Choose a file up to 50 MB.');
   stage='google_authorization';const token=await accessToken(env,fetcher),authorization={Authorization:'Bearer '+token};
   const timestamp=new Date(now()).toISOString(),folderName=timestamp.replace(/[:.]/g,'-')+' - '+(clean(name)||'Submission')+' - '+crypto.randomUUID().slice(0,8);
-  stage='create_folder';const folderResponse=await fetcher('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(15000),headers:{...authorization,'Content-Type':'application/json'},body:JSON.stringify({name:folderName,mimeType:'application/vnd.google-apps.folder',parents:[env.DRIVE_FOLDER_ID]})});
+  stage='create_folder';const folderResponse=await fetcher('https://www.googleapis.com/drive/v3/files?fields=id',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(15000),headers:{...authorization,'Content-Type':'application/json'},body:JSON.stringify({name:folderName,mimeType:'application/vnd.google-apps.folder',parents:[env.DRIVE_FOLDER_ID],description:JSON.stringify({name})})});
   if(!folderResponse.ok)throw Error('folder');const folder=await folderResponse.json();if(!folder.id)throw Error('folder');
   const details=`Submitted: ${timestamp}\nName: ${name}\nEmail: ${email}\nFile: ${file?.name||''}\n\nMessage:\n${message}\n`;
   const boundary='portfolio_'+crypto.randomUUID();
   const detailBody=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({name:'submission.txt',mimeType:'text/plain',parents:[folder.id]})}\r\n--${boundary}\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n${details}\r\n--${boundary}--\r\n`]);
   stage='save_details';const detailResponse=await fetcher('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(15000),headers:{...authorization,'Content-Type':`multipart/related; boundary=${boundary}`},body:detailBody});
   if(!detailResponse.ok||!(await detailResponse.json()).id)throw Error('details');
-  if(!file)return reply(200,{ok:true});
+  if(!file){stage='queue_notification';await notificationState(folder.id,'pending',token,fetcher);return reply(200,{ok:true});}
   stage='start_file';const response=await fetcher('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id',{method:'POST',redirect:'manual',signal:AbortSignal.timeout(15000),headers:{...authorization,'Content-Type':'application/json','X-Upload-Content-Type':'application/octet-stream','X-Upload-Content-Length':String(file.size)},body:JSON.stringify({name:clean(file.name)||'attachment',parents:[folder.id],mimeType:'application/octet-stream'})});
   const uploadURL=response.headers.get('Location');if(!response.ok||!uploadURL)throw Error('session');
-  return reply(200,{session:await seal({url:uploadURL,size:file.size,ip,expires:now()+3600000},env)});
+  return reply(200,{session:await seal({url:uploadURL,folder:folder.id,size:file.size,ip,expires:now()+3600000},env)});
  }catch(error){return reply(error instanceof Invalid?error.status:502,{error:error instanceof Invalid?error.message:'The submission could not be confirmed. Please email me before sending it again.',code:error instanceof Invalid?'invalid_submission':stage+'_'+(['invalid_client','invalid_grant','unauthorized_client','authorization'].includes(error.message)?error.message:error.name)});}
 }
-export default {fetch:handle};
+export default {fetch:handle,scheduled:async(_event,env)=>{await sendPendingNotifications(env);}};
