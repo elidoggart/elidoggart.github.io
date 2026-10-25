@@ -36,7 +36,9 @@ export async function handle(request,env,{fetcher=fetch,now=()=>Date.now()}={}){
    let received=0;
    // Forward the file as a stream, keeping 50 MB uploads out of Worker memory.
    const limited=new TransformStream({transform(chunk,controller){received+=chunk.byteLength;if(received>session.size)throw new Invalid('File exceeds its expected size.',413);controller.enqueue(chunk);},flush(){if(received!==session.size)throw new Invalid('The upload was incomplete.');}});
-   const body=request.body?request.body.pipeThrough(limited):new Uint8Array();
+   let body=request.body?request.body.pipeThrough(limited):new Uint8Array();
+   // Workers ignores a manually set Content-Length on ordinary streams.
+   if(request.body&&typeof FixedLengthStream==='function')body=body.pipeThrough(new FixedLengthStream(session.size));
    const token=await accessToken(env,fetcher);
    const response=await fetcher(url.href,{method:'PUT',redirect:'error',signal:AbortSignal.timeout(300000),headers:{Authorization:'Bearer '+token,'Content-Type':'application/octet-stream','Content-Length':String(session.size)},body,duplex:'half'});
    if(!response.ok||!(await response.json()).id)throw Error('upload');
