@@ -140,7 +140,26 @@
                     "level": 4,
                     "chapter": true,
                     "layout": "stacked",
-                    "blocks": []
+                    "blocks": [
+                      {
+                        "type": "text",
+                        "text": "I helped design and assemble the testing apparatus for the engine keeping in mind safety for pressurized flammable gasses and 1000 VDC. Many modifications were made, components communicate mostly over CAN, Wiring is mostly Deutsch connectors, plumbing is mostly Swagelok. The image to the right shows the engine scale fuel cell on top of the test cart.",
+                        "style": "body"
+                      },
+                      {
+                        "type": "figure",
+                        "layout": "plain",
+                        "image": {
+                          "media": "upload-329b086f50a4c12eeef7",
+                          "alt": "Standing beside a Nimbus fuel-cell system in the laboratory.",
+                          "caption": "",
+                          "credit": "",
+                          "linked": false,
+                          "linkLabel": "",
+                          "lazy": true
+                        }
+                      }
+                    ]
                   }
                 ]
               },
