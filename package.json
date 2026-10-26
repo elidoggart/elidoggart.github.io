@@ -13,8 +13,8 @@
     "draft": "node scripts/import-draft.mjs"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.0",
-    "decap-cms-backend-github": "3.8.3",
+    "@playwright/test": "1.64.1",
+    "decap-cms-backend-github": "3.9.1",
     "esbuild": "0.28.2",
     "pdf-lib": "1.17.1",
     "sharp": "0.35.5"
