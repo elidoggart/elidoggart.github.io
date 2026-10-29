@@ -1,9 +1,14 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later. Original canvas artwork. */
+import {cwoFrequency} from './modules.js';
 const colors=['#72bce5','#6dc98c','#f0f0e6','#e78045'];
 export function drawEffect(g,type,p,peak,time,enabled=true){
  g.save();g.globalAlpha=enabled?1:.35;
  const t=enabled?time:0,energy=enabled?Math.min(1,peak*8):0;
  g.lineWidth=4;g.lineCap='round';g.lineJoin='round';
+ const text=(value,x,y,color=colors[2],size=19)=>{g.fillStyle=color;g.font=size+'px monospace';g.fillText(String(value),x,y);};
+ const meter=(x,y,v,color)=>{for(let i=0;i<12;i++){g.fillStyle=i/12<v?color:'#39413c';g.fillRect(x,y-i*8,18,3);}};
+ const dial=(x,y,v,color)=>{for(let i=0;i<9;i++){const a=Math.PI*(1.1+i*.1);g.strokeStyle='#60716c';g.beginPath();g.moveTo(x+Math.cos(a)*24,y+Math.sin(a)*24);g.lineTo(x+Math.cos(a)*31,y+Math.sin(a)*31);g.stroke();}const a=Math.PI*(1.1+v*.8);g.strokeStyle=color;g.beginPath();g.moveTo(x,y);g.lineTo(x+Math.cos(a)*26,y+Math.sin(a)*26);g.stroke();};
+ const number=(label,v,x,y,color)=>{text(label,x,y,color,18);text(Math.round(v*99),x,y+38,color,35);};
  const line=(points,color=colors[2])=>{g.strokeStyle=color;g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke();};
  const ellipse=(x,y,rx,ry,color,fill=false)=>{g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.strokeStyle=color;g.fillStyle=color;fill?g.fill():g.stroke();};
  if(type==='cwo'){
@@ -11,7 +16,7 @@ export function drawEffect(g,type,p,peak,time,enabled=true){
   // Motion is deliberately limited to a pixel or two; parameter changes keep its anatomy intact.
   const ink='#d8e4df',coat='#7d9699',shade='#52676c',unit=6;
   const bob=0;
-  g.save();g.translate(32,16+bob*unit);g.scale(unit,unit);g.globalAlpha=enabled?1:.4;
+  g.save();g.translate(570,25);g.scale(-5.2,5.2);g.globalAlpha=enabled?1:.4;
   const block=(x,y,w,h,color)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
   const shape=(points,color)=>{g.fillStyle=color;g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fillStyle='#252d2c';g.fill();g.strokeStyle=color;g.lineWidth=.65;g.stroke();};
   // Far legs, tail and udder sit behind the broad body.
@@ -41,25 +46,27 @@ export function drawEffect(g,type,p,peak,time,enabled=true){
   // Broad warm muzzle with dark nostrils and a small mouth.
   shape([[65,21],[78,21],[80,23],[80,27],[78,29],[65,29],[63,27],[63,23]],colors[3]);
   block(66,23,3,2,ink);block(75,23,3,2,ink);block(69,27,5,1,ink);
-  // X-ray signal path: input → frequency shifter → delay → sideband output.
+  // Familiar CWO anatomy: throat, rotor, large stomach, intestine and outlet.
   const wire=(points,color,width=.55)=>{g.strokeStyle=color;g.lineWidth=width;g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke();};
   const ring=(x,y,r,color)=>{g.strokeStyle=color;g.lineWidth=.65;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.stroke();};
-  wire([[64,23],[59,19],[54,19]],colors[0]);
-  ring(49,20,5,colors[0]);
-  const frequency=(p[0]*2-1),angle=enabled?time*frequency*8:0;
-  wire([[49-3*Math.cos(angle),20-3*Math.sin(angle)],[49+3*Math.cos(angle),20+3*Math.sin(angle)]],colors[0],.8);
-  wire([[44,20],[40,20]],colors[1]);
-  ring(34,23,6,colors[1]);
-  const delay=.001+p[1]*.75,travel=enabled?(time/(delay*6+.3))%1:0;
-  for(let i=0;i<8;i++){const a=i*Math.PI/4;block(34+Math.cos(a)*4.2-.5,23+Math.sin(a)*4.2-.5,1,1,'#435852');}
-  const a=travel*Math.PI*2;block(34+Math.cos(a)*4.2-.7,23+Math.sin(a)*4.2-.7,1.4,1.4,colors[1]);
-  // Feedback wraps back to the input; each repeat has the actual feedback decay.
-  wire([[29,19],[29,15],[53,15],[53,17]],'#67736d');
-  for(let i=0;i<5;i++){g.globalAlpha=(enabled?1:.4)*Math.pow(p[2]*.92,i+1);block(31+i*4,14.3,2,1.4,colors[2]);}g.globalAlpha=enabled?1:.4;
-  wire([[40,25],[44,28],[49,28]],colors[3]);ring(54,27,4,colors[3]);
-  for(let i=0;i<5;i++){const balance=(i-2)/2,alpha=.2+.8*(balance<0?1-p[3]:balance>0?p[3]:.5);g.globalAlpha=(enabled?1:.4)*alpha;wire([[51,25+i],[57,25+i]],colors[3],.5);}g.globalAlpha=enabled?1:.4;
-  wire([[58,27],[61,27],[63,24]],colors[3]);
+  wire([[64,23],[60,20],[58,16],[54,15]],colors[0]);wire([[64,24],[59,22],[56,18],[53,18]],'#657c92');
+  ring(55,19,3.6,colors[0]);const angle=t*(p[0]*2-1)*8;
+  wire([[55-2.5*Math.cos(angle),19-2.5*Math.sin(angle)],[55+2.5*Math.cos(angle),19+2.5*Math.sin(angle)]],colors[0]);
+  ring(55,27,3.3,colors[1]);wire([[55,22.6],[55,23.7]],colors[1]);
+  const delay=.001+p[1]*.75,travel=t/(.3+delay*6);
+  for(let i=0;i<4;i++){const a=travel*Math.PI*2+i*Math.PI/2;block(55+Math.cos(a)*2-.45,27+Math.sin(a)*2-.45,.9,.9,colors[i]);}
+  const stomach=7+p[1]*2;
+  ring(43,23,stomach,'#9e9dbd');wire([[51.7,27],[49,27]],colors[1]);
+  g.save();g.beginPath();g.arc(43,23,stomach-.8,0,Math.PI*2);g.clip();
+  for(let i=0;i<6;i++){const x=36+i*2.6,phase=(travel+i*.17)%1,height=2+p[2]*11;g.globalAlpha=(enabled?1:.4)*(.3+.7*p[2]);for(let j=0;j<4;j++)block(x,14+phase*5+j*5, .65,height/5,colors[(i+j)%4]);}g.restore();
+  // The orange intestine and outlet show the sideband balance; feedback feeds the stomach.
+  const intestine=[];for(let i=0;i<=50;i++)intestine.push([35-i*.19,19+Math.sin(i*.5)*(1+p[3]*1.7)]);wire(intestine,colors[3]);
+  wire([[25.5,19],[24,19],[24,25],[28,25]],colors[3]);ring(31,27,3.5,colors[3]);
+  for(let i=0;i<5;i++){g.globalAlpha=(enabled?1:.4)*(.2+.8*(i<2?1-p[3]:p[3]));wire([[28.5,25+i],[33.5,25+i]],colors[3],.4);}g.globalAlpha=enabled?1:.4;
   g.restore();
+  text('FREQ',20,39,colors[0]);dial(63,88,p[0],colors[0]);text(cwoFrequency(p[0]).toFixed(0),20,130,colors[0],28);
+  text('DELAY',20,166,colors[1]);text(Math.round((.001+p[1]*.75)*1000),20,205,colors[1],35);text('ms',83,205,colors[1],16);
+  number('FDBACK',p[2],20,245,colors[2]);text('SIDEBAND',510,42,colors[3],16);meter(550,178,p[3],colors[3]);text(Math.round(p[3]*100)+'%',518,218,colors[3],26);
  }else{
   // Shared X-ray shells and signal traces; all geometry reads the live DSP parameters.
   const shell=(points)=>{g.fillStyle='#252d2c';g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fill();g.strokeStyle='#7d9699';g.lineWidth=3;g.stroke();};
@@ -68,53 +75,58 @@ export function drawEffect(g,type,p,peak,time,enabled=true){
   const pulse=(points,phase,color)=>{const n=points.length-1,u=((phase%1)+1)%1*n,i=Math.floor(u),f=u-i;dot(points[i][0]*(1-f)+points[i+1][0]*f,points[i][1]*(1-f)+points[i+1][1]*f,color,4+energy*3);};
   const output=(x,y,amount)=>{trace([[x-20,y],[x+20,y]],colors[3]);ellipse(x+32,y,9,9,colors[3]);g.globalAlpha=(enabled?1:.35)*(.2+.8*amount);dot(x+32,y,colors[3],5+energy*3);g.globalAlpha=enabled?1:.35;};
   if(type==='grid'){
-   const w=190+p[0]*120,h=90+p[1]*80,d=48,x=310-w/2,y=150-h/2;
-   shell([[x,y],[x+d,y-d],[x+w+d,y-d],[x+w+d,y+h-d],[x+w,y+h],[x,y+h]]);
-   for(let i=0;i<=4;i++){const n=i/4;trace([[x+n*w,y],[x+n*w+d,y-d]],colors[0]);trace([[x,y+n*h],[x+w,y+n*h],[x+w+d,y+n*h-d]],'#52676c');}
-   trace([[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]],colors[1]);
-   const route=[[x,y],[x+w,y],[x+w,y+h],[x,y+h],[x,y]];
-   for(let i=0;i<4;i++){g.globalAlpha=(enabled?1:.35)*Math.pow(.1+p[2]*.87,i);pulse(route,t/(1+p[0]+p[1])-i*.14,colors[2]);}g.globalAlpha=enabled?1:.35;output(x+w+45,y+h/2,p[3]);
+   // The original's X/Y floor and floating Z-feedback cube.
+   const project=(x,y,z=0)=>[300+(x-y)*24,190+(x+y)*10-z];
+   for(let i=-5;i<=5;i++){trace([project(i,-5),project(i,5)],'#55516d');trace([project(-5,i),project(5,i)],'#55516d');}
+   const x=1+p[0]*3,y=1+p[1]*3,h=28+p[2]*55;
+   const base=[project(-x,-y),project(x,-y),project(x,y),project(-x,y)],top=[project(-x,-y,h),project(x,-y,h),project(x,y,h),project(-x,y,h)];
+   trace([...base,base[0]],colors[0]);trace([...top,top[0]],colors[1]);for(let i=0;i<4;i++)trace([base[i],top[i]],colors[i%2]);
+   pulse([...top,top[0]],t*(.2+p[2]),colors[2]);text('X',72,160,colors[0],25);text('Y',260,48,colors[1],25);number('Z FDB',p[2],475,70,colors[2]);text('MIX',553,62,colors[3]);meter(569,246,p[3],colors[3]);
   }else if(type==='phone'){
-   shell([[200,38],[415,38],[435,58],[435,258],[200,258]]);
-   shell([[170,58],[185,58],[185,100],[170,110],[170,191],[185,201],[185,240],[160,240],[143,215],[143,85]]);
-   trace([[185,220],[190,220],[190,270],[228,270],[228,258]],'#7d9699');
-   g.strokeStyle='#52676c';g.strokeRect(223,62,189,76);
-   const wave=[];for(let i=0;i<48;i++){const x=i/47,steps=3+Math.round((1-p[1])*9),v=Math.round(Math.sin(x*(8+p[0]*20)-t*(1+p[2]*8))*steps)/steps;wave.push([230+x*174,100+v*24]);}trace(wave,colors[0]);
-   for(let i=0;i<12;i++){const x=238+i%3*66,y=161+Math.floor(i/3)*23;g.strokeStyle='#52676c';g.strokeRect(x,y,32,15);}
-   const active=Math.floor(t*(1+p[2]*15))%12;dot(254+active%3*66,168+Math.floor(active/3)*23,colors[1],4);
-   trace([[435,157],[470,157]],colors[2]);const carrier=[];for(let i=0;i<48;i++)carrier.push([470+i*1.7,157+Math.sin(i*.2*(1+p[3]*5)-t*5)*p[3]*23]);trace(carrier,colors[3]);
+   // Exploded landline: floating handset, keypad board, circuitry and lower shell.
+   const spread=10+p[1]*18;
+   const layer=(cy,color)=>{const pts=[[193,cy],[335,cy-53],[445,cy-10],[300,cy+47],[193,cy]];trace(pts,color);};
+   layer(220,'#7d9699');layer(200-spread*.4,colors[2]);layer(158-spread, '#9e9dbd');
+   for(let i=0;i<12;i++){const x=268+(i%3)*24+Math.floor(i/3)*9,y=164-spread*.4+Math.floor(i/3)*10-(i%3)*8;g.strokeStyle=colors[2];g.strokeRect(x,y,13,7);}
+   // Oversized stepped handset is the cartoon counterpart of the floating receiver.
+   shell([[207,130-spread],[219,103-spread],[248,91-spread],[269,103-spread],[263,116-spread],[337,89-spread],[338,73-spread],[369,59-spread],[398,72-spread],[399,96-spread],[370,110-spread],[348,103-spread],[271,134-spread],[244,148-spread]]);
+   for(let i=0;i<4;i++)trace([[348+i*7,79-spread],[370+i*6,71-spread]],'#9e9dbd');
+   const signal=[];for(let i=0;i<36;i++)signal.push([211+i*2,203+Math.sin(i*.5-t*(.5+p[2]*8))*p[0]*8]);trace(signal,colors[0]);
+   ellipse(235,210,14,7,colors[1]);ellipse(394,151,14,7,colors[3]);pulse([[250,210],[300,230],[394,190],[394,151]],t*(.4+p[3]*2),colors[3]);
+   number('TONE',p[0],20,45,colors[0]);number('PHONIC',p[1],20,220,colors[1]);number('BAUD',p[2],510,45,colors[2]);number('TELEM',p[3],510,220,colors[3]);
   }else if(type==='nitro'){
-   for(let j=0;j<2;j++){
-    const x=168+j*210,f=j?(p[3]*(1-p[1])+p[0]*p[1]):p[0];
-    shell([[x+28,38],[x+72,38],[x+72,65],[x+100,86],[x+100,252],[x,252],[x,86],[x+28,65]]);
-    trace([[x+35,29],[x+65,29]],colors[j?3:0]);
-    const height=35+f*125;g.fillStyle=j?'#40332a':'#253944';g.fillRect(x+9,242-height,82,height);trace([[x+9,242-height],[x+91,242-height]],colors[j?3:0]);
-    for(let i=0;i<4;i++){const phase=(t*(.25+p[2]*2)+i/4)%1;ellipse(x+25+(i%2)*45,237-phase*height,3+p[2]*7,3+p[2]*7,colors[2]);}
-   }
-   const link=[[268,116],[320,116],[320,196],[378,196]];trace(link,colors[1]);pulse(link,t*(.2+p[1]*1.8),colors[1]);
+   // Cockpit / road view, matching the recognizable Nitro dashboard metaphor.
+   trace([[60,48],[188,62],[453,62],[580,48]],'#8e8bad');
+   const horizon=105;for(let i=0;i<11;i++){const progress=((i/11+t*(.12+p[1]*.22))%1),y=horizon+progress*progress*125,w=40+progress*220;trace([[320-w,y],[320+w,y]],i%2?colors[0]:colors[1]);}
+   for(let i=0;i<45;i++){const x=224+i*4.3,shape=Math.exp(-(((i-22)/11)**2)),h=shape*(15+p[2]*48)*(1+.25*Math.sin(i*2+t*4));trace([[x,horizon],[x,horizon-h]],colors[2]);}
+   shell([[40,244],[231,244],[272,270],[368,270],[409,244],[600,244],[600,286],[40,286]]);
+   shell([[287,278],[294,260],[300,232],[295,214],[300,196],[321,190],[339,197],[343,212],[335,232],[341,262],[351,278]]);
+   text('R',309,216,colors[2],22);trace([[300,228],[335,228]],colors[2]);
+   text('FREQ',50,100,colors[0]);dial(92,150,p[0],colors[0]);text('FREQ',510,100,colors[3]);dial(550,150,p[3],colors[3]);
+   text('FF '+Math.round(p[1]*99),62,276,colors[1],23);text('RES '+Math.round(p[2]*99),441,276,colors[2],23);
   }else if(type==='punch'){
-   // A compact piston compressor: cutoff position, resonance, drive stages, output power.
-   shell([[145,74],[175,48],[415,48],[445,74],[445,248],[145,248]]);
-   shell([[185,72],[405,72],[405,205],[185,205]]);
-   const piston=95+p[0]*80;trace([[295,75],[295,piston]],colors[0]);
-   g.fillStyle='#364951';g.fillRect(205,piston,180,19);trace([[205,piston],[385,piston]],colors[0]);
-   for(let i=0;i<4;i++){const y=piston+29+i*10;trace([[220,y],[370,y]],i<=Math.round(p[2]*3)?colors[2]:'#40504a');}
-   ellipse(295,225,12+p[1]*14,12+p[1]*14,colors[1]);
-   const angle=t*(1+p[1]*5);dot(295+Math.cos(angle)*(12+p[1]*14),225+Math.sin(angle)*(12+p[1]*14),colors[1],3+energy*3);output(485,160,p[3]);
+   // Cartoon boxer: compact body, expressive face and large moving gloves.
+   const punch=enabled?Math.max(0,Math.sin(t*(1+p[2]*4)))*(.15+energy)*p[3]*36:0;
+   shell([[276,116],[247,140],[231,192],[251,220],[264,248],[245,284],[285,284],[315,251],[345,284],[385,284],[363,239],[374,200],[354,145],[330,118]]);
+   g.strokeStyle=colors[1];g.lineWidth=4;g.beginPath();g.ellipse(307,88,32,40,0,0,Math.PI*2);g.stroke();
+   trace([[280,68],[292,55],[319,55],[333,70]],colors[1]);trace([[287,88],[297,92],[303,88]],colors[1]);trace([[313,88],[323,92],[329,87]],colors[1]);trace([[301,110],[315,110]],colors[1]);
+   trace([[270,151],[248,177],[279,196]],colors[1]);trace([[342,150],[366,166],[386+punch,150]],colors[1]);
+   ellipse(296,205,34+p[1]*5,27,colors[0]);ellipse(404+punch,147,29,35,colors[3]);trace([[384+punch,173],[418+punch,174]],colors[3]);
+   trace([[276,241],[310,232],[347,242]],'#9e9dbd');
+   text('FREQ',20,44,colors[0]);dial(63,95,p[0],colors[0]);number('PUNCH',p[1],20,210,colors[1]);number('ROUNDS',p[2],500,48,colors[2]);number('POWER',p[3],500,220,colors[3]);
   }else if(type==='spring'){
-   shell([[95,75],[119,52],[517,52],[541,75],[541,247],[95,247]]);
-   for(const x of [113,523])for(const y of [70,230])ellipse(x,y,4,4,'#7d9699');
-   for(let row=0;row<3;row++){const y=105+row*48,pts=[];trace([[115,y],[150,y]],colors[0]);
-    for(let i=0;i<=240;i++){const x=i/240,vibration=(enabled?Math.sin(t*(4+p[0]*12)-x*10)*energy:0)*(1-p[2])*7;pts.push([150+x*330,y+Math.sin(x*Math.PI*(12+p[1]*24))*(11+(1-p[2])*7)+vibration]);}
-    g.globalAlpha=(enabled?1:.35)*(.45+p[0]*.55);trace(pts,colors[row%3]);g.globalAlpha=enabled?1:.35;trace([[480,y],[520,y]],colors[2]);}
-   output(565,153,p[3]);
+   // A single long helical spring, rather than a tank of three unrelated coils.
+   text('TURNS '+Math.round(4+p[1]*16),235,62,colors[1],23);
+   const turns=4+p[1]*16,coil=[];trace([[100,180],[142,180]],colors[0]);
+   for(let i=0;i<=600;i++){const u=i/600,phase=u*Math.PI*2*turns,decay=1-p[2]*.7,vibration=Math.sin(t*(2+p[0]*8)-u*12)*energy*decay*9;coil.push([150+u*320+Math.cos(phase)*13,180+Math.sin(phase)*(32+decay*10)+vibration]);}trace(coil,colors[2]);trace([[483,180],[515,180],[525,163]],colors[2]);
+   text('T',53,190,colors[0],35);text(Math.round(p[0]*99),35,229,colors[0],24);text('DAMP '+Math.round(p[2]*99),230,269,colors[2],23);meter(568,235,p[3],colors[3]);
   }else{
-   shell([[90,64],[115,42],[500,42],[525,64],[525,245],[90,245]]);
-   const radius=30+p[0]*20,speed=.5+p[1]*1.5;
-   for(const x of [190,420]){ellipse(x,135,radius,radius,'#7d9699');ellipse(x,135,9,9,colors[0]);for(let i=0;i<3;i++){const a=t*speed*2+i*Math.PI*2/3;trace([[x+Math.cos(a)*15,135+Math.sin(a)*15],[x+Math.cos(a)*(radius-8),135+Math.sin(a)*(radius-8)]],colors[1]);}}
-   const tape=[[190,135+radius],[190,206],[420,206],[420,135+radius]];trace(tape,'#7d9699');
-   const delay=(.03+p[0]*.9)/speed;for(let i=0;i<5;i++){g.globalAlpha=(enabled?1:.35)*Math.pow(.1+p[2]*.84,i);pulse(tape,t/(.4+delay*3)-i*.15,colors[2]);}g.globalAlpha=enabled?1:.35;
-   output(555,135,p[3]);
+   // Concentric delay-time circles and rotating input vector, as in the OP-1 display.
+   g.strokeStyle='#5b526c';g.strokeRect(147,42,275,244);
+   const center=[326,193],radius=35+p[0]*57;
+   for(let i=0;i<5;i++){const r=radius*(1-i*.17);ellipse(center[0]-radius+r,center[1]-radius+r,r,r,colors[0]);}
+   const a=t*(.5+p[1]*1.5);trace([[147,193],[326,193]],colors[3]);ellipse(326,193,9,9,colors[3]);trace([[326,193],[326+Math.cos(a)*48,193+Math.sin(a)*48]],colors[1]);
+   text('INPUT',36,198,colors[3],19);text('R '+Math.round(p[0]*99),161,65,colors[0]);number('FDB',p[2],465,65,colors[2]);number('SPEED',p[1],465,174,colors[1]);text('MIX',556,45,colors[3],16);meter(570,275,p[3],colors[3]);
   }
  }
  for(let i=0;i<4;i++){g.fillStyle=colors[i];g.fillRect(40+i*150,298,Math.max(4,p[i]*110),4);}
