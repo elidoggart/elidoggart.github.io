@@ -1,9 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later */
+import {Effect} from './modules.js';
 import {clamp} from './dsp.js';
 export class Mixer {
- constructor(rate){this.rate=rate;this.low=[0,0];this.high=[0,0];this.delay=[new Float32Array(rate*2),new Float32Array(rate*2)];this.pos=0;this.envelope=0;}
+ constructor(rate){this.rate=rate;this.effects=[new Effect(rate),new Effect(rate)];this.low=[0,0];this.high=[0,0];this.delay=[new Float32Array(rate*2),new Float32Array(rate*2)];this.pos=0;this.envelope=0;}
  tick(input,c){let out=[...input];const eq=c.eq||[.5,.5,.5,0],fx=c.masterfx||[.3,.2,0,.5],master=c.master||[1,1,0,.3];
-  for(let ch=0;ch<2;ch++){this.low[ch]+=(out[ch]-this.low[ch])*(1-Math.exp(-2*Math.PI*200/this.rate));this.high[ch]+=(out[ch]-this.high[ch])*(1-Math.exp(-2*Math.PI*3000/this.rate));const bands=[this.low[ch],this.high[ch]-this.low[ch],out[ch]-this.high[ch]];const shaped=bands.reduce((sum,b,i)=>sum+b*2**((eq[i]-.5)*4),0);out[ch]=out[ch]*(1-eq[3])+shaped*eq[3];const tap=this.delay[ch][(this.pos-Math.floor((.08+fx[0]*.55)*this.rate)+this.delay[ch].length)%this.delay[ch].length];this.delay[ch][this.pos]=clamp(out[ch]+tap*fx[1]*.8,-2,2);if(c.masterfxOn)out[ch]+=tap*fx[2];}
+  for(let ch=0;ch<2;ch++){this.low[ch]+=(out[ch]-this.low[ch])*(1-Math.exp(-2*Math.PI*200/this.rate));this.high[ch]+=(out[ch]-this.high[ch])*(1-Math.exp(-2*Math.PI*3000/this.rate));const bands=[this.low[ch],this.high[ch]-this.low[ch],out[ch]-this.high[ch]];const shaped=bands.reduce((sum,b,i)=>sum+b*2**((eq[i]-.5)*4),0);out[ch]=out[ch]*(1-eq[3])+shaped*eq[3];out[ch]=this.effects[ch].tick(out[ch],c.masterfxType||'delay',fx,Boolean(c.masterfxOn));}
   this.pos=(this.pos+1)%this.delay[0].length;const peak=Math.max(Math.abs(out[0]),Math.abs(out[1]));this.envelope=Math.max(peak,this.envelope*Math.exp(-1/(this.rate*(.03+master[3]*.8))));const drive=1+master[2]*5,gain=1/(1+Math.max(0,this.envelope-.35)*master[2]*3);return out.map((x,i)=>clamp((master[2]>0?Math.tanh(x*drive*gain):x)*master[i],-1,1));
  }
 }

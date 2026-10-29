@@ -53,7 +53,7 @@ export class Voice {
   }else{
    this.pc=(this.pc+inc)>>>0;const p=this.pc/4294967296;
    const a=Math.sin(p*2*Math.PI),b=2/Math.PI*Math.asin(a);
-   x=a*(1-knobs[0])+b*knobs[0];x*=.45;
+   x=a*(1-knobs[0])+b*knobs[0];x=x*(1-knobs[1])+(Math.random()*2-1)*knobs[1];x*=.45;
   }
   const [attack,decay,sustain,release]=adsr;
   if(this.released)this.env*=Math.exp(-1/(this.rate*Math.max(.008,release)));
