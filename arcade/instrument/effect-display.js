@@ -105,15 +105,40 @@ export function drawEffect(g,type,p,peak,time,enabled=true){
    text('FREQ',50,100,colors[0]);dial(92,150,p[0],colors[0]);text('FREQ',510,100,colors[3]);dial(550,150,p[3],colors[3]);
    text('FF '+Math.round(p[1]*99),62,276,colors[1],23);text('RES '+Math.round(p[2]*99),441,276,colors[2],23);
   }else if(type==='punch'){
-   // Cartoon boxer: compact body, expressive face and large moving gloves.
-   const punch=enabled?Math.max(0,Math.sin(t*(1+p[2]*4)))*(.15+energy)*p[3]*36:0;
-   shell([[276,116],[247,140],[231,192],[251,220],[264,248],[245,284],[285,284],[315,251],[345,284],[385,284],[363,239],[374,200],[354,145],[330,118]]);
-   g.strokeStyle=colors[1];g.lineWidth=4;g.beginPath();g.ellipse(307,88,32,40,0,0,Math.PI*2);g.stroke();
-   trace([[280,68],[292,55],[319,55],[333,70]],colors[1]);trace([[287,88],[297,92],[303,88]],colors[1]);trace([[313,88],[323,92],[329,87]],colors[1]);trace([[301,110],[315,110]],colors[1]);
-   trace([[270,151],[248,177],[279,196]],colors[1]);trace([[342,150],[366,166],[386+punch,150]],colors[1]);
-   ellipse(296,205,34+p[1]*5,27,colors[0]);ellipse(404+punch,147,29,35,colors[3]);trace([[384+punch,173],[418+punch,174]],colors[3]);
-   trace([[276,241],[310,232],[347,242]],'#9e9dbd');
-   text('FREQ',20,44,colors[0]);dial(63,95,p[0],colors[0]);number('PUNCH',p[1],20,210,colors[1]);number('ROUNDS',p[2],500,48,colors[2]);number('POWER',p[3],500,220,colors[3]);
+   // Original Punch composition: waist-up southpaw, green anatomy, red gloves,
+   // head/glove leaders and a segmented rounds gauge. Pose follows parameters,
+   // not an unrelated timer; incoming sound adds a small amount of recoil.
+   const green='#6dc98c',red='#ee6c63',violet='#aaa0ce',dark='#26312d';
+   const recoil=energy*p[1]*p[3],lean=(p[0]-.5)*12+recoil*3;
+   const form=(draw,fill=dark,stroke=green)=>{g.beginPath();draw();g.closePath();g.fillStyle=fill;g.fill();g.strokeStyle=stroke;g.lineWidth=3.5;g.stroke();};
+   const glove=(x,y,angle,size)=>{g.save();g.translate(x,y);g.rotate(angle);g.scale(size,size);
+    form(()=>{g.moveTo(-22,20);g.bezierCurveTo(-38,11,-36,-21,-20,-30);g.bezierCurveTo(-7,-39,19,-35,29,-20);g.quadraticCurveTo(39,-1,23,21);g.lineTo(15,28);g.lineTo(-15,28);},'#332d2c',red);
+    // Power fills the gloves; the outline remains visible at zero mix.
+    g.save();g.globalAlpha=(enabled?1:.35)*p[3]*.65;g.fillStyle=red;g.fill();g.restore();
+    trace([[-21,-17],[-10,-24],[8,-24]],'#f5ada1');trace([[-20,19],[20,20]],red);g.beginPath();g.moveTo(-27,2);g.quadraticCurveTo(-8,-5,-7,13);g.stroke();g.restore();};
+   g.save();g.translate(lean,0);
+   // Cropped shorts and broad, angled shoulders preserve the original pose.
+   form(()=>{g.moveTo(277,228);g.lineTo(264,282);g.moveTo(277,228);g.lineTo(332,231);g.lineTo(357,282);g.lineTo(321,282);g.lineTo(309,258);g.lineTo(294,282);g.lineTo(264,282);},dark,violet);
+   form(()=>{g.moveTo(318,115);g.quadraticCurveTo(288,119,259,142);g.quadraticCurveTo(237,161,228,192);g.quadraticCurveTo(233,215,264,219);g.lineTo(276,244);g.quadraticCurveTo(309,253,342,235);g.lineTo(353,200);g.quadraticCurveTo(375,183,376,153);g.quadraticCurveTo(367,130,347,120);});
+   // Shoulder, pectoral and elbow contours replace the invented rib cage.
+   g.strokeStyle=green;g.beginPath();g.moveTo(318,128);g.quadraticCurveTo(296,151,273,151);g.moveTo(273,164);g.quadraticCurveTo(302,179,322,158);g.moveTo(326,155);g.quadraticCurveTo(347,164,356,143);g.moveTo(316,178);g.quadraticCurveTo(313,201,301,213);g.moveTo(249,175);g.quadraticCurveTo(243,195,264,197);g.stroke();
+   // Bare head, heavy brows and squared jaw, facing into the raised right glove.
+   g.save();g.translate(333,90);g.rotate((p[0]-.5)*.32-recoil*.08);g.translate(-333,-90);
+   form(()=>{g.moveTo(303,76);g.bezierCurveTo(299,45,324,38,345,44);g.quadraticCurveTo(367,47,364,74);g.lineTo(359,105);g.lineTo(345,126);g.quadraticCurveTo(324,131,309,114);g.lineTo(303,96);g.quadraticCurveTo(294,92,298,80);});
+   trace([[310,78],[321,82]],green);trace([[339,81],[352,76]],green);trace([[315,88],[321,88]],green);trace([[341,87],[347,86]],green);trace([[331,84],[327,99],[336,99]],green);trace([[319,109],[330,106],[344,108],[335,115],[325,114]],green);trace([[352,91],[348,100]],'#4e8765');
+   g.restore();
+   const reach=p[1]*27+recoil*7,guardY=218-p[1]*17;
+   trace([[259,197],[275,guardY-5],[291,guardY-6]],green);trace([[357,155],[369,179],[388+reach,166]],green);
+   glove(293,guardY,-.28-p[1]*.2,1.05);glove(398+reach,163,-.12-p[1]*.23,1);
+   // Fine parameter leaders stay attached as the pose changes.
+   trace([[151,45],[184,45],[294,78]],violet);dot(294,78,violet,4);
+   trace([[139,257],[174,257],[277,guardY]],violet);dot(277,guardY,violet,4);
+   g.restore();
+   // The original's adjacent segmented gauge makes changes legible at a glance.
+   const rounds=Math.round(p[2]*24);for(let i=0;i<24;i++){g.fillStyle=i<rounds?(i<12?green:violet):'#39413c';g.fillRect(453,146-i*4,14,2);}
+   for(let i=0;i<3;i++){const a=-2.15+i*.5;trace([[333+Math.cos(a)*49+lean,70+Math.sin(a)*49],[333+Math.cos(a)*(53+p[1]*12)+lean,70+Math.sin(a)*(53+p[1]*12)]],violet);}
+   text('FREQ',20,44,colors[0]);dial(63,95,p[0],colors[0]);number('PUNCH',p[1],20,210,green);
+   text('ROUNDS',500,48,colors[2]);text(String(Math.round(p[2]*99)).padStart(2,'0'),500,86,colors[2],35);number('POWER',p[3],500,220,colors[3]);
   }else if(type==='spring'){
    // A single long helical spring, rather than a tank of three unrelated coils.
    text('TURNS '+Math.round(4+p[1]*16),235,62,colors[1],23);

@@ -11,7 +11,7 @@ const sin32=p=>sine[((p|0)>>19)+4096];
 export class Voice {
  constructor(id,note,engine,rate,velocity=1){Object.assign(this,{id,note,engine,rate,velocity,age:0,env:0,released:false,pc:0,pm:0,ps:0,p2:0x40000000,fb:0,modEnv:32767,lp:0,noise:0,samplePos:0});}
  release(){this.released=true;}
- tick(knobs,adsr,sample){
+ tick(knobs,adsr,sample,sampleOptions={}){
   if(this.k0!==knobs[0]||this.k1!==knobs[1]||this.k2!==knobs[2]||this.k3!==knobs[3]){this.k0=knobs[0];this.k1=knobs[1];this.k2=knobs[2];this.k3=knobs[3];this.k=knobs.map(v=>Math.round(v*32767));}
   const k=this.k,inc=Math.round(frequency(this.note+(this.pitchOffset||0))*4294967296/this.rate)>>>0;
   let x=0;
@@ -34,14 +34,18 @@ export class Voice {
    this.lp+=(x-this.lp)*.5;x=this.lp*.75;
   }else if(this.engine==='sample'){
    if(!sample?.length){this.released=true;x=0;}else{
-   const pos=this.samplePos,lo=Math.floor(pos);
-   if(lo>=sample.length-1){this.released=true;x=0;}else{
-   x=sample[lo]+(sample[lo+1]-sample[lo])*(pos-lo);
-   this.samplePos+=2**((this.note-60)/12)*(0.5+knobs[0]*1.5);}}
+   const last=sample.length-1,start=clamp(knobs[0],0,1)*last,end=clamp(knobs[3],knobs[0],1)*last,
+    loopIn=clamp(knobs[1],knobs[0],knobs[3])*last,loopOut=clamp(knobs[2],knobs[1],knobs[3])*last;
+   if(!this.age)this.samplePos=start;
+   if(!this.released&&loopOut-loopIn>=2&&this.samplePos>=loopOut)this.samplePos=loopIn+(this.samplePos-loopIn)%(loopOut-loopIn);
+   const pos=sampleOptions.reverse?last-this.samplePos:this.samplePos,lo=Math.floor(pos);
+   if(this.samplePos>=end||pos<0||pos>last){this.released=true;x=0;}else{
+   x=(sample[lo]+((sample[lo+1]??sample[lo])-sample[lo])*(pos-lo))*(sampleOptions.gain??1);
+   this.samplePos+=2**((this.note+(this.pitchOffset||0)-(sampleOptions.root??60))/12);}}
   }else if(this.engine==='drum'){
    const t=this.age/this.rate,type=[0,0,1,1,6,2,3,7,7,4,5,7,0,0,1,1,6,2,3,7,7,4,5,7][((this.note-53)%24+24)%24];
    const decay=.08+knobs[1]*.8,pitch=0.5+knobs[0]*1.5;
-   const noise=Math.random()*2-1;this.noise+=.25*(noise-this.noise);
+   const noise=(this.random||Math.random)()*2-1;this.noise+=.25*(noise-this.noise);
    const f=type===0?48+140*Math.exp(-t*40):type===1?175:type===4?110:type===5?230:600;
    this.pc+=2*Math.PI*f*pitch/this.rate;
    if(type===0||type===4||type===5)x=Math.sin(this.pc)*Math.exp(-t/(type===0?decay:decay*.5));
