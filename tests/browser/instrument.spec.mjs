@@ -19,3 +19,10 @@ test('sampler imports local audio and the arcade links to the instrument',async(
  await page.locator('#engine').selectOption('sample');await page.locator('#sample-file').setInputFiles({name:'test-tone.wav',mimeType:'audio/wav',buffer:Buffer.from(wavBytes([Float32Array.from({length:44100},(_,i)=>.4*Math.sin(2*Math.PI*261.63*i/44100))],[1],44100))});
  await expect(page.locator('#message')).toContainText('Loaded 1.0 s');await page.locator('#display').click();await page.keyboard.down('z');await expect(page.locator('#screen-meter')).not.toHaveText('−∞ dB');await page.keyboard.up('z');await expect(page.locator('.key.active')).toHaveCount(0);
 });
+test('device face contains only hardware controls; browser labels stay outside',async({page})=>{
+ await page.goto('/arcade/instrument.html');
+ await expect(page.locator('.instrument .key')).toHaveCount(24);await expect(page.locator('.instrument .knob')).toHaveCount(4);await expect(page.locator('.instrument input,.instrument select,.instrument .key-label,.instrument .note-label')).toHaveCount(0);await expect(page.locator('.companion #knobs input')).toHaveCount(4);await expect(page.locator('.companion .map-key')).toHaveCount(24);
+ await page.getByRole('button',{name:'Preset 3 · Warm saw',exact:true}).click();await expect(page.locator('#screen-mode')).toContainText('DETUNED SAW');await page.getByRole('button',{name:'Tape F3',exact:true}).click();await page.getByRole('button',{name:'Effect / track 3',exact:true}).click();await expect(page.locator('.track').nth(2)).toHaveClass(/selected/);
+ await page.getByRole('button',{name:'Synth F1',exact:true}).click();await page.getByRole('button',{name:'Envelope / track 2',exact:true}).click();await expect(page.getByLabel('Attack',{exact:true})).toBeVisible();
+ await page.getByRole('button',{name:'Engine / track 1',exact:true}).click();await page.screenshot({path:'.local/instrument-preview.png',fullPage:true});
+});

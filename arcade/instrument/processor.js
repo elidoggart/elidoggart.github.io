@@ -13,6 +13,8 @@ class Instrument extends AudioWorkletProcessor {
   if(m.type==='record'){if(!this.running&&this.pos===0){this.step=0;this.untilStep=0;}if(!this.recording)this.snapshot();this.recording=!this.recording;if(this.recording)this.running=true;}
   if(m.type==='stop'){this.running=false;this.recording=false;this.pos=0;this.untilStep=0;this.step=0;this.panic();}
   if(m.type==='clear'){this.recording=false;this.snapshot();this.tracks[this.cfg.track].fill(0);}
+  if(m.type==='lift'){this.recording=false;this.snapshot();this.clipboard=this.tracks[this.cfg.track].slice();this.tracks[this.cfg.track].fill(0);}
+  if(m.type==='drop'&&this.clipboard){this.recording=false;this.snapshot();const track=this.tracks[this.cfg.track];for(let i=0;i<track.length;i++)track[i]=clamp(track[i]+this.clipboard[i],-1,1);}
   if(m.type==='undo'&&this.undo){this.recording=false;const t=this.undo.track,previous=this.tracks[t];this.tracks[t]=this.undo.data;this.undo={track:t,data:previous};}
   if(m.type==='sample')this.sample=m.samples;
   if(m.type==='export'){this.port.postMessage({type:'export',rate:sampleRate,tracks:this.tracks.map(t=>t.slice(0,this.length)),levels:this.cfg.levels.map((v,i)=>this.cfg.mute[i]?0:v)});}
