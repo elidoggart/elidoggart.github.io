@@ -5,18 +5,47 @@ export function drawEffect(g,type,p,peak,time){
  const line=(points,color=colors[2])=>{g.strokeStyle=color;g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.stroke();};
  const ellipse=(x,y,rx,ry,color,fill=false)=>{g.beginPath();g.ellipse(x,y,rx,ry,0,0,Math.PI*2);g.strokeStyle=color;g.fillStyle=color;fill?g.fill():g.stroke();};
  if(type==='cwo'){
-  const bob=Math.sin(time*(2+p[0]*8))*Math.min(8,peak*40),width=150+p[1]*100,headY=90+bob,front=220+width;
-  // Cow silhouette: stretching body, ears/horns, muzzle, four legs and swishing tail.
-  line([[220,130+bob],[front,130+bob],[front+15,headY],[front+65,headY-8],[front+85,headY+30],[front+75,headY+65],[front+25,headY+64],[front,178+bob],[220,188+bob],[205,160+bob],[220,130+bob]]);
-  line([[front+20,headY],[front+10,headY-26],[front+35,headY-12]],colors[0]);line([[front+55,headY-6],[front+60,headY-30],[front+73,headY-12]],colors[0]);
-  ellipse(front+62,headY+43,27,18,colors[3]);ellipse(front+55,headY+39,3,4,colors[3],true);ellipse(front+71,headY+39,3,4,colors[3],true);
-  ellipse(front+49,headY+14,4+p[3]*4,5,colors[0],true);
-  const stride=Math.sin(time*4)*Math.min(10,peak*60),leg=40+p[2]*35;
-  for(const [x,s] of [[230,1],[255,-1],[front-35,-1],[front-10,1]])line([[x,181+bob],[x+s*stride,181+leg],[x+14+s*stride,181+leg]],colors[2]);
-  ellipse(265,150+bob,18,12,colors[1],true);ellipse(front-40,158+bob,23,16,colors[1],true);
-  line([[213,140+bob],[180,118],[166+Math.sin(time*3)*8,146],[158,158]],colors[3]);
-  // Repeating delay traces behind the animal respond to the green knob.
-  for(let i=0;i<1+Math.round(p[1]*4);i++){g.globalAlpha=.18+i*.12;line([[80+i*24,145],[80+i*24,205]],colors[1]);}g.globalAlpha=1;
+  // Draw on a six-pixel grid so the silhouette remains clear on the small screen.
+  // Motion is deliberately limited to a pixel or two; parameter changes keep its anatomy intact.
+  const ink='#242722',coat='#f0f0e6',shade='#aaaFA1',unit=6;
+  const bob=peak>.015?Math.round(Math.sin(time*(3+p[0]*3))):0;
+  g.save();g.translate(32,16+bob*unit);g.scale(unit,unit);
+  const block=(x,y,w,h,color)=>{g.fillStyle=color;g.fillRect(x,y,w,h);};
+  const shape=(points,color)=>{g.fillStyle=color;g.beginPath();points.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath();g.fill();};
+  // Far legs, tail and udder sit behind the broad body.
+  block(33,30,5,10,shade);block(61,29,5,11,shade);
+  block(33,39,6,3,ink);block(61,39,6,3,ink);
+  const swish=Math.round(Math.sin(time*1.5)*1);
+  shape([[23,17],[19,17],[19,23],[17+swish,23],[17+swish,29],[15+swish,29],[15+swish,21],[17,21],[17,15],[23,15]],coat);
+  block(14+swish,28,5,6,ink);
+  shape([[46,30],[58,30],[58,35],[55,35],[55,37],[53,37],[53,35],[49,35],[49,37],[47,37],[47,34],[46,34]],'#c99780');
+  // Solid, stepped outline and rounded rump, chest and belly.
+  shape([[25,12],[60,12],[65,15],[68,21],[66,29],[62,33],[29,33],[24,30],[22,26],[22,18]],coat);
+  // Holstein patches: irregular dark shapes, not decorative coloured circles.
+  shape([[28,15],[39,15],[39,18],[43,18],[43,23],[39,23],[39,26],[32,26],[32,23],[28,23]],ink);
+  shape([[51,21],[57,21],[57,18],[63,18],[66,22],[65,29],[61,31],[52,31],[52,27],[49,27],[49,24]],ink);
+  block(24,26,4,3,shade);
+  // Near legs and square black hooves, shorter and heavier than the old wire drawing.
+  shape([[27,29],[33,30],[33,39],[35,39],[35,42],[26,42],[26,39],[27,39]],coat);
+  shape([[59,29],[65,28],[65,39],[67,39],[67,42],[58,42],[58,39],[59,39]],coat);
+  block(26,39,9,3,ink);block(58,39,9,3,ink);
+  // Neck, ears and two small horns frame the recognizable cow head.
+  shape([[60,15],[62,8],[67,6],[77,7],[80,12],[79,25],[74,29],[64,26]],coat);
+  shape([[63,10],[57,8],[54,9],[57,13],[63,14]],coat);
+  shape([[77,10],[82,8],[85,9],[82,13],[78,14]],coat);
+  block(58,10,4,2,shade);block(80,10,3,2,shade);
+  shape([[65,7],[63,4],[63,1],[65,1],[66,5],[68,7]],colors[0]);
+  shape([[74,7],[76,4],[76,1],[78,1],[78,5],[77,8]],colors[0]);
+  shape([[68,6],[74,6],[74,12],[71,14],[68,12]],ink);
+  const blink=time%6>5.85;
+  block(65,15,3,blink?1:3,ink);block(75,15,3,blink?1:3,ink);
+  if(!blink){block(65,15,1,1,coat);block(75,15,1,1,coat);}
+  // Broad warm muzzle with dark nostrils and a small mouth.
+  shape([[65,21],[78,21],[80,23],[80,27],[78,29],[65,29],[63,27],[63,23]],colors[3]);
+  block(66,23,3,2,ink);block(75,23,3,2,ink);block(69,27,5,1,ink);
+  // A small green collar keeps the four encoder colours tied to the illustration.
+  shape([[62,26],[64,28],[73,30],[72,32],[63,30],[61,28]],colors[1]);
+  g.restore();
  }else if(type==='grid'){
   const w=130+p[0]*120,h=50+p[1]*85,d=30+p[2]*55,x=300-w/2,y=160-h/2;for(let i=0;i<=5;i++){const n=i/5;line([[x+n*w,y],[x+n*w+d,y-d],[x+n*w+d,y+h-d],[x+n*w,y+h],[x+n*w,y]],colors[i%4]);line([[x,y+n*h],[x+w,y+n*h],[x+w+d,y+n*h-d]],colors[1]);}
  }else if(type==='phone'){
