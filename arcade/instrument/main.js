@@ -63,7 +63,7 @@ const knobEls=[],deviceKnobs=[];
 for(let i=0;i<4;i++){
  const el=document.createElement('div');el.className='knob-control';el.style.setProperty('--knob-color',colours[i]);el.innerHTML='<label for="parameter-'+i+'"></label><output></output><input id="parameter-'+i+'" type="range" min="0" max="1000" value="0">';$('#knobs').append(el);knobEls.push(el);
  el.querySelector('input').oninput=e=>changeKnob(i,Number(e.target.value)/1000);
- let drag;const cell=document.createElement('div');cell.className='device-knob-cell';cell.style.gridColumn=(17+i*4)+'/span 4';cell.style.setProperty('--knob-color',colours[i]);cell.innerHTML='<div class="knob" aria-hidden="true"></div>';$('#device-knobs').append(cell);const knob=cell.querySelector('.knob');deviceKnobs.push(knob);knob.onpointerdown=e=>{if(el.querySelector('input').disabled)return;e.preventDefault();knob.setPointerCapture(e.pointerId);drag={y:e.clientY,value:knobValues()[i]};};knob.onpointermove=e=>{if(drag)changeKnob(i,clamp(drag.value+(drag.y-e.clientY)/150,0,1));};knob.onpointerup=knob.onpointercancel=knob.onlostpointercapture=()=>drag=null;
+ let drag;const cell=document.createElement('div');cell.className='device-knob-cell';cell.style.gridColumn=(17+i*4)+'/span 4';cell.style.setProperty('--knob-color',colours[i]);cell.innerHTML='<div class="knob" aria-hidden="true"></div>';$('#device-knobs').append(cell);const knob=cell.querySelector('.knob');deviceKnobs.push(knob);knob.onpointerdown=e=>{if(el.querySelector('input').disabled)return;e.preventDefault();knob.setPointerCapture(e.pointerId);drag={y:e.clientY,value:knobValues()[i]};};knob.onpointermove=e=>{if(drag)changeKnob(i,clamp(drag.value+(drag.y-e.clientY)/150*(shifted&&page==='effect'?.1:1),0,1));};knob.onpointerup=knob.onpointercancel=knob.onlostpointercapture=()=>drag=null;
 }
 function knobLabels(){
  if(moduleBrowser)return [moduleBrowser==='effect'?'Effect':'LFO','—','—','—'];if(engineBrowser)return ['Engine','—','—','—'];if(sequenceBrowser)return ['Sequencer','—','—','—'];
@@ -141,7 +141,7 @@ addEventListener('blur',()=>{shiftHeld=false;setShift();panic();if(state.recordi
 const canvas=$('#display'),g=canvas.getContext('2d'),wave=new Float32Array(1024);
 function draw(){requestAnimationFrame(draw);g.clearRect(0,0,640,320);g.lineWidth=3;
  if(moduleBrowser){const list=Object.keys(moduleBrowser==='effect'?effects:lfos),selected=list.indexOf(cfg[mode==='mixer'?'masterfxType':moduleBrowser+'Type']),start=Math.max(0,Math.min(selected-2,list.length-5));g.font='28px monospace';list.slice(start,start+5).forEach((name,i)=>{g.fillStyle=start+i===selected?'#72bce5':'#8a8f82';g.fillText((start+i===selected?'› ':'  ')+name.toUpperCase(),45,48+i*55);});}
- else if(page==='effect'){drawEffect(g,mode==='mixer'?cfg.masterfxType:cfg.effectType,mode==='mixer'?cfg.masterfx:(state.modulated?.effect||cfg.effect),state.peak,performance.now()/1000);}
+ else if(page==='effect'){drawEffect(g,mode==='mixer'?cfg.masterfxType:cfg.effectType,mode==='mixer'?cfg.masterfx:(state.modulated?.effect||cfg.effect),state.peak,performance.now()/1000,mode==='mixer'?cfg.masterfxOn:cfg.effectOn);}
 
  else if(engineBrowser||sequenceBrowser){const options=engineBrowser?['FM BELL','DETUNED SAW','PURE TONE','SAMPLER']:['ENDLESS','PATTERN','ARPEGGIO'],selected=engineBrowser?['fm','saw','tone','sample'].indexOf(cfg.engine):['endless','pattern','arp'].indexOf(cfg.seq.type);g.font='26px monospace';options.forEach((name,i)=>{g.fillStyle=i===selected?'#72bce5':'#8a8f82';g.fillText((i===selected?'› ':'  ')+name,45,65+i*60);});}
  else if(mode==='tape'){
