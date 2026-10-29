@@ -13,7 +13,7 @@ export class Voice {
  release(){this.released=true;}
  tick(knobs,adsr,sample){
   if(this.k0!==knobs[0]||this.k1!==knobs[1]||this.k2!==knobs[2]||this.k3!==knobs[3]){this.k0=knobs[0];this.k1=knobs[1];this.k2=knobs[2];this.k3=knobs[3];this.k=knobs.map(v=>Math.round(v*32767));}
-  const k=this.k,inc=Math.round(frequency(this.note)*4294967296/this.rate)>>>0;
+  const k=this.k,inc=Math.round(frequency(this.note+(this.pitchOffset||0))*4294967296/this.rate)>>>0;
   let x=0;
   if(this.engine==='fm'){
    // Original integer phases, ratio quantisation, feedback and index envelope.
@@ -39,7 +39,7 @@ export class Voice {
    x=sample[lo]+(sample[lo+1]-sample[lo])*(pos-lo);
    this.samplePos+=2**((this.note-60)/12)*(0.5+knobs[0]*1.5);}}
   }else if(this.engine==='drum'){
-   const t=this.age/this.rate,type=((this.note%8)+8)%8;
+   const t=this.age/this.rate,type=[0,0,1,1,6,2,3,7,7,4,5,7,0,0,1,1,6,2,3,7,7,4,5,7][((this.note-53)%24+24)%24];
    const decay=.08+knobs[1]*.8,pitch=0.5+knobs[0]*1.5;
    const noise=Math.random()*2-1;this.noise+=.25*(noise-this.noise);
    const f=type===0?48+140*Math.exp(-t*40):type===1?175:type===4?110:type===5?230:600;
