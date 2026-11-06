@@ -3,7 +3,7 @@ test('rack patches, sequences, saves and restores settings without page errors',
  const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('/arcade/');await page.getByRole('link',{name:'Open modular synthesizer'}).click();await expect(page.locator('.module')).toHaveCount(10);expect(errors,'after navigation').toEqual([]);
  await page.locator('#sequence').click();await expect(page.locator('#sequence')).toHaveAttribute('aria-pressed','true');await expect(page.locator('.pad.active')).toHaveCount(1);await page.locator('#mute').click();await expect(page.locator('#power')).toHaveAttribute('aria-pressed','false');
  await page.getByRole('button',{name:'Wogglebug random output',exact:true}).click();await page.getByRole('button',{name:'Just Friends fm input',exact:true}).click();await expect(page.locator('#count')).toHaveText('8 cables');
- await page.getByLabel('Step 1 semitones').fill('17');await page.getByLabel('Step 1 semitones').press('Tab');
+ await page.getByText('Edit sequence',{exact:true}).click();await page.getByLabel('Step 1 semitones').fill('17');await page.getByLabel('Step 1 semitones').press('Tab');
  expect(errors,'before download').toEqual([]);const downloadPromise=page.waitForEvent('download');await page.locator('#save').click();const download=await downloadPromise;const path=await download.path();await page.locator('#clear').click();await expect(page.locator('#count')).toHaveText('0 cables');await page.locator('#open').setInputFiles(path);await expect(page.locator('#count')).toHaveText('8 cables');await expect(page.getByLabel('Step 1 semitones')).toHaveValue('17');
  await page.locator('#open').setInputFiles({name:'bad.json',mimeType:'application/json',buffer:Buffer.from('{"version":1,"cables":[["x","y"]]}')});await expect(page.locator('#status')).toContainText('Could not open');await expect(page.locator('#count')).toHaveText('8 cables');expect(errors).toEqual([]);
 });
@@ -22,4 +22,10 @@ test('live gate detector triggers an audible envelope and imported grains render
  await page.goto('/arcade/modular.html');await page.locator('#power').click();const result=await page.evaluate(async()=>{
  const {RackEngine}=await import('/arcade/modular/engine.js');const {initialCables}=await import('/arcade/modular/model.js');const c=new AudioContext(),e=new RackEngine(c);e.patch(initialCables);await c.resume();e.note(7);await new Promise(r=>setTimeout(r,100));const data=new Float32Array(128);e.analyser.getFloatTimeDomainData(data);const gatePeak=Math.max(...data.map(Math.abs));e.patch([['morph.out','hendrik.in']]);e.buffer=c.createBuffer(1,44100,44100);const b=e.buffer.getChannelData(0);for(let i=0;i<b.length;i++)b[i]=.4*Math.sin(i*2*Math.PI*220/44100);await new Promise(r=>setTimeout(r,180));e.analyser.getFloatTimeDomainData(data);const grainPeak=Math.max(...data.map(Math.abs));await e.close();return {gatePeak,grainPeak};
  });expect(result.gatePeak).toBeGreaterThan(.001);expect(result.grainPeak).toBeGreaterThan(.001);await page.locator('#mute').click();
+});
+test('all physical jacks and knobs remain individually reachable, with the full touch plate layout',async({page})=>{
+ await page.goto('/arcade/modular.html');await page.locator('#cable-toggle').click();await expect(page.locator('.pad')).toHaveCount(10);await expect(page.locator('.transpose-plate')).toHaveCount(2);
+ const blocked=await page.locator('.socket,[data-control]').evaluateAll(els=>els.flatMap(el=>{const r=el.getBoundingClientRect(),hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return hit===el||el.contains(hit)?[]:[el.getAttribute('aria-label')];}));expect(blocked).toEqual([]);
+ await page.locator('#sequence').click();await expect(page.locator('.pad.active')).toHaveCount(1);await page.locator('#mute').click();
+ await page.screenshot({path:'.local/modular-review.png',fullPage:true});await page.goto('/arcade/instrument.html');await page.screenshot({path:'.local/portable-review.png',fullPage:true});
 });
