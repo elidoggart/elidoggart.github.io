@@ -27,6 +27,7 @@ extend('touch',[knob('tempo','TEMPO',94,35,200,1)],['clock','reset'],['pitch','p
 extend('hendrik',[knob('mix','MIX',.5),knob('volume','OUTPUT',.35),knob('gain','INPUT GAIN',.5)],['in','cv','instrument'],['send','out','headphones']);
 const audioPorts=new Set(['woggle.smoothAudio','woggle.ring','woggle.woggleAudio','morph.in','morph.inR','morph.out','morph.outR','friends.mix','hendrik.in','hendrik.instrument','hendrik.send','hendrik.out','hendrik.headphones','optomix.in1','optomix.in2','optomix.out1','optomix.out2','optomix.mix','optomix.aux']);
 export const ports=Object.fromEntries(modules.flatMap(m=>['ins','outs'].flatMap(d=>(m[d]||[]).map(p=>[`${m.id}.${p}`,{module:m.id,direction:d==='ins'?'in':'out',type:audioPorts.has(`${m.id}.${p}`)||p.startsWith('voice')||m.id==='clutch'||m.id==='propust'?'audio':'cv'}]))));
+ports['op1.out']={module:'op1',direction:'out',type:'audio'};
 export const initialCables=[['friends.mix','optomix.in1'],['touch.pitch','friends.pitch'],['touch.gate','contour.gate'],['contour.env','optomix.cv1'],['optomix.mix','morph.in'],['morph.out','hendrik.in'],['ochd.lfo1','morph.slide']];
 export function validateCable(a,b,cables){
  if(!ports[a]||!ports[b])return 'Unknown socket';
@@ -47,5 +48,9 @@ export function parsePatch(raw){
  const cables=[];for(const c of raw.cables){if(!Array.isArray(c)||c.length!==2)throw Error('Invalid cable');const result=validateCable(...c,cables);if(typeof result==='string')throw Error(result);cables.push(result);}
  const values={};for(const m of modules)for(const k of m.knobs){const v=raw.values?.[`${m.id}.${k.id}`]??k.value;if(!Number.isFinite(v)||v<k.min||v>k.max)throw Error('Invalid control value');values[`${m.id}.${k.id}`]=v;}
  if(!Array.isArray(raw.notes)||raw.notes.length!==10||raw.notes.some(n=>!Number.isInteger(n)||n<0||n>24))throw Error('Invalid notes');
- return {version:1,cables,values,notes:raw.notes};
+ const switches={};for(const key of ['clutch-source','friends-wave','friends-mode','input-mode']){const v=raw.switches?.[key]??false;if(typeof v!=='boolean')throw Error('Invalid switch');switches[key]=v;}
+ const transpose=raw.transpose??0;if(!Number.isInteger(transpose)||transpose < -24||transpose > 24)throw Error('Invalid transpose');
+ const route=raw.route??'direct';if(!['direct','rack'].includes(route))throw Error('Invalid OP-1 routing');
+ const sequenceLength=raw.sequenceLength??10,stepLengths=raw.stepLengths??Array(10).fill(1);if(!Number.isInteger(sequenceLength)||sequenceLength<1||sequenceLength>10||!Array.isArray(stepLengths)||stepLengths.length!==10||stepLengths.some(n=>!Number.isInteger(n)||n<1||n>16))throw Error('Invalid sequence rhythm');
+ return {version:1,cables,values,notes:[...raw.notes],switches,transpose,route,sequenceLength,stepLengths:[...stepLengths]};
 }
