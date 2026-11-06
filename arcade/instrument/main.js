@@ -8,6 +8,8 @@ import {effects,effectDefaults,lfos,shapes,cwoFrequency,wave as lfoWave} from '.
 import {clamp} from './dsp.js';
 import {sequenceDefaults,sequenceWindow} from './sequencer.js';
 import {stereoMix,wavChannels} from './mixer.js';
+const studioHost=window.parent!==window&&new URLSearchParams(location.search).has('embedded')?window.parent.arcadeStudio:null;
+if(studioHost)document.body.classList.add('embedded-studio');
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const colours=['#72bce5','#6dc98c','#f5f5ef','#e78045'];
 const codes=['KeyZ','KeyS','KeyX','KeyD','KeyC','KeyF','KeyV','KeyB','KeyH','KeyN','KeyJ','KeyM','KeyQ','Digit2','KeyW','Digit3','KeyE','Digit4','KeyR','KeyT','Digit6','KeyY','Digit7','KeyU'];
@@ -31,7 +33,7 @@ function send(type,extra={}){node?.port.postMessage({type,...extra});}
 function recallSample(){sampleData=sampleBanks[source][banks[source].slot];send('sample',{samples:sampleData});$('#sample-name').textContent=sampleData?'Sample · '+(sampleData.length/(context?.sampleRate||44100)).toFixed(2)+' s':'Root C4 · max 6 seconds';}
 function saveSound(){sampleBanks[source][banks[source].slot]=sampleData;banks[source].slots[banks[source].slot]=sound();banks[source].seq=clone(cfg.seq);}
 function configure(){if(lastConfigured)memo.change(lastConfigured,cfg);lastConfigured=memo.capture(cfg);send('config',{value:cfg});}
-async function start(){if(starting)return starting;starting=(async()=>{try{if(!context){await albumReady;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('Web Audio is unavailable');context=new AC({latencyHint:'interactive',sampleRate:44100});await context.audioWorklet.addModule(new URL('./processor.js',import.meta.url));node=new AudioWorkletNode(context,'arcade-instrument',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2]});analyser=context.createAnalyser();analyser.fftSize=1024;node.connect(analyser);analyser.connect(context.destination);node.port.onmessage=receive;node.onprocessorerror=()=>message('Audio stopped unexpectedly. Export what you can before reloading.');configure();send('loop-bars');if(albumRestore)send('album',{action:'restore',value:albumRestore});if(sampleData)send('sample',{samples:sampleData});}await context.resume();$('#audio-status').textContent='Audio on · '+Math.round(context.sampleRate/1000)+' kHz';return true;}catch(e){message('Could not start audio: '+e.message);if(context&&!node){await context.close();context=null;}return false;}finally{starting=null;}})();return starting;}
+async function start(){if(starting)return starting;starting=(async()=>{try{if(!context){await albumReady;const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw Error('Web Audio is unavailable');context=studioHost?await studioHost.context():new AC({latencyHint:'interactive',sampleRate:44100});await context.audioWorklet.addModule(new URL('./processor.js',import.meta.url));node=new AudioWorkletNode(context,'arcade-instrument',{numberOfInputs:1,numberOfOutputs:1,outputChannelCount:[2]});analyser=context.createAnalyser();analyser.fftSize=1024;node.connect(analyser);analyser.connect(studioHost?studioHost.input():context.destination);node.port.onmessage=receive;node.onprocessorerror=()=>message('Audio stopped unexpectedly. Export what you can before reloading.');configure();send('loop-bars');if(albumRestore)send('album',{action:'restore',value:albumRestore});if(sampleData)send('sample',{samples:sampleData});}if(studioHost)await studioHost.context();else await context.resume();$('#audio-status').textContent='Audio on · '+Math.round(context.sampleRate/1000)+' kHz';return true;}catch(e){message('Could not start audio: '+e.message);if(context&&!node){if(!studioHost)await context.close();context=null;}return false;}finally{starting=null;}})();return starting;}
 const time=t=>{const m=Math.floor(t/60),s=(t%60).toFixed(2).padStart(5,'0');return m+':'+s;};
 function receive({data:m}){
  if(m.type==='album-backup'){writeStudio('album',m.value).catch(()=>message('Album remains in this tab; browser storage is full. Export a WAV to keep it.'));return;}
@@ -299,3 +301,6 @@ for(const b of $$('.instrument button:not(.key):not(#record):not(#stop):not(#dev
  b.addEventListener('pointerdown',()=>b.click());if(b.classList.contains('preset'))b.addEventListener('keydown',e=>{if(!e.repeat&&['Enter','Space'].includes(e.code))b.click();});
  b.addEventListener('click',e=>{if(e.isTrusted&&e.detail>0){e.preventDefault();e.stopImmediatePropagation();}},true);
 }
+
+// Parent navigation retains the worklet, tape and held sequencer.
+if(studioHost){window.arcadePortable={release:()=>{endRecord();releaseBend();panic();},stop:()=>{endRecord();panic();cfg.seq.hold=false;configure();send('stop');}};addEventListener('keydown',e=>{if(e.code==='Escape'&&!document.querySelector('dialog[open]')){e.preventDefault();e.stopImmediatePropagation();studioHost.collapse();}},true);}

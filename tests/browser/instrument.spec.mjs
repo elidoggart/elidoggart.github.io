@@ -15,7 +15,7 @@ test('instrument holds and clears keys, changes engines, and keeps narrow viewpo
 });
 test('sampler imports local audio and the arcade links to the instrument',async({page})=>{
  const {wavBytes}=await import('../../arcade/instrument/dsp.js');
- await page.goto('/arcade/');await page.getByRole('link',{name:'Open OP-1 portable studio'}).click();await expect(page).toHaveURL(/instrument.html$/);await page.locator('#controls-toggle').click();
+ await page.goto('/arcade/');await page.getByRole('link',{name:'Open modular synthesizer'}).click();await page.getByRole('link',{name:'Standalone portable studio'}).click();await expect(page).toHaveURL(/instrument.html$/);await page.locator('#controls-toggle').click();
  await page.locator('#engine').selectOption('sample');await page.locator('#sample-file').setInputFiles({name:'test-tone.wav',mimeType:'audio/wav',buffer:Buffer.from(wavBytes([Float32Array.from({length:44100},(_,i)=>.4*Math.sin(2*Math.PI*261.63*i/44100))],[1],44100))});
  await expect(page.locator('#message')).toContainText('Loaded 1.0 s');await page.locator('#display').click();await page.keyboard.down('z');await expect(page.locator('#screen-meter')).not.toHaveText('−∞ dB');await page.keyboard.up('z');await expect(page.locator('.key.active')).toHaveCount(0);
 });
