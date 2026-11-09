@@ -24,7 +24,7 @@ test('large saved wallets preserve custom brands, duplicate names and selections
   base:2, rates:{dining:3},
  })));
  const restored = restoreState(JSON.parse(JSON.stringify(state)), date);
- assert.equal(restored.cards.length, 55);
+ assert.equal(restored.cards.length, 50);
  assert.equal(restored.cards.at(-1).issuer, 'Bank 49');
  assert.equal(restored.cards.at(-1).enabled, false);
  assert.equal(restored.cards.filter(card => matchesCard(card, 'bank 49 rewards')).length, 1);

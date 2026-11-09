@@ -1,8 +1,9 @@
+import {exampleWallet} from './wallet.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultState,comparisonFor,restoreState,CATEGORIES,chartMaximum,rewardLabel} from '../lib/rewards.mjs';
 const date=new Date(2026,10,8);
-const scenario=()=>defaultState(date);
+const scenario=()=>exampleWallet(date);
 const flexRows=(category,state)=>comparisonFor(category,state).filter(r=>r.card.id==='flex');
 
 test('each special-reward filter removes its conditional rows, retaining all normal rows',()=>{
@@ -138,11 +139,11 @@ test('Sapphire cash valuation and merchant restrictions are disclosed',()=>{
  assert.match(comparisonFor('streaming',state).find(r=>r.sapphireBonus).condition,/eligible top streaming/);
  assert.equal(comparisonFor('gas',state).find(r=>r.card.id==='sapphire').points,3);
 });
-test('the example is introduced once without losing or restoring removed wallet entries',()=>{
+test('migration preserves wallet choices without adding an example card',()=>{
  const old={...scenario(),version:2,cards:scenario().cards.filter(c=>c.id!=='sapphire')};
  old.cards[0].enabled=false;
  const migrated=restoreState(old,date);
- assert.equal(migrated.cards.filter(c=>c.id==='sapphire').length,1);assert.equal(migrated.cards[0].enabled,false);
+ assert.equal(migrated.cards.filter(c=>c.id==='sapphire').length,0);assert.equal(migrated.cards[0].enabled,false);
  migrated.cards=migrated.cards.filter(c=>c.id!=='sapphire');
  assert.ok(restoreState(migrated,date).cards.every(c=>c.id!=='sapphire'));
 });
@@ -155,3 +156,5 @@ test('custom point cards preserve units and valuation, including zero values',()
  card.pointValue=0;assert.equal(comparisonFor('dining',restored).find(r=>r.card.id===card.id).rate,0);
  card.pointValue=4;assert.equal(chartMaximum(restored),16);
 });
+
+test('new visitors start without any selected cards',()=>{assert.deepEqual(defaultState(date).cards,[]);});

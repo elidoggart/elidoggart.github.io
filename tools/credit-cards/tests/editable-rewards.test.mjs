@@ -1,10 +1,11 @@
+import {exampleWallet} from './wallet.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultState,restoreState,comparisonFor,cleanQuarter,quarterFor,specialRewardsForCard} from '../lib/rewards.mjs';
 const date=new Date(2026,10,8);
 
 test('special rewards save per card, change the chart and keep their filter behavior',()=>{
- const state=defaultState(date);
+ const state=exampleWallet(date);
  state.cards.find(c=>c.id==='flex').specialRewards={chaseTravel:{rate:6.5,condition:'My portal condition.'}};
  state.cards.find(c=>c.id==='apple-card').specialRewards={applePay:{rate:2.5,condition:'My Apple Pay condition.'}};
  const restored=restoreState(JSON.parse(JSON.stringify(state)),date);
@@ -19,7 +20,7 @@ test('special rewards save per card, change the chart and keep their filter beha
 });
 
 test('edited points bonuses retain point labels and use the point value for comparison',()=>{
- const state=defaultState(date),card=state.cards.find(c=>c.id==='sapphire');
+ const state=exampleWallet(date),card=state.cards.find(c=>c.id==='sapphire');
  card.pointValue=1.5;
  card.specialRewards={'sapphire-groceries':{rate:4,condition:'Eligible online groceries.'}};
  const restored=restoreState(JSON.parse(JSON.stringify(state)),date);
@@ -29,7 +30,7 @@ test('edited points bonuses retain point labels and use the point value for comp
 });
 
 test('quarter overrides replace category selection and update rates, caps and conditions together',()=>{
- const state=defaultState(date);
+ const state=exampleWallet(date);
  state.quarterOverrides={'2026-Q4':{limit:2500,activationRequired:false,rules:{gas:{add:3,only:'Selected gas stations.'},dining:{add:2}}}};
  const restored=restoreState(JSON.parse(JSON.stringify(state)),date);
  const gas=comparisonFor('gas',restored).find(r=>r.quarter);
@@ -43,7 +44,7 @@ test('quarter overrides replace category selection and update rates, caps and co
 });
 
 test('portal quarters stack with the edited portal rate and require both checkboxes',()=>{
- const state={...defaultState(date),quarter:2};
+ const state={...exampleWallet(date),quarter:2};
  state.cards.find(c=>c.id==='flex').specialRewards={chaseTravel:{rate:6}};
  state.quarterOverrides={'2026-Q2':cleanQuarter({rules:{travel:{add:2.5,portal:true}}})};
  assert.equal(comparisonFor('travel',state).find(r=>r.quarter).rate,8.5);
@@ -52,7 +53,7 @@ test('portal quarters stack with the edited portal rate and require both checkbo
 });
 
 test('empty quarters, future quarters and restoring defaults survive saved-state round trips',()=>{
- const state=defaultState(date);
+ const state=exampleWallet(date);
  state.quarterOverrides={'2026-Q4':cleanQuarter({rules:{}}),'2027-Q2':cleanQuarter({rules:{gas:{add:5}}})};
  const restored=restoreState(JSON.parse(JSON.stringify(state)),date);
  assert.deepEqual(quarterFor(restored).rules,{});
@@ -67,7 +68,7 @@ test('empty quarters, future quarters and restoring defaults survive saved-state
 });
 
 test('saved override inputs are bounded and unrecognized keys are discarded',()=>{
- const state=defaultState(date);
+ const state=exampleWallet(date);
  state.cards[0].specialRewards={chaseTravel:{rate:-2,condition:'x'.repeat(2000)},unknown:{rate:999}};
  state.quarterOverrides={'bad-key':{},'2026-Q4':{limit:-5,rules:{dining:{add:999,portal:true},unknown:{add:4}}}};
  const restored=restoreState(state,date);
