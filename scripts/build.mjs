@@ -22,6 +22,7 @@ const currentDocuments=new Set(documentPaths(data));
 const publishAsset=source=>{const relative=path.relative(root,source).split(path.sep).join('/');return browserTest||!retiredResumes.has(relative)||currentDocuments.has(relative);};
 for(const f of ['assets','style.css','app.js','stats-client.mjs','contact-upload.mjs','contact-privacy.html','l','CNAME','.nojekyll','README.txt','accelerate.html','mott.html','nimbus.html','favicon-flow.svg','favicon-32.png','favicon.ico','apple-touch-icon.png','editor','lib','content'])await fs.cp(path.join(root,f),path.join(output,f),{recursive:true,filter:publishAsset});
 await fs.cp(path.join(root,'arcade'),path.join(output,'arcade'),{recursive:true,filter:source=>!['tests','research','README.md'].includes(path.basename(source))});
+await fs.cp(path.join(root,'tools'),path.join(output,'tools'),{recursive:true,filter:source=>!['tests','components','lib','main.jsx','README.md'].includes(path.basename(source))});
 await fs.writeFile(path.join(output,'content/portfolio.json'),raw);
 await fs.writeFile(path.join(output,'index.html'),render(data,{stats:true,uploadEndpoint:process.env.CONTACT_UPLOAD_ENDPOINT||''}));
 // Regenerate the contact whenever the published email or phone changes.
@@ -34,6 +35,7 @@ await fs.writeFile(path.join(output,'assets/documents/eli-doggart.vcf'),contact)
 await fs.writeFile(path.join(output,'content/schema.json'),JSON.stringify(schema,null,2)+'\n');
 // Build the narrow, pinned Decap backend from source; no prebuilt CMS bundle/CDN.
 const {build}=await import('esbuild');
+await build({entryPoints:[path.join(root,'tools/credit-cards/main.jsx')],outfile:path.join(output,'tools/credit-cards/bundle.js'),bundle:true,format:'esm',platform:'browser',minify:true,legalComments:'eof',define:{'process.env.NODE_ENV':'\"production\"'}});
 const bundled=await build({entryPoints:[path.join(root,'build/decap-api.mjs')],outfile:path.join(output,'editor/vendor/decap-api.mjs'),bundle:true,format:'esm',platform:'browser',minify:true,metafile:true,legalComments:'eof',define:{'process.env.NODE_ENV':'"production"'}});
 await build({entryPoints:[path.join(root,'lib/pdf.mjs')],outfile:path.join(output,'lib/pdf.mjs'),bundle:true,format:'esm',platform:'browser',minify:true,legalComments:'eof'});
 await fs.mkdir(path.join(root,'.local'),{recursive:true});
