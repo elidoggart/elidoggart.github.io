@@ -100,7 +100,7 @@ export function quarterFor(state,cardId='flex') {
  return value?cleanQuarter(value):undefined;
 }
 export function defaultState(date=new Date()) {
- return {version:3,cards:[...CATALOG.slice(0,4),CATALOG.find(c=>c.id==='sapphire')].map(c=>({...c,enabled:true})),applePay:true,chaseTravel:true,flexBonus:true,sapphireBonuses:true,year:date.getFullYear(),quarter:Math.floor(date.getMonth()/3)+1};
+ return {version:3,cards:[],applePay:true,chaseTravel:true,flexBonus:true,sapphireBonuses:true,year:date.getFullYear(),quarter:Math.floor(date.getMonth()/3)+1};
 }
 export function restoreState(value,date=new Date()) {
  const d=defaultState(date);
@@ -113,8 +113,6 @@ export function restoreState(value,date=new Date()) {
   const base=known??{id:raw.id,name:String(raw.name||'Custom card').trim().slice(0,50),issuer:String(raw.issuer||'Custom').trim().slice(0,50)||'Custom',base:0,rates:{},terms:'User-entered rates.',...(raw.rewardType==='points'?{rewardType:'points',pointValue:1}:{})};
   return [{...base,...(raw.specialRewards?{specialRewards:cleanSpecialRewards({...base,specialRewards:raw.specialRewards})}:{}),...(base.rewardType==='points'?{pointValue:cleanNumber(raw.pointValue??base.pointValue)}:{}),base:cleanNumber(raw.base??base.base),rates:{...base.rates,...Object.fromEntries(CATEGORIES.filter(c=>Object.hasOwn(raw.rates??{},c.id)).map(c=>[c.id,cleanNumber(raw.rates[c.id])]))},enabled:raw.enabled!==false}];
  });
- // Introduce the requested example once. A later removal or disable is saved.
- if(value.version<3&&!d.cards.some(c=>c.id==='sapphire'))d.cards.push({...CATALOG.find(c=>c.id==='sapphire'),enabled:true});
  // Version 1 was a spend planner. Keep its wallet, not its spending or
  // eligibility assumptions; version 2 checkboxes only filter visible rates.
  if(value.version>=2){

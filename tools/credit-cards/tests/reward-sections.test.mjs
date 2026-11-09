@@ -1,8 +1,9 @@
+import {exampleWallet} from './wallet.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaultState,rewardSections,restoreState,QUARTERS} from '../lib/rewards.mjs';
 const date=new Date(2026,10,8);
-const scenario=()=>defaultState(date);
+const scenario=()=>exampleWallet(date);
 const benefits=(sections,id)=>sections.uncategorized.find(group=>group.card.id===id)?.rows??[];
 
 test('specialized categories move into card groups without repeating general fallback rates',()=>{

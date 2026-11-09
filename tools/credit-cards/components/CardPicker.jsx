@@ -1,6 +1,6 @@
 'use client';
 import React, {useEffect, useId, useRef, useState} from 'react';
-import {Search, ChevronDown, X, Check} from 'lucide-react';
+import {Search, ChevronDown, X} from 'lucide-react';
 import {matchesCard} from '../lib/card-search.mjs';
 
 export default function CardPicker({cards, onToggle, onManage}) {
@@ -15,12 +15,12 @@ export default function CardPicker({cards, onToggle, onManage}) {
    if (!root.current?.contains(event.target)) { setOpen(false); setQuery(''); }
   };
   document.addEventListener('pointerdown', outside);
-  return () => document.removeEventListener('pointerdown', outside);
+  document.addEventListener('focusin', outside);
+  return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('focusin', outside); };
  }, []);
 
  return <div className="card-picker-row">
   <div className="card-picker" ref={root}
-   onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) close(); }}
    onKeyDown={event => {
     if (event.key === 'Escape') { event.preventDefault(); input.current.focus(); close(); }
    }}>
@@ -34,7 +34,7 @@ export default function CardPicker({cards, onToggle, onManage}) {
       if (event.key === 'ArrowDown') {
        event.preventDefault();
        if (!open) setOpen(true);
-       else root.current.querySelector('.card-picker-option')?.focus();
+       else root.current.querySelector('.card-picker-option input')?.focus();
       }
      }}/>
     {query && <button type="button" className="search-icon-button" aria-label="Clear card search"
@@ -47,11 +47,11 @@ export default function CardPicker({cards, onToggle, onManage}) {
    </div>
    {open && <div className="card-picker-menu" id={id}>
     <div className="card-picker-results" role="group" aria-label="Matching cards">
-     {matches.map(card => <button key={card.id} type="button" role="checkbox"
-      aria-checked={!!card.enabled} className="card-picker-option" onClick={() => onToggle(card)}>
-      <span className="card-check" aria-hidden="true">{card.enabled&&<Check size={11} strokeWidth={3}/>}</span>
+     {matches.map(card => <label key={card.id} className="card-picker-option">
+      <input type="checkbox" checked={!!card.enabled} onChange={() => onToggle(card)}/>
+
       <span><span>{card.name}</span><small>{card.issuer}</small></span>
-     </button>)}
+     </label>)}
      {!matches.length && <p className="card-search-empty">No matching cards.</p>}
     </div>
     <span className="sr-only" role="status">{matches.length} matching cards</span>
