@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 330" width="700" height="330" fill="none">
+  <title>Reaction</title>
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path d="M210 160h56m168 0h56" stroke="#d9d9d2" stroke-width="1.5"/>
+    <rect x="112" y="119" width="82" height="82" rx="8" stroke="#d9d9d2" stroke-width="1.5"/>
+    <rect x="506" y="119" width="82" height="82" rx="8" stroke="#d9d9d2" stroke-width="1.5"/>
+    <path d="M166 160h-28m12-12-12 12 12 12M534 160h28m-12-12 12 12-12 12" stroke="#232421" stroke-width="2.5"/>
+    <rect x="338" y="65" width="24" height="9" rx="2" stroke="#232421" stroke-width="2"/>
+    <path d="M350 74v14m54 16 9-10m-4-4 8 8" stroke="#232421" stroke-width="2"/>
+    <circle cx="350" cy="160" r="72" stroke="#232421" stroke-width="2"/>
+    <circle cx="350" cy="160" r="61" stroke="#e6e6df"/>
+    <path d="M350 106v7m54-7-5 5m5 49h-7m7 38-5-5m-49 21v-7m-38-9 5-5m-21-33h7m9-38 5 5" stroke="#a4a59d" stroke-width="1.5"/>
+    <path d="M350 99a61 61 0 0 1 52.83 30.5" stroke="#c73136" stroke-width="3"/>
+    <path d="M350 160l26-45" stroke="#c73136" stroke-width="2.5"/>
+    <circle cx="350" cy="160" r="4" fill="#c73136"/>
+  </g>
+  <g fill="#c73136"><circle cx="322" cy="267" r="3"/><circle cx="336" cy="267" r="3"/><circle cx="350" cy="267" r="3"/></g>
+  <g stroke="#c6c7bf"><circle cx="364" cy="267" r="3"/><circle cx="378" cy="267" r="3"/></g>
+</svg>
