@@ -24,7 +24,7 @@ test('Passions links to the tool menu and rewards keep arcade return controls',a
 test('rewards header fits a phone and holding Escape returns from the tool',async({page})=>{
  await page.setViewportSize({width:390,height:844});
  await page.goto('/tools/credit-cards/');
- await expect(page.getByRole('link',{name:'Portfolio hold Esc'})).toBeVisible();
+ await expect(page.getByRole('link',{name:'Portfolio',exact:true})).toBeVisible();
  expect(await page.evaluate(()=>document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
  await page.keyboard.down('Escape');
  await expect(page).toHaveURL('http://127.0.0.1:4175/');
