@@ -10,7 +10,8 @@ const data=JSON.parse(fs.readFileSync('tests/fixtures/published-content.json')).
 const changed=fn=>{const d=structuredClone(data);fn(d);return d;};
 test('the complete migrated content and every asset validate',async()=>{assert.deepEqual(validate(current),[]);await validateAssets(current,process.cwd());});
 test('render is deterministic and retains published content and structure apart from image scheduling',()=>{
- assert.equal(render(current),render(structuredClone(current)));const a=render(data);fs.mkdirSync('.local',{recursive:true});fs.writeFileSync('.local/generated.html',a);
+ assert.equal(render(current),render(structuredClone(current)));// The two new navigation links are covered below; retain the frozen content comparison.
+ const a=render(data).replace('<nav class="passion-links" aria-label="Explore"><a href="arcade/">Arcade ↗</a><a href="tools/">Tools ↗</a></nav>','');fs.mkdirSync('.local',{recursive:true});fs.writeFileSync('.local/generated.html',a);
  execFileSync('python3',['tests/parity.py','tests/fixtures/published.html','.local/generated.html']);
 });
 test('IDs and explicit media refs survive renaming and reordering',()=>{
@@ -35,4 +36,11 @@ test('local MP4 resources render as controlled, accessible inline videos',()=>{
  assert.doesNotMatch(html,/<(?:video|source)[^>]*\ssrc=/);
  assert.match(html,/Prototype &amp; fixture/);
  assert.doesNotMatch(html,/<video[^>]*autoplay/);
+});
+
+test('Passions includes the arcade and tools navigation after its entries',()=>{
+ const html=render(current);
+ const passions=html.slice(html.indexOf('id="view-passions"'),html.indexOf('id="view-contact"'));
+ assert.match(passions,/<nav class="passion-links" aria-label="Explore"><a href="arcade\/">Arcade ↗<\/a><a href="tools\/">Tools ↗<\/a><\/nav>/);
+ assert.ok(passions.lastIndexOf('</article>')<passions.indexOf('class="passion-links"'));
 });

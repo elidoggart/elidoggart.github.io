@@ -5,7 +5,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "validate": "node scripts/build.mjs --validate",
-    "test": "node --test tests/*.test.mjs arcade/tests/*.test.js",
+    "test": "node --test tests/*.test.mjs arcade/tests/*.test.js tools/credit-cards/tests/*.test.mjs",
     "test:browser": "playwright test",
     "dev": "node scripts/serve.mjs",
     "media": "node scripts/import-media.mjs",
@@ -17,7 +17,10 @@
     "decap-cms-backend-github": "3.8.3",
     "esbuild": "0.28.2",
     "pdf-lib": "1.17.1",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "lucide-react": "1.31.0"
   },
   "overrides": {
     "uuid": "11.1.1"
