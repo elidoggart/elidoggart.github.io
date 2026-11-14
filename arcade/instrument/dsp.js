@@ -10,7 +10,7 @@ for(let i=0;i<8192;i++)sine[i]=Math.round(32767*Math.sin(i*Math.PI*2/8192));
 const sin32=p=>sine[((p|0)>>19)+4096];
 export class Voice {
  constructor(id,note,engine,rate,velocity=1){Object.assign(this,{id,note,engine,rate,velocity,age:0,env:0,released:false,pc:0,pm:0,ps:0,p2:0x40000000,fb:0,modEnv:32767,lp:0,noise:0,samplePos:0});}
- release(){this.released=true;}
+ release(force=false){if(force||!this.drumSlice||this.drumSlice.mode!=='end')this.released=true;}
  tick(knobs,adsr,sample,sampleOptions={}){
   if(this.k0!==knobs[0]||this.k1!==knobs[1]||this.k2!==knobs[2]||this.k3!==knobs[3]){this.k0=knobs[0];this.k1=knobs[1];this.k2=knobs[2];this.k3=knobs[3];this.k=knobs.map(v=>Math.round(v*32767));}
   const k=this.k,inc=Math.round(frequency(this.note+(this.pitchOffset||0))*4294967296/this.rate)>>>0;
@@ -42,6 +42,14 @@ export class Voice {
    if(this.samplePos>=end||pos<0||pos>last){this.released=true;x=0;}else{
    x=(sample[lo]+((sample[lo+1]??sample[lo])-sample[lo])*(pos-lo))*(sampleOptions.gain??1);
    this.samplePos+=2**((this.note+(this.pitchOffset||0)-(sampleOptions.root??60))/12);}}
+  }else if(this.engine==='drum'&&(this.drumSlice||sample?.length&&sampleOptions.slices)){
+   if(!this.drumSlice){this.drumSlice={...sampleOptions.slices[((Math.round(this.note)-53)%24+24)%24]};this.drumAudio=sample;}
+   const slice=this.drumSlice,a=this.drumAudio,start=Math.floor(slice.start*a.length),end=Math.min(a.length,Math.ceil(slice.end*a.length)),length=end-start;
+   if(length<1){this.released=true;this.env=0;return 0;}
+   if(this.samplePos>=length){if(slice.mode==='loop'&&!this.released)this.samplePos%=length;else{this.released=true;this.env=0;return 0;}}
+   const pos=slice.reverse?end-1-this.samplePos:start+this.samplePos,lo=Math.floor(pos),hi=Math.min(end-1,lo+1);
+   x=(a[Math.max(start,lo)]+(a[hi]-a[Math.max(start,lo)])*(pos-lo))*(slice.gain??1);
+   this.samplePos+=2**(((slice.pitch||0)+(this.pitchOffset||0))/12);
   }else if(this.engine==='drum'){
    const t=this.age/this.rate,type=[0,0,1,1,6,2,3,7,7,4,5,7,0,0,1,1,6,2,3,7,7,4,5,7][((this.note-53)%24+24)%24];
    const decay=.08+knobs[1]*.8,pitch=0.5+knobs[0]*1.5;

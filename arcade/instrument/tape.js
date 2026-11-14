@@ -4,6 +4,17 @@ import {clamp} from './dsp.js';
 export class Tape {
  constructor(rate,seconds=360){this.rate=rate;this.length=Math.round(rate*seconds);this.tracks=Array.from({length:4},()=>new Map());this.takes=[[],[],[],[]];this.clipboard=null;this.undo=null;}
  read(track,position){if(position<0||position>=this.length)return 0;const p=Math.floor(position),f=position-p,a=this.at(track,p),b=this.at(track,p+1);return a+(b-a)*f;}
+ // Symmetric seam blend, five milliseconds on each side. This is an
+ // independent click-reduction curve, not a recovered firmware algorithm.
+ readLoop(track,position,start,end){
+  const length=end-start;if(length<2)return this.read(track,start);
+  const pos=start+((position-start)%length+length)%length;
+  const width=Math.min(this.rate*.005,length/4),distance=Math.min(pos-start,end-1-pos);
+  const original=this.read(track,Math.min(pos,end-1));
+  if(distance>=width)return original;
+  const mirror=clamp(end-1-(pos-start),start,end-1),t=clamp(1-Math.max(0,distance)/width,0,1),mix=.5*t*t*(3-2*t);
+  return original*(1-mix)+this.read(track,mirror)*mix;
+ }
  at(track,p){if(p<0||p>=this.length)return 0;return this.tracks[track].get(Math.floor(p/this.rate))?.[p%this.rate]||0;}
  write(track,p,value){p=Math.floor(p);if(p<0||p>=this.length)return;const page=Math.floor(p/this.rate);let data=this.tracks[track].get(page);if(!data){data=new Float32Array(this.rate);this.tracks[track].set(page,data);}data[p%this.rate]=clamp(value,-1,1);}
  add(track,p,value){this.write(track,p,this.at(track,Math.floor(p))+value);}
