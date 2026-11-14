@@ -3,13 +3,21 @@
 import {clamp} from './dsp.js';
 export const effects={delay:['Size','Speed','Feedback','Mix'],punch:['Frequency','Punch','Rounds','Power'],spring:['Tone','Turns','Damping','Send'],cwo:['Frequency','Delay','Feedback','Sideband'],grid:['X size','Y size','Z feedback','Mix'],nitro:['Frequency I','Follow','Resonance','Frequency II'],phone:['Tone','Phonic','Baud','Telematic']};
 export const effectDefaults={delay:[.4,.5,.25,.2],punch:[.65,.4,.25,.8],spring:[.6,.5,.5,.3],cwo:[.56,.22,.35,1],grid:[.35,.55,.55,.35],nitro:[.75,.5,.25,.1],phone:[.55,.35,.6,.3]};
-export const lfos={tremolo:['Speed','Pitch','Volume','Envelope'],value:['Speed','Amount','Destination','Parameter'],random:['Amount','Speed','Destination','Envelope']};
+export const lfos={tremolo:['Speed','Pitch','Volume','Envelope'],value:['Speed','Amount','Destination','Parameter'],random:['Amount','Speed','Destination','Envelope'],bend:['Destination','Parameter','Amount','Bender'],crank:['Crank','Amount','Destination','Parameter']};
+export const lfoDefaults={tremolo:[.4,.08,.2,.5],value:[.4,.35,1,0],random:[.2,.4,0,.5],bend:[0,0,.5,.5],crank:[0,.35,0,0]};
 export const shapes=['sine','saw','exp','square','blip'];
 export function wave(phase,shape='sine'){const p=phase-Math.floor(phase);return shape==='saw'?2*p-1:shape==='exp'?2*p*p-1:shape==='square'?(p<.5?1:-1):shape==='blip'?(p<.08?1:-1):Math.sin(p*Math.PI*2);}
 export class Modulator{
  constructor(rate,random=Math.random){this.rate=rate;this.random=random;this.phase=0;this.age=0;this.values=[0,0,0,0];this.output={knobs:[],adsr:[],effect:[],pitch:0,gain:1,value:0};}
  trigger(free){if(!free){this.phase=0;this.age=0;}}
  tick(c){const out=this.output;for(const field of ['knobs','adsr','effect'])for(let i=0;i<4;i++)out[field][i]=c[field][i];out.pitch=0;out.gain=1;out.value=0;if(!c.lfoOn)return out;
+ if(c.lfoType==='bend'||c.lfoType==='crank'){
+  const p=c.lfo,type=c.lfoType,field=['knobs','adsr','effect'][Math.round((type==='bend'?p[0]:p[2])*2)],index=Math.round((type==='bend'?p[1]:p[3])*3),scale=field==='adsr'?[2,2,1,3][index]:1;
+  // Manual sources do not advance with time. Crank phase is accumulated by
+  // encoder movement; Bend is a signed position with optional inversion.
+  const value=type==='bend'?(p[3]*2-1)*(c.bendReverse?-1:1):Math.sin((c.crankPhase||0)*Math.PI*2);
+  out.value=value;out[field][index]=clamp(out[field][index]+value*(type==='bend'?p[2]:p[1])*scale,field==='adsr'&&index!==2?.003:0,scale);return out;
+ }
  const p=c.lfo,type=c.lfoType||'tremolo',speed=type==='random'?p[1]:p[0],hz=c.lfoSync?(c.bpm/60)/[16,8,4,2,1,.5,.25,.125][Math.round(speed*7)]:.05*2**(speed*9),previous=this.phase;this.phase=(this.phase+hz/this.rate)%1;this.age++;
  if(this.phase<previous||this.age===1)for(let i=0;i<4;i++)this.values[i]=this.random()*2-1;
  const curve=type==='value'?1:(p[3]<.5?Math.exp(-this.age/this.rate/Math.max(.03,p[3]*8)):p[3]>.5?Math.min(1,this.age/this.rate/Math.max(.03,(p[3]-.5)*8)):1),w=wave(this.phase,c.lfoShape)*curve;out.value=w;

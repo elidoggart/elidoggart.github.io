@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-or-later. Original canvas artwork. */
 import {cwoFrequency} from './modules.js';
-const colors=['#72bce5','#6dc98c','#f0f0e6','#e78045'];
+import {screenPalette} from './reference-display.js';
+const colors=screenPalette.knobs;
 export function drawEffect(g,type,p,peak,time,enabled=true){
  g.save();g.globalAlpha=enabled?1:.35;
  const t=enabled?time:0,energy=enabled?Math.min(1,peak*8):0;

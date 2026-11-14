@@ -110,3 +110,50 @@ test('switching an effect algorithm does not replay stale audio from another alg
 test('Punch remains finite and decays at high cutoff across render sample rates',()=>{
  for(const rate of [8000,16000,44100,48000])for(const resonance of [0,.5,1]){const fx=new Effect(rate);let peak=0,last=0;for(let i=0;i<rate;i++){last=fx.tick(i===0?1:0,'punch',[1,resonance,.8,1]);assert.ok(Number.isFinite(last),`Punch at ${rate} Hz`);peak=Math.max(peak,Math.abs(last));}assert.ok(peak>0&&peak<=1.5);assert.ok(Math.abs(last)<1e-6);}
 });
+
+test('loop seam blend reduces discontinuity, preserves the middle and never edits tape',()=>{
+ const t=new Tape(1000,2);for(let i=0;i<1000;i++)t.write(0,i,i<500?.8:-.8);
+ const before=t.slice(0,0,1000),raw=Math.abs(t.read(0,999)-t.read(0,0));
+ assert.ok(Math.abs(t.readLoop(0,999,0,1000)-t.readLoop(0,0,0,1000))<raw*.01);
+ assert.equal(t.readLoop(0,250,0,1000),t.read(0,250));
+ for(const length of [1,2,3,10,1000])for(let pos=-2;pos<length+2;pos+=.25)assert.ok(Number.isFinite(t.readLoop(0,pos,0,length)));
+ assert.deepEqual(t.slice(0,0,1000),before);
+});
+test('mute changes ramp over five milliseconds and unmute restores full gain',()=>{
+ const p=new Processor();p.loop=false;p.message({type:'play'});p.cfg.mute[0]=true;render(p,1);assert.ok(p.trackGains[0]>0&&p.trackGains[0]<1);render(p,1);assert.equal(p.trackGains[0],0);p.cfg.mute[0]=false;render(p,2);assert.equal(p.trackGains[0],1);
+});
+test('drum slices isolate keys, reverse within boundaries, pitch and finish one-shots',()=>{
+ const a=Float32Array.from({length:240},(_,i)=>i/240),slices=Array.from({length:24},(_,i)=>({start:i/24,end:(i+1)/24,pitch:0,gain:1,reverse:false,mode:'end'})),env=[.002,.01,1,.01];
+ const v=new Voice('slice',54,'drum',1000);v.env=1;assert.ok(Math.abs(v.tick([0,0,0,0],env,a,{slices})-10/240)<1e-6);v.release();assert.equal(v.released,false);for(let i=0;i<11;i++)v.tick([0,0,0,0],env,a,{slices});assert.ok(v.done);
+ slices[0].reverse=true;slices[0].pitch=12;const r=new Voice('rev',53,'drum',1000);r.env=1;assert.ok(Math.abs(r.tick([0,0,0,0],env,a,{slices})-9/240)<1e-6);assert.equal(r.samplePos,2);
+ const forced=new Voice('panic',53,'drum',1000);forced.tick([0,0,0,0],env,a,{slices});forced.release(true);assert.equal(forced.released,true);
+});
+test('drum loop sustains only while held; slice settings are captured per voice',()=>{
+ const slices=Array.from({length:24},()=>({start:.1,end:.2,pitch:0,gain:1,reverse:false,mode:'loop'})),a=new Float32Array(100).fill(.5),v=new Voice('loop',53,'drum',1000),env=[.002,.01,1,.01];
+ for(let i=0;i<100;i++)v.tick([0,0,0,0],env,a,{slices});assert.equal(v.released,false);assert.ok(v.samplePos<=10);slices[0].gain=0;assert.equal(v.drumSlice.gain,1);v.release();for(let i=0;i<100;i++)v.tick([0,0,0,0],env,a,{slices});assert.ok(v.done);
+});
+test('loop export uses seam treatment but project backup keeps original samples',()=>{
+ const p=new Processor();p.loopIn=0;p.loopOut=1000;for(let i=0;i<1000;i++)p.tape.write(0,i,i<500?.8:-.8);p.tape.take(0,0,1000);
+ p.message({type:'export'});const out=p.messages.at(-1).tracks[0];assert.equal(out.length,1000);assert.ok(Math.abs(out[0]-out[999])<.001);
+ p.message({type:'save-tape'});const raw=p.messages.at(-1).tracks[0];assert.ok(raw[0]>.79&&raw[999]<-.79);
+});
+test('drum one-shot survives immediate key-up but panic releases it',()=>{
+ const p=new Processor();p.sample=new Float32Array(rate).fill(.25);p.cfg.engine='drum';p.cfg.sampleOptions={slices:Array.from({length:24},()=>({start:0,end:1,pitch:0,gain:1,reverse:false,mode:'end'}))};
+ p.message({type:'on',id:'tap',note:53});p.message({type:'off',id:'tap'});assert.equal(p.voices.get('tap').released,false);assert.ok(render(p,2)>0);p.panic();assert.equal(p.voices.get('tap').released,true);
+});
+
+test('Bend routes signed manual position to one selected parameter and reverses direction',()=>{
+ const m=new Modulator(1000),c={knobs:[.5,.5,.5,.5],adsr:[.1,.2,.7,.3],effect:[.5,.5,.5,.5],lfoOn:true,lfoType:'bend',lfo:[1,1/3,.25,1]};
+ assert.deepEqual(m.tick(c).effect,[.5,.75,.5,.5]);assert.deepEqual(c.effect,[.5,.5,.5,.5]);c.bendReverse=true;assert.deepEqual(m.tick(c).effect,[.5,.25,.5,.5]);c.lfo[3]=.5;assert.deepEqual(m.tick(c).effect,c.effect);c.lfoOn=false;c.lfo[3]=1;assert.deepEqual(m.tick(c).effect,c.effect);
+});
+test('Crank remains stationary without encoder movement at every sample rate',()=>{
+ for(const rate of [8000,44100,48000]){const m=new Modulator(rate),c={knobs:[.5,.5,.5,.5],adsr:[.1,.2,.7,.3],effect:[.5,.5,.5,.5],lfoOn:true,lfoType:'crank',lfo:[0,.3,0,0],crankPhase:.25};
+  for(let n=0;n<1000;n++)assert.equal(m.tick(c).knobs[0],.8);m.trigger(false);assert.equal(m.tick(c).knobs[0],.8);c.crankPhase=.75;assert.equal(m.tick(c).knobs[0],.2);c.crankPhase=0;assert.equal(m.tick(c).knobs[0],.5);
+ }
+});
+test('negative Tremolo depths invert pitch and volume modulation without changing the base patch',()=>{
+ const c={knobs:[0,0,0,0],adsr:[.1,.2,1,.3],effect:[0,0,0,0],lfoOn:true,lfoType:'tremolo',lfo:[.5,.25,.75,.5],lfoShape:'square',bpm:120},a=new Modulator(1000),b=new Modulator(1000),positive={...a.tick(c)};c.lfo=[.5,-.25,-.75,.5];const negative=b.tick(c);assert.equal(negative.pitch,-positive.pitch);assert.equal(positive.gain,1);assert.equal(negative.gain,.25);assert.deepEqual(c.lfo,[.5,-.25,-.75,.5]);
+});
+test('performance files accept signed tremolo and manual LFOs but reject invalid phase',()=>{
+ const p=testPerformance(),patch=p.patches.tone;patch.lfo=[.5,-1,-.5,.5];patch.lfoType='tremolo';assert.equal(validatePerformance(p),p);patch.lfoType='bend';assert.throws(()=>validatePerformance(p),/modulation/);patch.lfo=[0,0,.5,.5];assert.equal(validatePerformance(p),p);patch.lfoType='crank';patch.crankPhase=Infinity;assert.throws(()=>validatePerformance(p),/crank phase/);
+});

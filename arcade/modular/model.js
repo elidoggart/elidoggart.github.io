@@ -50,7 +50,7 @@ export function parsePatch(raw){
  if(!Array.isArray(raw.notes)||raw.notes.length!==10||raw.notes.some(n=>!Number.isInteger(n)||n<0||n>24))throw Error('Invalid notes');
  const switches={};for(const key of ['clutch-source','friends-wave','friends-mode','input-mode']){const v=raw.switches?.[key]??false;if(typeof v!=='boolean')throw Error('Invalid switch');switches[key]=v;}
  const transpose=raw.transpose??0;if(!Number.isInteger(transpose)||transpose < -24||transpose > 24)throw Error('Invalid transpose');
- const route=raw.route??'direct';if(!['direct','rack'].includes(route))throw Error('Invalid OP-1 routing');
+ const route=raw.route??'direct';if(!['direct','rack'].includes(route))throw Error('Invalid BU-1 routing');
  const sequenceLength=raw.sequenceLength??10,stepLengths=raw.stepLengths??Array(10).fill(1);if(!Number.isInteger(sequenceLength)||sequenceLength<1||sequenceLength>10||!Array.isArray(stepLengths)||stepLengths.length!==10||stepLengths.some(n=>!Number.isInteger(n)||n<1||n>16))throw Error('Invalid sequence rhythm');
  return {version:1,cables,values,notes:[...raw.notes],switches,transpose,route,sequenceLength,stepLengths:[...stepLengths]};
 }
